@@ -104,9 +104,11 @@ function Debug:FakeEvent(asRank)
   end
 end
 
-function Debug:FakeDonate(name, copper)
+function Debug:FakeLedger(kind, name, copper, detail)
+  kind = kind or "mail"
   name = name or "DebugDonor"
   copper = tonumber(copper) or 12345
+  detail = detail or "debug"
   local Store = Fundraiser.Adapters.Store
   local event = Store:GetEvent()
   if not event then
@@ -115,27 +117,36 @@ function Debug:FakeDonate(name, copper)
   if not event then
     return
   end
-  local Codec = Fundraiser.Adapters.Codec
-  local entry = {
-    guid = "debug-guid-" .. name,
+  local Ledger = Fundraiser.Domain.Ledger
+  local entry = Ledger.CreateEntry({
+    kind = kind,
     name = name,
-    eventId = event.id,
+    detail = detail,
     copper = copper,
+    eventId = event.id,
     at = now(),
-  }
-  if self:Inject(Codec.EncodeDonate(entry), name) then
-    Print(Fundraiser:T("CHAT_DEBUG_DONATE", name, Fundraiser.FormatCopper(copper)))
+  })
+  if not entry then
+    Print(Fundraiser:T("CHAT_DEBUG_FAIL", "bad_entry"))
+    return
+  end
+  local Codec = Fundraiser.Adapters.Codec
+  -- Inject as if sent by the donation target so officers accept the merge.
+  local sender = event.target or name
+  if self:Inject(Codec.EncodeLedgerEntry(entry), sender) then
+    Print(Fundraiser:T("CHAT_DEBUG_LEDGER", kind, name, Fundraiser.FormatCopper(copper)))
   end
 end
 
 function Debug:FakeDigest()
   local Codec = Fundraiser.Adapters.Codec
   local Store = Fundraiser.Adapters.Store
+  local Ledger = Fundraiser.Domain.Ledger
   local event = Store:GetEvent()
-  local contribs = Store:GetContributions() or {}
-  local payload = Codec.EncodeDigest(event and event.revision or 0, #contribs)
+  local count, sum, maxAt = Ledger.Fingerprint(Store:GetContributions() or {})
+  local payload = Codec.EncodeDigest(event and event.revision or 0, count, sum, maxAt)
   if self:Inject(payload, "DebugPeer") then
-    Print(Fundraiser:T("CHAT_DEBUG_DIGEST", tostring(event and event.revision or 0), tostring(#contribs)))
+    Print(Fundraiser:T("CHAT_DEBUG_DIGEST", tostring(event and event.revision or 0), tostring(count)))
   end
 end
 
@@ -216,9 +227,19 @@ function Debug:Handle(msg)
   elseif cmd == "event" then
     local rank = rest:match("^(%d+)")
     self:FakeEvent(rank)
-  elseif cmd == "donate" then
-    local name, copper = rest:match("^(%S+)%s*(%S*)$")
-    self:FakeDonate(name ~= "" and name or nil, copper)
+  elseif cmd == "ledger" or cmd == "donate" or cmd == "mail" or cmd == "ah" then
+    local kind = "mail"
+    if cmd == "ah" then
+      kind = "ah"
+    elseif cmd == "ledger" then
+      local k = rest:match("^(%S+)")
+      if k == "ah" or k == "mail" then
+        kind = k
+        rest = rest:gsub("^%S+%s*", "")
+      end
+    end
+    local name, copper, detail = rest:match("^(%S+)%s*(%S*)%s*(.*)$")
+    self:FakeLedger(kind, name ~= "" and name or nil, copper, detail ~= "" and detail or nil)
   elseif cmd == "digest" then
     self:FakeDigest()
   elseif cmd == "reminder" then

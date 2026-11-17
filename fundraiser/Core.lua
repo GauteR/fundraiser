@@ -88,6 +88,9 @@ eventFrame:SetScript("OnEvent", function(_, event)
   if Fundraiser.Adapters.Mail then
     Fundraiser.Adapters.Mail:Initialize()
   end
+  if Fundraiser.Adapters.Auction then
+    Fundraiser.Adapters.Auction:Initialize()
+  end
   if Fundraiser.Adapters.Bags then
     Fundraiser.Adapters.Bags:Initialize()
   end

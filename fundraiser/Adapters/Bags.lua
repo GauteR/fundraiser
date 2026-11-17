@@ -36,12 +36,16 @@ function Bags:OnBagsTouched()
   local Store = Fundraiser.Adapters.Store
   local UC = Fundraiser.Application.UseCases
   local now = (GetServerTime and GetServerTime()) or (time and time()) or 0
+  local Roster = Fundraiser.Adapters.Roster
   local deps = {
     getEvent = function()
       return Store:GetEvent()
     end,
     getReminderState = function()
       return Store:GetReminderState()
+    end,
+    getPlayerName = function()
+      return Roster:GetPlayerName()
     end,
   }
   local should, event = UC.ShouldShowReminder(deps, now)

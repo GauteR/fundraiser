@@ -164,25 +164,38 @@ function Window:Refresh()
     f.goal:SetText(event.goal or "")
   end
 
-  if Fundraiser.Config.LEDGER and event then
+  local Roles = Fundraiser.Domain.Roles
+  local canLedger = Fundraiser.Config.LEDGER
+    and event
+    and Roles.CanViewLedger(event, Roster:GetPlayerRankIndex(), Roster:GetPlayerName())
+  if canLedger then
     local rows, total = UC.GetLedger({
+      getEvent = function()
+        return Store:GetEvent()
+      end,
       getContributions = function()
         return Store:GetContributions()
+      end,
+      getPlayerName = function()
+        return Roster:GetPlayerName()
+      end,
+      getPlayerRankIndex = function()
+        return Roster:GetPlayerRankIndex()
       end,
     }, event.id)
     f.ledgerTotal:SetText(Fundraiser:T("LEDGER_TOTAL_FMT", money(total)))
     if #rows == 0 then
-      f.ledgerBody:SetText(Fundraiser:T("LEDGER_EMPTY"))
+      f.ledgerBody:SetText(Fundraiser:T("LEDGER_EMPTY") .. "\n" .. Fundraiser:T("LEDGER_DEDICATED_HINT"))
     else
-      local lines = {}
+      local lines = { Fundraiser:T("LEDGER_DEDICATED_HINT") }
       for _, row in ipairs(rows) do
-        lines[#lines + 1] = string.format("%s — %s", row.name or "?", money(row.copper))
+        lines[#lines + 1] = string.format("[%s] %s %s — %s", row.kind or "?", row.name or "?", row.detail or "", money(row.copper))
       end
       f.ledgerBody:SetText(table.concat(lines, "\n"))
     end
   else
     f.ledgerTotal:SetText("")
-    f.ledgerBody:SetText(Fundraiser:T("LEDGER_EMPTY"))
+    f.ledgerBody:SetText(Fundraiser:T("LEDGER_OFFICER_ONLY"))
   end
 
   local now = (GetServerTime and GetServerTime()) or (time and time()) or 0
