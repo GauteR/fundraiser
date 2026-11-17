@@ -37,13 +37,10 @@ end
 function Debug:SeedEvent()
   local Event = Fundraiser.Domain.Event
   local Store = Fundraiser.Adapters.Store
-  local Roster = Fundraiser.Adapters.Roster
   local current = Store:GetEvent()
   local revision = current and ((tonumber(current.revision) or 0) + 1) or 1
-  local target = Roster:GetPlayerName() or "Bank Alt"
-  if Fundraiser.Domain.Roles and not Fundraiser.Domain.Roles.IsFullCharacterName(target) then
-    target = "Bank Alt"
-  end
+  -- Keep target off the local player so MAIL_SHOW reminders still appear while solo-testing.
+  local target = "Bank Alt"
   local event, err = Event.Create({
     id = "debug-event",
     name = "Debug Tabard Fund",

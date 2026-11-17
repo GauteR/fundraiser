@@ -5,28 +5,14 @@ Fundraiser.UI = Fundraiser.UI or {}
 local Reminder = {}
 Fundraiser.UI.Reminder = Reminder
 
+-- Only MailFrame: Inbox/SendMail tabs hide while the mailbox stays open.
 local function mailIsOpen()
-  if MailFrame and MailFrame:IsShown() then
-    return true
-  end
-  if InboxFrame and InboxFrame:IsShown() then
-    return true
-  end
-  if SendMailFrame and SendMailFrame:IsShown() then
-    return true
-  end
-  return false
+  return MailFrame and MailFrame.IsShown and MailFrame:IsShown()
 end
 
 local function mailAnchor()
-  if MailFrame and MailFrame:IsShown() then
+  if mailIsOpen() then
     return MailFrame
-  end
-  if InboxFrame and InboxFrame:IsShown() then
-    return InboxFrame
-  end
-  if SendMailFrame and SendMailFrame:IsShown() then
-    return SendMailFrame
   end
   return nil
 end
@@ -53,7 +39,7 @@ function Reminder:EnsureFrame()
   text:SetWordWrap(true)
   f.text = text
 
-  -- Fallback when MAIL_CLOSED is missing: hide if mailbox UI is gone.
+  -- Fallback when MAIL_CLOSED is missing: hide if MailFrame is gone.
   f:SetScript("OnUpdate", function(self, elapsed)
     if not self:IsShown() then
       return

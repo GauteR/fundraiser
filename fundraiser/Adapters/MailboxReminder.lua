@@ -1,10 +1,15 @@
 -- Show fundraiser reminder when the mailbox opens; hide when it closes.
--- Forever may not fire MAIL_CLOSED reliably — also hook MailFrame OnHide / CloseMail.
+-- Forever may omit MAIL_CLOSED — hook MailFrame OnHide / CloseMail only.
+-- Do not hook InboxFrame/SendMailFrame: tab switches fire OnHide while mail stays open.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
 
 local MailboxReminder = {}
 Fundraiser.Adapters.MailboxReminder = MailboxReminder
+
+local function mailFrameOpen()
+  return MailFrame and MailFrame.IsShown and MailFrame:IsShown()
+end
 
 local function hookOnHide(frame, handler)
   if not frame or frame._FundraiserMailHideHooked then
@@ -25,12 +30,9 @@ local function hookOnHide(frame, handler)
 end
 
 function MailboxReminder:HookMailFrames()
-  local handler = function()
+  hookOnHide(MailFrame, function()
     self:OnMailClosed()
-  end
-  hookOnHide(MailFrame, handler)
-  hookOnHide(InboxFrame, handler)
-  hookOnHide(SendMailFrame, handler)
+  end)
 end
 
 function MailboxReminder:Initialize()
@@ -48,7 +50,7 @@ function MailboxReminder:Initialize()
   frame:SetScript("OnEvent", function(_, event)
     if event == "MAIL_SHOW" then
       self:HookMailFrames()
-      self:OnMailShow()
+      self:ScheduleShow()
     elseif event == "MAIL_CLOSED" or event == "PLAYER_ENTERING_WORLD" then
       self:OnMailClosed()
     end
@@ -61,18 +63,42 @@ function MailboxReminder:Initialize()
   end
   if type(hooksecurefunc) == "function" and HideUIPanel then
     hooksecurefunc("HideUIPanel", function(panel)
-      if panel == MailFrame or panel == InboxFrame then
+      if panel == MailFrame then
         self:OnMailClosed()
       end
     end)
   end
+
+  -- Defer show so child-frame hide/show during open does not race the popup.
+  local delay = CreateFrame("Frame", "FundraiserMailboxReminderDelay")
+  delay:Hide()
+  delay:SetScript("OnUpdate", function(_, elapsed)
+    self._showDelay = (self._showDelay or 0) + elapsed
+    if self._showDelay < 0.15 then
+      return
+    end
+    delay:Hide()
+    self._showPending = false
+    if mailFrameOpen() then
+      self:TryShowReminder()
+    end
+  end)
+  self.delayFrame = delay
 
   self:HookMailFrames()
   self.frame = frame
   self.initialized = true
 end
 
-function MailboxReminder:OnMailShow()
+function MailboxReminder:ScheduleShow()
+  self._showPending = true
+  self._showDelay = 0
+  if self.delayFrame then
+    self.delayFrame:Show()
+  end
+end
+
+function MailboxReminder:TryShowReminder()
   local Store = Fundraiser.Adapters.Store
   local UC = Fundraiser.Application.UseCases
   local Roster = Fundraiser.Adapters.Roster
@@ -101,6 +127,11 @@ function MailboxReminder:OnMailShow()
 end
 
 function MailboxReminder:OnMailClosed()
+  self._showPending = false
+  self._showDelay = 0
+  if self.delayFrame then
+    self.delayFrame:Hide()
+  end
   if Fundraiser.UI and Fundraiser.UI.Reminder and Fundraiser.UI.Reminder.Hide then
     Fundraiser.UI.Reminder:Hide()
   end
