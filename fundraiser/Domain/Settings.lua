@@ -33,6 +33,31 @@ function Settings.ApplyToConfig(settings, config)
   end
 end
 
+-- Count online guild members with a fresh HELLO (best-effort install presence).
+function Settings.CountOnlineInstalls(roster, presence, now, staleSeconds)
+  roster = roster or {}
+  presence = presence or {}
+  now = tonumber(now) or 0
+  staleSeconds = tonumber(staleSeconds) or 600
+  local online = 0
+  local installed = 0
+  for _, member in ipairs(roster) do
+    if member and member.online then
+      online = online + 1
+      local p = presence[member.guid] or presence[member.name]
+      local lastHello = p and tonumber(p.lastHello) or 0
+      if lastHello > 0 and (now - lastHello) <= staleSeconds then
+        installed = installed + 1
+      end
+    end
+  end
+  return {
+    online = online,
+    installed = installed,
+    missing = online - installed,
+  }
+end
+
 -- Build locale keys / display fragments for the Options status section.
 function Settings.BuildStatus(info)
   info = info or {}
@@ -50,6 +75,12 @@ function Settings.BuildStatus(info)
     status.eventText = string.format("%s → %s", info.eventName, target)
   else
     status.eventKey = "OPTIONS_STATUS_EVENT_NONE"
+  end
+  if info.guildName and info.guildName ~= "" then
+    status.installOnline = tonumber(info.installOnline) or 0
+    status.installInstalled = tonumber(info.installInstalled) or 0
+  else
+    status.installKey = "OPTIONS_STATUS_INSTALL_NONE"
   end
   return status
 end

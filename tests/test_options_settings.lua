@@ -130,6 +130,43 @@ assert_eq(status.guildKey, "OPTIONS_STATUS_GUILD_NONE", "no guild key")
 assert_eq(status.eventKey, "OPTIONS_STATUS_EVENT_NONE", "no event key")
 assert_eq(status.accessKey, "OPTIONS_STATUS_ACCESS_NO", "access no")
 
+-- Online install counts (fresh HELLO = installed)
+local counts = Settings.CountOnlineInstalls({
+  { name = "A", guid = "g1", online = true },
+  { name = "B", guid = "g2", online = true },
+  { name = "C", guid = "g3", online = true },
+  { name = "D", guid = "g4", online = false },
+}, {
+  g1 = { lastHello = 1000 },
+  ["B"] = { lastHello = 1000 },
+  g3 = { lastHello = 100 },
+}, 1000, 600)
+assert_eq(counts.online, 3, "online count")
+assert_eq(counts.installed, 2, "installed fresh hello")
+assert_eq(counts.missing, 1, "missing or stale")
+
+counts = Settings.CountOnlineInstalls({}, {}, 1000, 600)
+assert_eq(counts.online, 0, "empty roster online")
+assert_eq(counts.installed, 0, "empty roster installed")
+
+status = Settings.BuildStatus({
+  enabled = true,
+  guildName = "G",
+  canOpenAdmin = true,
+  installOnline = 3,
+  installInstalled = 2,
+})
+assert_eq(status.installOnline, 3, "status online")
+assert_eq(status.installInstalled, 2, "status installed")
+assert_eq(status.installKey, nil, "has counts not empty key")
+
+status = Settings.BuildStatus({
+  enabled = true,
+  guildName = nil,
+  canOpenAdmin = false,
+})
+assert_eq(status.installKey, "OPTIONS_STATUS_INSTALL_NONE", "no guild install key")
+
 if failed > 0 then
   io.stderr:write(failed .. " failure(s)\n")
   os.exit(1)

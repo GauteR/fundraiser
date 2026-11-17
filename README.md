@@ -73,7 +73,7 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 
 | Control | Meaning |
 | --- | --- |
-| Status | Enabled, guild, active event, whether you can open the admin UI |
+| Status | Enabled, guild, active event, admin access, installed count among online members (HELLO presence) |
 | Default reminder interval | Hours; used when publishing without a per-event override / empty interval field |
 | Min admin rank | Global only (0 = GM); not set per event |
 | Open Fundraiser | Shown only when your rank may manage fundraisers |

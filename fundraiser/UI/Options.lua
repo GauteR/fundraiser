@@ -43,12 +43,26 @@ local function RefreshPanel(panel)
     guildName = Roster:GetGuildName()
   end
   local canOpen = Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi() or false
+  local installOnline, installInstalled = 0, 0
+  if guildName and SettingsDomain and SettingsDomain.CountOnlineInstalls and Roster and Roster.GetMembers then
+    if Roster.Request then
+      Roster:Request()
+    end
+    local now = (GetServerTime and GetServerTime()) or (time and time()) or 0
+    local stale = (Fundraiser.Config and tonumber(Fundraiser.Config.PRESENCE_STALE)) or 600
+    local presence = Store and Store.GetPresence and Store:GetPresence() or {}
+    local counts = SettingsDomain.CountOnlineInstalls(Roster:GetMembers(), presence, now, stale)
+    installOnline = counts.online
+    installInstalled = counts.installed
+  end
   local info = {
     enabled = Fundraiser.IsEnabled and Fundraiser:IsEnabled() or false,
     guildName = guildName,
     eventName = event and event.name or nil,
     eventTarget = event and event.target or nil,
     canOpenAdmin = canOpen,
+    installOnline = installOnline,
+    installInstalled = installInstalled,
   }
   local status = SettingsDomain and SettingsDomain.BuildStatus and SettingsDomain.BuildStatus(info) or {}
 
@@ -69,6 +83,19 @@ local function RefreshPanel(panel)
     panel.accessLabel:SetText(
       Fundraiser:T("OPTIONS_STATUS_ACCESS_FMT", Fundraiser:T(status.accessKey or "OPTIONS_STATUS_ACCESS_NO"))
     )
+  end
+  if panel.installLabel then
+    local installText
+    if status.installKey then
+      installText = Fundraiser:T(status.installKey)
+    else
+      installText = Fundraiser:T(
+        "OPTIONS_STATUS_INSTALL_FMT",
+        status.installInstalled or 0,
+        status.installOnline or 0
+      )
+    end
+    panel.installLabel:SetText(Fundraiser:T("OPTIONS_STATUS_INSTALL_LABEL_FMT", installText))
   end
 
   if panel.intervalBox and Store and Store.GetSettings then
@@ -186,6 +213,11 @@ function Options:Initialize()
   y = y - 18
   panel.accessLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   panel.accessLabel:SetPoint("TOPLEFT", 16, y)
+  y = y - 18
+  panel.installLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  panel.installLabel:SetPoint("TOPLEFT", 16, y)
+  panel.installLabel:SetWidth(520)
+  panel.installLabel:SetJustifyH("LEFT")
   y = y - 28
 
   local settingsHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
