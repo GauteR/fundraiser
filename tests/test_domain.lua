@@ -43,6 +43,13 @@ assert_true(not Fundraiser.Domain.Roles.CanViewLedger(ev, 5, "Grunt"), "member n
 assert_true(Fundraiser.Domain.Roles.CanWriteLedger(ev, "Bank Alt"), "target write")
 assert_true(not Fundraiser.Domain.Roles.CanWriteLedger(ev, "GM"), "officer no write")
 
+assert_true(Fundraiser.Domain.Roles.CanManageFundraiser(0, ev), "GM manages")
+assert_true(Fundraiser.Domain.Roles.CanManageFundraiser(1, ev), "officer manages")
+assert_true(not Fundraiser.Domain.Roles.CanManageFundraiser(2, ev), "member no manage")
+assert_true(not Fundraiser.Domain.Roles.CanManageFundraiser(nil, ev), "nil rank no manage")
+assert_true(Fundraiser.Domain.Roles.CanManageFundraiser(1, nil), "default minAdmin allows rank 1")
+assert_true(not Fundraiser.Domain.Roles.CanManageFundraiser(2, nil), "default minAdmin blocks rank 2")
+
 -- Reminder skipped for donation target
 local should = Fundraiser.Application.UseCases.ShouldShowReminder({
   getEvent = function()

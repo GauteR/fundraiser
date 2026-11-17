@@ -199,6 +199,45 @@ function Debug:PrintPresence()
   end
 end
 
+function Debug:SetAsRank(rankIndex)
+  local Roster = Fundraiser.Adapters.Roster
+  if rankIndex == nil then
+    Roster:SetRankOverride(nil)
+    Print(Fundraiser:T("CHAT_DEBUG_ASRANK_CLEAR"))
+    return
+  end
+  Roster:SetRankOverride(rankIndex)
+  Print(Fundraiser:T("CHAT_DEBUG_ASRANK", tostring(rankIndex)))
+end
+
+function Debug:PrintAccess()
+  local Roster = Fundraiser.Adapters.Roster
+  local Store = Fundraiser.Adapters.Store
+  local Roles = Fundraiser.Domain.Roles
+  local event = Store:GetEvent()
+  local rank = Roster:GetPlayerRankIndex()
+  local manage = Roles.CanManageFundraiser(rank, event) and "yes" or "no"
+  local target = Roles.IsDonationTarget(event, Roster:GetPlayerName()) and "yes" or "no"
+  local adminUi = Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi() and "yes" or "no"
+  local targetUi = Fundraiser.CanOpenTargetUi and Fundraiser:CanOpenTargetUi() and "yes" or "no"
+  Print(Fundraiser:T("CHAT_DEBUG_ACCESS", tostring(rank), manage, target, adminUi, targetUi))
+end
+
+-- Simulate a non-officer: high rank index, then try opening admin UI (should refuse).
+function Debug:SimulateMember()
+  self:SeedEvent()
+  self:SetAsRank(9)
+  self:PrintAccess()
+  if Fundraiser.ToggleWindow then
+    Fundraiser:ToggleWindow()
+  end
+end
+
+function Debug:SimulateOfficer()
+  self:SetAsRank(0)
+  self:PrintAccess()
+end
+
 function Debug:Help()
   Print(Fundraiser:T("CHAT_DEBUG_HELP"))
 end
@@ -248,6 +287,20 @@ function Debug:Handle(msg)
     self:DismissReminder()
   elseif cmd == "presence" then
     self:PrintPresence()
+  elseif cmd == "asrank" then
+    local arg = (rest:match("^(%S+)") or ""):lower()
+    if arg == "" or arg == "clear" or arg == "reset" then
+      self:SetAsRank(nil)
+    else
+      self:SetAsRank(tonumber(arg))
+    end
+    self:PrintAccess()
+  elseif cmd == "member" then
+    self:SimulateMember()
+  elseif cmd == "officer" then
+    self:SimulateOfficer()
+  elseif cmd == "access" then
+    self:PrintAccess()
   else
     Print(Fundraiser:T("CHAT_DEBUG_UNKNOWN", cmd))
     self:Help()

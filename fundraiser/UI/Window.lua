@@ -245,6 +245,12 @@ function Window:Refresh()
   end
 end
 
+function Window:Hide()
+  if self.frame then
+    self.frame:Hide()
+  end
+end
+
 function Window:Toggle()
   local f = self:Ensure()
   if f:IsShown() then

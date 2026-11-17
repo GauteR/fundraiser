@@ -53,13 +53,18 @@ With `Config.DEBUG = true`:
 /fundraiser debug reminder
 /fundraiser debug dismiss
 /fundraiser debug presence
+/fundraiser debug access
+/fundraiser debug member
+/fundraiser debug officer
+/fundraiser debug asrank 9
+/fundraiser debug asrank clear
 ```
 
 ## Usage
 
-1. Officers: `/fundraiser` → fill event fields → **Publish event** (target = dedicated fundraiser alt).
+1. Officers (guild rank ≤ event `minAdminRank`, or `DEFAULT_MIN_ADMIN_RANK` before any event): `/fundraiser` → fill event fields → **Publish event** (target = dedicated fundraiser alt). Members get a chat refusal if they open `/fundraiser`.
 2. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
-3. On the target alt: open mailbox → `/fundraiser target` (or **Target inbox assist**) → Post AH / Vendor per stack; AH sales also hit the ledger.
+3. On the target alt: open mailbox → `/fundraiser target` (or **Target inbox assist**) → Post AH / Vendor per stack; AH sales also hit the ledger. Other characters cannot open the target UI.
 
 Close windows with the frame X or Escape (`UISpecialFrames`).
 
@@ -79,6 +84,7 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua):
 | `TSM_PRICE_SOURCE` | `"DBMinBuyout"` | TSM price key for min AH reference |
 | `DEBUG` | `true` | Solo sim: `/fundraiser debug …` |
 | `DEFAULT_REMINDER_INTERVAL` | `86400` | Fallback interval (seconds) |
+| `DEFAULT_MIN_ADMIN_RANK` | `1` | Admin UI gate when no event yet (rank ≤ this) |
 | `PRESENCE_STALE` | `600` | HELLO freshness for “missing install” |
 | `SLASH_COMMAND` | `"/fundraiser"` | Slash command |
 | `VERSION` | `"0.1.0"` | Options version when TOC placeholder is unpackaged |

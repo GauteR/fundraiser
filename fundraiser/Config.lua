@@ -30,6 +30,8 @@ Fundraiser.Config = {
 
   -- Default reminder interval in seconds (officers override per event).
   DEFAULT_REMINDER_INTERVAL = 86400,
+  -- When no event exists yet, admin UI requires rankIndex <= this (0 = GM).
+  DEFAULT_MIN_ADMIN_RANK = 1,
 
   -- Presence: HELLO older than this is treated as stale (seconds).
   PRESENCE_STALE = 600,

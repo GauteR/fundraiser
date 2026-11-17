@@ -207,6 +207,12 @@ function Target:Act(action)
   end
 end
 
+function Target:Hide()
+  if self.frame then
+    self.frame:Hide()
+  end
+end
+
 function Target:Toggle()
   local f = self:Ensure()
   if f:IsShown() then

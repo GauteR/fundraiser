@@ -27,6 +27,40 @@ function Fundraiser.FormatCopper(copper)
   return table.concat(parts, " ")
 end
 
+function Fundraiser:CanOpenAdminUi()
+  if not self:IsEnabled() then
+    return false
+  end
+  if not (self.Config and self.Config.ADMIN_UI) then
+    return false
+  end
+  local Roster = self.Adapters and self.Adapters.Roster
+  local Store = self.Adapters and self.Adapters.Store
+  local Roles = self.Domain and self.Domain.Roles
+  if not Roster or not Roles then
+    return false
+  end
+  local event = Store and Store.GetEvent and Store:GetEvent() or nil
+  return Roles.CanManageFundraiser(Roster:GetPlayerRankIndex(), event)
+end
+
+function Fundraiser:CanOpenTargetUi()
+  if not self:IsEnabled() then
+    return false
+  end
+  if not (self.Config and self.Config.TARGET_UI) then
+    return false
+  end
+  local Roster = self.Adapters and self.Adapters.Roster
+  local Store = self.Adapters and self.Adapters.Store
+  local Roles = self.Domain and self.Domain.Roles
+  if not Roster or not Roles or not Store then
+    return false
+  end
+  local event = Store:GetEvent()
+  return Roles.IsDonationTarget(event, Roster:GetPlayerName())
+end
+
 function Fundraiser:ToggleWindow()
   if not self:IsEnabled() then
     Print(self:T("CHAT_DISABLED"))
@@ -35,8 +69,35 @@ function Fundraiser:ToggleWindow()
   if not (self.Config and self.Config.ADMIN_UI) then
     return
   end
+  if not self:CanOpenAdminUi() then
+    Print(self:T("CHAT_NOT_ADMIN"))
+    if self.UI and self.UI.Window and self.UI.Window.Hide then
+      self.UI.Window:Hide()
+    end
+    return
+  end
   if self.UI and self.UI.Window then
     self.UI.Window:Toggle()
+  end
+end
+
+function Fundraiser:ToggleTargetUi()
+  if not self:IsEnabled() then
+    Print(self:T("CHAT_DISABLED"))
+    return
+  end
+  if not (self.Config and self.Config.TARGET_UI) then
+    return
+  end
+  if not self:CanOpenTargetUi() then
+    Print(self:T("CHAT_TARGET_NO_ACCESS"))
+    if self.UI and self.UI.Target and self.UI.Target.Hide then
+      self.UI.Target:Hide()
+    end
+    return
+  end
+  if self.UI and self.UI.Target then
+    self.UI.Target:Toggle()
   end
 end
 
@@ -71,9 +132,7 @@ eventFrame:SetScript("OnEvent", function(_, event)
       return
     end
     if lower == "target" then
-      if Fundraiser.Config.TARGET_UI and Fundraiser.UI.Target then
-        Fundraiser.UI.Target:Toggle()
-      end
+      Fundraiser:ToggleTargetUi()
       return
     end
     local debugArg = lower:match("^debug%s*(.*)$")

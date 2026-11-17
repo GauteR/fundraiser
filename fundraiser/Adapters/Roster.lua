@@ -29,6 +29,10 @@ function Roster:GetGuildName()
 end
 
 function Roster:GetPlayerRankIndex()
+  -- Debug override: /fundraiser debug asrank <n> | member | officer | asrank clear
+  if self.rankOverride ~= nil then
+    return self.rankOverride
+  end
   if not self:IsInGuild() then
     return nil
   end
@@ -37,6 +41,14 @@ function Roster:GetPlayerRankIndex()
     return rankIndex
   end
   return nil
+end
+
+function Roster:SetRankOverride(rankIndex)
+  if rankIndex == nil then
+    self.rankOverride = nil
+    return
+  end
+  self.rankOverride = tonumber(rankIndex)
 end
 
 function Roster:GetPlayerName()
