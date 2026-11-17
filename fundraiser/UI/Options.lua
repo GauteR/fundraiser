@@ -570,11 +570,8 @@ function Options:Initialize()
       return
     end
     ConfirmAction("FUNDRAISER_BROADCAST_RESET", "OPTIONS_CONFIRM_BROADCAST_RESET", function()
-      local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
       local Sync = Fundraiser.Adapters and Fundraiser.Adapters.ThinGuildSync
-      if Store and Store.ApplyResetScope then
-        Store:ApplyResetScope("all")
-      end
+      -- BroadcastReset applies local wipe + epoch bump, then notifies guild.
       local sent = Sync and Sync.BroadcastReset and Sync:BroadcastReset("all")
       AfterLocalDataChange(panel)
       if DEFAULT_CHAT_FRAME then

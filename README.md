@@ -63,7 +63,7 @@ With `Config.DEBUG = true`:
 ## Usage
 
 1. Set **Defaults** under Settings → AddOns → Fundraiser (or **Addon settings** in the admin window): default reminder interval and global min admin rank (rank ≤ this may manage).
-2. Officers: `/fundraiser` → fill event fields (per-event interval overrides the default) → **Publish event** (target = dedicated fundraiser alt). Members get a chat refusal if they open `/fundraiser`.
+2. Officers: `/fundraiser` → fill event fields (per-event interval overrides the default) → **Publish event** (target = dedicated fundraiser alt). Publishing a new event **archives** the previous event+ledger locally and clears the active ledger. Members get a chat refusal if they open `/fundraiser`.
 3. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
 4. On the target alt: open mailbox → `/fundraiser target` (or **Target inbox assist**) → Post AH / Vendor per stack; AH sales also hit the ledger. Other characters cannot open the target UI.
 

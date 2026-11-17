@@ -125,6 +125,9 @@ local merged2, changed = Fundraiser.Application.UseCases.MergeRemoteLedger({
   setContributions = function(list)
     storedList = list
   end,
+  getResetEpoch = function()
+    return 0
+  end,
   getPlayerName = function()
     return "Officer"
   end,
@@ -134,6 +137,33 @@ local merged2, changed = Fundraiser.Application.UseCases.MergeRemoteLedger({
 }, remote, "Bank Alt", 5)
 assert_true(changed, "merged remote")
 assert_true(#merged2 >= 2, "rows after merge")
+
+-- Stale ledger rows from older resetEpoch are ignored.
+local staleEntry = Fundraiser.Domain.Ledger.CreateEntry({
+  kind = "mail",
+  name = "Old",
+  copper = 1,
+  eventId = ev.id,
+  at = 12,
+  detail = "stale",
+})
+staleEntry.resetEpoch = 0
+local afterStale, staleChanged = Fundraiser.Application.UseCases.MergeRemoteLedger({
+  getEvent = function()
+    return ev
+  end,
+  getContributions = function()
+    return storedList
+  end,
+  setContributions = function(list)
+    storedList = list
+  end,
+  getResetEpoch = function()
+    return 3
+  end,
+}, { staleEntry }, "Bank Alt", 1)
+assert_true(not staleChanged, "reject pre-epoch ledger")
+assert_eq(#afterStale, #merged2, "ledger unchanged after stale reject")
 
 -- Mesh: non-officer member still stores relayed rows (UI view stays gated separately).
 local memberList = {}
@@ -149,6 +179,9 @@ local mergedMember, memberChanged = Fundraiser.Application.UseCases.MergeRemoteL
   end,
   setContributions = function(list)
     memberList = list
+  end,
+  getResetEpoch = function()
+    return 0
   end,
   getPlayerName = function()
     return "Grunt"
@@ -169,35 +202,94 @@ assert_eq(decoded.msgKind, "LEDGER", "msgKind")
 assert_eq(decoded.copper, 10, "codec copper")
 
 -- Codec RESET + AcceptRemoteReset rank gate
-local resetPayload = Codec.EncodeReset("ledger", 123, "Officer One")
+local resetPayload = Codec.EncodeReset("ledger", 123, "Officer One", 7)
 local resetMsg = Codec.Decode(resetPayload)
 assert_eq(resetMsg.kind, "RESET", "reset kind")
 assert_eq(resetMsg.scope, "ledger", "reset scope")
 assert_eq(resetMsg.at, 123, "reset at")
-local applied = false
+assert_eq(resetMsg.resetEpoch, 7, "reset epoch")
+local hello = Codec.Decode(Codec.EncodeHello("0.1.0", "guid", 4))
+assert_eq(hello.resetEpoch, 4, "hello epoch")
+local appliedScope, appliedEpoch = nil, nil
 local resetOk, resetErr = Fundraiser.Application.UseCases.AcceptRemoteReset({
-  applyReset = function(scope)
-    applied = scope == "ledger"
+  applyReset = function(scope, epoch)
+    appliedScope = scope
+    appliedEpoch = epoch
     return true
   end,
-}, "ledger", 1)
+}, "ledger", 1, 7)
 assert_true(resetOk, "officer reset accepted")
-assert_true(applied, "apply called")
+assert_eq(appliedScope, "ledger", "apply scope")
+assert_eq(appliedEpoch, 7, "apply epoch")
 Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK = 1
 resetOk, resetErr = Fundraiser.Application.UseCases.AcceptRemoteReset({
   applyReset = function()
     return true
   end,
-}, "all", 5)
+}, "all", 5, 1)
 assert_eq(resetOk, nil, "member reset rejected")
 assert_eq(resetErr, "not_admin", "member reset err")
 resetOk, resetErr = Fundraiser.Application.UseCases.AcceptRemoteReset({
   applyReset = function()
     return true
   end,
-}, "nope", 0)
+}, "nope", 0, 1)
 assert_eq(resetOk, nil, "bad scope rejected")
 assert_eq(resetErr, "bad_scope", "bad scope err")
+
+-- Publish replaces event: archive previous + clear active ledger
+dofile(repo .. "/fundraiser/Adapters/Store.lua")
+_G.FundraiserDB = nil
+local Store = Fundraiser.Adapters.Store
+Store.db = nil
+Store:Load()
+local oldEv = Fundraiser.Domain.Event.Create({
+  name = "Old",
+  target = "Bank Alt",
+  intervalSeconds = 3600,
+  minAdminRank = 1,
+})
+Store:SetEvent(oldEv)
+Store:SetContributions({
+  Fundraiser.Domain.Ledger.CreateEntry({
+    kind = "mail",
+    name = "Donor",
+    copper = 5,
+    eventId = oldEv.id,
+    at = 1,
+    detail = "x",
+  }),
+})
+local published = Fundraiser.Application.UseCases.PublishEvent({
+  getEvent = function()
+    return Store:GetEvent()
+  end,
+  setEvent = function(e)
+    Store:SetEvent(e)
+  end,
+  getContributions = function()
+    return Store:GetContributions()
+  end,
+  archiveEvent = function(event, contributions, archivedAt)
+    Store:ArchiveEvent(event, contributions, archivedAt)
+  end,
+  clearContributions = function()
+    Store:ClearLedger()
+  end,
+  clearReminder = function()
+    Store:SetReminderState({})
+  end,
+}, {
+  name = "New",
+  target = "Bank Alt",
+  intervalSeconds = 7200,
+}, { rankIndex = 0, name = "GM", now = 50 })
+assert_true(published, "publish new event")
+assert_true(published.id ~= oldEv.id, "new event id")
+assert_eq(#Store:GetContributions(), 0, "active ledger cleared")
+assert_eq(#Store:GetArchives(), 1, "archived previous")
+assert_eq(Store:GetArchives()[1].event.name, "Old", "archive name")
+assert_eq(#Store:GetArchives()[1].contributions, 1, "archive ledger rows")
 
 -- Forever full names (First Last)
 assert_true(Fundraiser.Domain.Roles.IsFullCharacterName("Jane Doe"), "full name ok")

@@ -5,6 +5,8 @@ Fundraiser.Adapters = Fundraiser.Adapters or {}
 local Store = {}
 Fundraiser.Adapters.Store = Store
 
+local MAX_ARCHIVES = 25
+
 local function emptyDb()
   return {
     event = nil,
@@ -12,6 +14,8 @@ local function emptyDb()
     presence = {},
     reminder = {},
     settings = {},
+    archives = {},
+    resetEpoch = 0,
   }
 end
 
@@ -21,6 +25,21 @@ local function defaultSettingsFromConfig()
     defaultReminderInterval = tonumber(cfg.DEFAULT_REMINDER_INTERVAL) or 86400,
     defaultMinAdminRank = tonumber(cfg.DEFAULT_MIN_ADMIN_RANK) or 0,
   }
+end
+
+local function copyTable(t)
+  if type(t) ~= "table" then
+    return t
+  end
+  local out = {}
+  for k, v in pairs(t) do
+    if type(v) == "table" then
+      out[k] = copyTable(v)
+    else
+      out[k] = v
+    end
+  end
+  return out
 end
 
 function Store:ApplySettingsToConfig()
@@ -42,6 +61,8 @@ function Store:Load()
   db.presence = db.presence or {}
   db.reminder = db.reminder or {}
   db.settings = db.settings or {}
+  db.archives = db.archives or {}
+  db.resetEpoch = tonumber(db.resetEpoch) or 0
   self.db = db
   self:ApplySettingsToConfig()
   return db
@@ -111,6 +132,50 @@ function Store:SetReminderState(state)
   self.db.reminder = state or {}
 end
 
+function Store:GetArchives()
+  self.db = self.db or self:Load()
+  return self.db.archives or {}
+end
+
+function Store:GetResetEpoch()
+  self.db = self.db or self:Load()
+  return tonumber(self.db.resetEpoch) or 0
+end
+
+function Store:SetResetEpoch(epoch)
+  self.db = self.db or self:Load()
+  self.db.resetEpoch = math.max(0, math.floor(tonumber(epoch) or 0))
+  return self.db.resetEpoch
+end
+
+function Store:BumpResetEpoch()
+  return self:SetResetEpoch(self:GetResetEpoch() + 1)
+end
+
+-- Keep previous event + its ledger rows for later reference (capped).
+function Store:ArchiveEvent(event, contributions, archivedAt)
+  if not event then
+    return nil
+  end
+  self.db = self.db or self:Load()
+  self.db.archives = self.db.archives or {}
+  local rows = contributions or {}
+  local Ledger = Fundraiser.Domain and Fundraiser.Domain.Ledger
+  if Ledger and Ledger.FilterByEvent and event.id then
+    rows = Ledger.FilterByEvent(rows, event.id)
+  end
+  local entry = {
+    event = copyTable(event),
+    contributions = copyTable(rows),
+    archivedAt = tonumber(archivedAt) or 0,
+  }
+  self.db.archives[#self.db.archives + 1] = entry
+  while #self.db.archives > MAX_ARCHIVES do
+    table.remove(self.db.archives, 1)
+  end
+  return entry
+end
+
 function Store:RestoreConfigFileDefaults()
   local cfg = Fundraiser.Config
   local file = Fundraiser.ConfigFileDefaults
@@ -156,23 +221,27 @@ function Store:ClearEvent()
 end
 
 -- scope: all | event | ledger | presence
-function Store:ApplyResetScope(scope)
+-- forcedEpoch: set ledger epoch when wiping ledger/all (remote RESET).
+function Store:ApplyResetScope(scope, forcedEpoch)
   scope = tostring(scope or "all")
+  local bumpEpoch = scope == "all" or scope == "ledger"
   if scope == "all" then
     self:ResetAll()
-    return true
-  end
-  if scope == "event" then
+  elseif scope == "event" then
     self:ClearEvent()
-    return true
-  end
-  if scope == "ledger" then
+  elseif scope == "ledger" then
     self:ClearLedger()
-    return true
-  end
-  if scope == "presence" then
+  elseif scope == "presence" then
     self:ClearPresence()
-    return true
+  else
+    return nil, "bad_scope"
   end
-  return nil, "bad_scope"
+  if bumpEpoch then
+    if forcedEpoch ~= nil then
+      self:SetResetEpoch(math.max(self:GetResetEpoch(), tonumber(forcedEpoch) or 0))
+    else
+      self:BumpResetEpoch()
+    end
+  end
+  return true, self:GetResetEpoch()
 end

@@ -150,6 +150,18 @@ function Window:Publish()
     setEvent = function(e)
       Store:SetEvent(e)
     end,
+    getContributions = function()
+      return Store:GetContributions()
+    end,
+    archiveEvent = function(event, contributions, archivedAt)
+      Store:ArchiveEvent(event, contributions, archivedAt)
+    end,
+    clearContributions = function()
+      Store:ClearLedger()
+    end,
+    clearReminder = function()
+      Store:SetReminderState({})
+    end,
     broadcastEvent = function(e)
       Fundraiser.Adapters.ThinGuildSync:BroadcastEvent(e)
     end,

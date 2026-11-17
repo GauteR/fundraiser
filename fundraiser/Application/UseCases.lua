@@ -20,18 +20,24 @@ function UC.PublishEvent(deps, fields, actor)
     return nil, "not_admin"
   end
   local current = deps.getEvent and deps.getEvent() or nil
-  local revision = 1
-  if current then
-    revision = (tonumber(current.revision) or 0) + 1
-  end
   fields = fields or {}
+  -- Publishing replaces the active fundraiser: archive old event+ledger, start a new id.
+  if current then
+    if deps.archiveEvent then
+      deps.archiveEvent(current, deps.getContributions and deps.getContributions() or {}, actor.now or 0)
+    end
+    if deps.clearContributions then
+      deps.clearContributions()
+    end
+    if deps.clearReminder then
+      deps.clearReminder()
+    end
+  end
+  fields.id = nil
   fields.minAdminRank = minRank
-  fields.revision = revision
+  fields.revision = 1
   fields.publishedAt = actor.now or fields.publishedAt or 0
   fields.publisher = actor.name or fields.publisher or ""
-  if current and (not fields.id or fields.id == "") then
-    fields.id = current.id
-  end
   local event, err = Event.Create(fields)
   if not event then
     return nil, err
@@ -57,7 +63,17 @@ function UC.AcceptRemoteEvent(deps, event, senderRankIndex)
     return nil, "not_admin"
   end
   local current = deps.getEvent and deps.getEvent() or nil
-  if not Event.IsNewer(event, current) then
+  if current and event.id and current.id and event.id ~= current.id then
+    if deps.archiveEvent then
+      deps.archiveEvent(current, deps.getContributions and deps.getContributions() or {}, event.publishedAt or 0)
+    end
+    if deps.clearContributions then
+      deps.clearContributions()
+    end
+    if deps.clearReminder then
+      deps.clearReminder()
+    end
+  elseif not Event.IsNewer(event, current) then
     return nil, "stale"
   end
   if deps.setEvent then
@@ -66,8 +82,9 @@ function UC.AcceptRemoteEvent(deps, event, senderRankIndex)
   return event
 end
 
--- Officer-only remote wipe (guild addon message). Local apply via deps.applyReset(scope).
-function UC.AcceptRemoteReset(deps, scope, senderRankIndex)
+-- Officer-only remote wipe (guild addon message). Local apply via deps.applyReset(scope, epoch).
+-- All clients that accept apply the wipe (not only officers).
+function UC.AcceptRemoteReset(deps, scope, senderRankIndex, resetEpoch)
   local Rank = Domain().Rank
   local Roles = Domain().Roles
   local minRank = (Roles and Roles.GetMinAdminRank and Roles.GetMinAdminRank()) or 0
@@ -81,7 +98,7 @@ function UC.AcceptRemoteReset(deps, scope, senderRankIndex)
   if not deps.applyReset then
     return nil, "no_apply"
   end
-  local ok, err = deps.applyReset(scope)
+  local ok, err = deps.applyReset(scope, resetEpoch)
   if ok == nil and err then
     return nil, err
   end
@@ -129,8 +146,22 @@ function UC.MergeRemoteLedger(deps, remoteEntries, senderName, _senderRankIndex)
   if not senderName or tostring(senderName) == "" then
     return nil, "bad_sender"
   end
+  local localEpoch = 0
+  if deps.getResetEpoch then
+    localEpoch = tonumber(deps.getResetEpoch()) or 0
+  end
+  local accepted = {}
+  for _, entry in ipairs(remoteEntries or {}) do
+    local entryEpoch = tonumber(entry and entry.resetEpoch) or 0
+    if entryEpoch >= localEpoch then
+      accepted[#accepted + 1] = entry
+    end
+  end
+  if #accepted == 0 then
+    return (deps.getContributions and deps.getContributions()) or {}, false
+  end
   local localList = (deps.getContributions and deps.getContributions()) or {}
-  local merged = Ledger.Merge(localList, remoteEntries)
+  local merged = Ledger.Merge(localList, accepted)
   local _, localSum = Ledger.Fingerprint(localList)
   local _, mergedSum, _ = Ledger.Fingerprint(merged)
   local changed = #merged ~= #localList or mergedSum ~= localSum
