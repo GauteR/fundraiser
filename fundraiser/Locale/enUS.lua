@@ -36,18 +36,18 @@ L.CHAT_DEBUG_UNKNOWN = "Unknown debug command: %s"
 L.CHAT_DEBUG_HELP =
   "debug: help | seed | hello [Name] [guid] | event [rank] | ledger [mail|ah] [Name] [copper] [detail] | digest | reminder | dismiss | presence | asrank <n|clear> | member | officer | access"
 
-L.REMINDER_FMT = "%s needs your aid for %s, please donate to the fundraiser by sending whatever you can spare to %s"
+L.REMINDER_FMT = "%s needs your aid for %s, please donate to the fundraiser by sending whatever you can spare to %s. Thank you. :-)"
 
 L.WINDOW_TITLE = "Fundraiser"
 L.SECTION_EVENT = "Active event"
-L.SECTION_LEDGER = "Ledger (target writes; all clients mesh; officers view)"
+L.SECTION_LEDGER = "Ledger"
 L.LEDGER_OFFICER_ONLY =
-  "Ledger view is limited to officers and the donation-target character. Other members still help relay the mesh in the background."
+  "Ledger view is limited to officers and the donation-target character.."
 L.LEDGER_DEDICATED_HINT =
   "Use a character dedicated only to this fundraiser (mail intake + AH). Do not mix personal AH on that alt."
 L.SECTION_PRESENCE = "Install presence"
 L.LABEL_EVENT_NAME = "Event name"
-L.LABEL_TARGET = "Donation mail target (First Last)"
+L.LABEL_TARGET = "Donation mail target"
 L.CHAT_TARGET_NEED_FULL_NAME = "Target must be a Forever full name: First Last."
 L.LABEL_INTERVAL = "Reminder interval (hours)"
 L.LABEL_MIN_ADMIN_RANK = "Min admin rank index (0 = GM)"
@@ -90,7 +90,7 @@ L.PRESENCE_EMPTY = "No guild roster data yet."
 
 L.OPTIONS_VERSION_FMT = "Version %s"
 L.OPTIONS_HELP =
-  "Guild fundraiser reminders for Forever. Officers publish an event; members see a reminder beside the mailbox until they mail the designated target. The ledger is written on the donation-target character and meshed across all installed clients; only officers and the target may view it. Not encrypted — UI access only. That character should be used only for the fundraiser."
+  "A fundraiser addon for WoW:Forever."
 L.OPTIONS_OPEN = "Open Fundraiser"
 
 function Fundraiser:T(key, ...)
