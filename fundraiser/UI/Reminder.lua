@@ -5,12 +5,28 @@ Fundraiser.UI = Fundraiser.UI or {}
 local Reminder = {}
 Fundraiser.UI.Reminder = Reminder
 
+local function mailIsOpen()
+  if MailFrame and MailFrame:IsShown() then
+    return true
+  end
+  if InboxFrame and InboxFrame:IsShown() then
+    return true
+  end
+  if SendMailFrame and SendMailFrame:IsShown() then
+    return true
+  end
+  return false
+end
+
 local function mailAnchor()
   if MailFrame and MailFrame:IsShown() then
     return MailFrame
   end
   if InboxFrame and InboxFrame:IsShown() then
     return InboxFrame
+  end
+  if SendMailFrame and SendMailFrame:IsShown() then
+    return SendMailFrame
   end
   return nil
 end
@@ -37,7 +53,21 @@ function Reminder:EnsureFrame()
   text:SetWordWrap(true)
   f.text = text
 
-  -- Not in UISpecialFrames: lifecycle follows MAIL_SHOW / MAIL_CLOSED.
+  -- Fallback when MAIL_CLOSED is missing: hide if mailbox UI is gone.
+  f:SetScript("OnUpdate", function(self, elapsed)
+    if not self:IsShown() then
+      return
+    end
+    self._fundraiserTick = (self._fundraiserTick or 0) + elapsed
+    if self._fundraiserTick < 0.2 then
+      return
+    end
+    self._fundraiserTick = 0
+    if not mailIsOpen() then
+      Reminder:Hide()
+    end
+  end)
+
   self.frame = f
   return f
 end
@@ -47,7 +77,6 @@ function Reminder:AnchorToMailbox()
   f:ClearAllPoints()
   local anchor = mailAnchor()
   if anchor then
-    -- Prefer right of mailbox; flip to left if little room on the right.
     local right = anchor:GetRight()
     local uiRight = UIParent and UIParent:GetRight()
     if right and uiRight and (uiRight - right) < (f:GetWidth() + 24) then

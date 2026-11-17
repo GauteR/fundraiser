@@ -1,9 +1,37 @@
 -- Show fundraiser reminder when the mailbox opens; hide when it closes.
+-- Forever may not fire MAIL_CLOSED reliably — also hook MailFrame OnHide / CloseMail.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
 
 local MailboxReminder = {}
 Fundraiser.Adapters.MailboxReminder = MailboxReminder
+
+local function hookOnHide(frame, handler)
+  if not frame or frame._FundraiserMailHideHooked then
+    return
+  end
+  frame._FundraiserMailHideHooked = true
+  if frame.HookScript then
+    frame:HookScript("OnHide", handler)
+  else
+    local prev = frame:GetScript("OnHide")
+    frame:SetScript("OnHide", function(...)
+      if prev then
+        prev(...)
+      end
+      handler(...)
+    end)
+  end
+end
+
+function MailboxReminder:HookMailFrames()
+  local handler = function()
+    self:OnMailClosed()
+  end
+  hookOnHide(MailFrame, handler)
+  hookOnHide(InboxFrame, handler)
+  hookOnHide(SendMailFrame, handler)
+end
 
 function MailboxReminder:Initialize()
   if self.initialized then
@@ -16,14 +44,30 @@ function MailboxReminder:Initialize()
   local frame = CreateFrame("Frame", "FundraiserMailboxReminderFrame")
   frame:RegisterEvent("MAIL_SHOW")
   frame:RegisterEvent("MAIL_CLOSED")
+  frame:RegisterEvent("PLAYER_ENTERING_WORLD")
   frame:SetScript("OnEvent", function(_, event)
     if event == "MAIL_SHOW" then
+      self:HookMailFrames()
       self:OnMailShow()
-    elseif event == "MAIL_CLOSED" then
+    elseif event == "MAIL_CLOSED" or event == "PLAYER_ENTERING_WORLD" then
       self:OnMailClosed()
     end
   end)
 
+  if type(hooksecurefunc) == "function" and CloseMail then
+    hooksecurefunc("CloseMail", function()
+      self:OnMailClosed()
+    end)
+  end
+  if type(hooksecurefunc) == "function" and HideUIPanel then
+    hooksecurefunc("HideUIPanel", function(panel)
+      if panel == MailFrame or panel == InboxFrame then
+        self:OnMailClosed()
+      end
+    end)
+  end
+
+  self:HookMailFrames()
   self.frame = frame
   self.initialized = true
 end
