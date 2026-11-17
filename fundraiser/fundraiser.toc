@@ -15,4 +15,7 @@ Domain/Reminder.lua
 Domain/Ledger.lua
 Application/UseCases.lua
 Adapters/Codec.lua
+Adapters/Store.lua
+Adapters/Roster.lua
+Adapters/ThinGuildSync.lua
 Core.lua
