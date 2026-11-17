@@ -6,7 +6,7 @@ Fundraiser uses a **thin** hidden guild channel (`SendAddonMessage` / `CHAT_MSG_
 
 | Who | Data |
 | --- | --- |
-| All members | `EVENT` + bag reminder until they mail the designated target |
+| All members | `EVENT` + mailbox reminder until they mail the designated target |
 | Donation target character | Writes ledger rows (incoming mail + **all** AH sales) into local SavedVariables, then broadcasts |
 | Officers (`rank <= minAdminRank`) | Replica of the ledger via peer merge; UI access |
 

@@ -13,14 +13,14 @@
 
 Guild **donation reminders** for **World of Warcraft: Forever**.
 
-Officers publish a shared fundraising goal. Members see a reminder when opening bags until they mail the designated character.
+Officers publish a shared fundraising goal. Members see a reminder beside the mailbox until they mail the designated character.
 
 The ledger is recorded on the **donation-target character** (incoming mail and all auction-house sales) and shared among officers. Use a character dedicated only to that role — do not mix personal AH there.
 
 ## Features
 
 - Guild-only fundraiser events (name, mail target, reminder interval)
-- Bag-open reminder until mail is sent to the target
+- Mailbox reminder until mail is sent to the target
 - Officer admin ranks configurable per event
 - Ledger on the donation target; officer replicas with merge sync
 - Install presence: who is online without the addon (best-effort)
@@ -39,7 +39,7 @@ The ledger is recorded on the **donation-target character** (incoming mail and a
 ## How to use
 
 1. Officers: `/fundraiser` → set event fields (target = dedicated fundraiser alt) → **Publish event**.
-2. Members keep the addon installed; open bags to see reminders when due.
+2. Members keep the addon installed; open the mailbox to see reminders when due.
 3. Send mail to the designated target to clear the current reminder window.
 4. On the target alt, receive mail and run AH — officers see the merged ledger.
 

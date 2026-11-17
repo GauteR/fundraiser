@@ -5,6 +5,7 @@ Fundraiser.Config = {
   -- Master switch: false disables slash, UI, sync, and reminders.
   ENABLED = true,
   COMM = true,
+  -- Reminder popup while the mailbox is open (not bags).
   REMINDER = true,
   ADMIN_UI = true,
   LEDGER = true,

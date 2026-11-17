@@ -1,11 +1,11 @@
--- Show fundraiser reminder when bags open.
+-- Show fundraiser reminder when the mailbox opens; hide when it closes.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
 
-local Bags = {}
-Fundraiser.Adapters.Bags = Bags
+local MailboxReminder = {}
+Fundraiser.Adapters.MailboxReminder = MailboxReminder
 
-function Bags:Initialize()
+function MailboxReminder:Initialize()
   if self.initialized then
     return
   end
@@ -13,30 +13,26 @@ function Bags:Initialize()
     return
   end
 
-  -- Do not use BAG_UPDATE (fires on item moves). Hook open/toggle only.
-  local function hook(name)
-    if type(hooksecurefunc) == "function" and _G[name] then
-      hooksecurefunc(name, function()
-        self:OnBagsTouched()
-      end)
+  local frame = CreateFrame("Frame", "FundraiserMailboxReminderFrame")
+  frame:RegisterEvent("MAIL_SHOW")
+  frame:RegisterEvent("MAIL_CLOSED")
+  frame:SetScript("OnEvent", function(_, event)
+    if event == "MAIL_SHOW" then
+      self:OnMailShow()
+    elseif event == "MAIL_CLOSED" then
+      self:OnMailClosed()
     end
-  end
-  hook("OpenAllBags")
-  hook("ToggleBackpack")
-  hook("ToggleAllBags")
-  hook("OpenBag")
+  end)
 
+  self.frame = frame
   self.initialized = true
 end
 
-function Bags:OnBagsTouched()
-  if Fundraiser.UI and Fundraiser.UI.Reminder and Fundraiser.UI.Reminder.frame and Fundraiser.UI.Reminder.frame:IsShown() then
-    return
-  end
+function MailboxReminder:OnMailShow()
   local Store = Fundraiser.Adapters.Store
   local UC = Fundraiser.Application.UseCases
-  local now = (GetServerTime and GetServerTime()) or (time and time()) or 0
   local Roster = Fundraiser.Adapters.Roster
+  local now = (GetServerTime and GetServerTime()) or (time and time()) or 0
   local deps = {
     getEvent = function()
       return Store:GetEvent()
@@ -57,5 +53,11 @@ function Bags:OnBagsTouched()
     local Reminder = Fundraiser.Domain.Reminder
     local state = Store:GetReminderState()
     Store:SetReminderState(Reminder.MarkShown(state, now, event.id))
+  end
+end
+
+function MailboxReminder:OnMailClosed()
+  if Fundraiser.UI and Fundraiser.UI.Reminder and Fundraiser.UI.Reminder.Hide then
+    Fundraiser.UI.Reminder:Hide()
   end
 end

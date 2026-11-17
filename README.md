@@ -2,7 +2,7 @@
 
 Guild donation reminders for **World of Warcraft: Forever**.
 
-Officers publish a shared fundraising goal; members get bag reminders until they mail the designated recipient. The **ledger** is written on the donation-target character (incoming mail + all AH sales) and merged peer-to-peer among officers.
+Officers publish a shared fundraising goal; members see a reminder beside the mailbox until they mail the designated recipient. The **ledger** is written on the donation-target character (incoming mail + all AH sales) and merged peer-to-peer among officers.
 
 | | |
 | --- | --- |
@@ -15,7 +15,7 @@ Officers publish a shared fundraising goal; members get bag reminders until they
 
 - Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `REMINDER`, `ADMIN_UI`, `LEDGER`, `DEBUG`
 - Officer-published event (name, mail target, reminder interval, min admin rank)
-- Bag-open reminder for members until mail is sent to the target
+- Mailbox reminder for members (beside the mail window) until mail is sent to the target
 - Ledger on the **donation-target** character only for writes; officers hold merged replicas
 - Logs incoming mailbox money/items and **all** AH sales on that character
 - Target inbox assist (`/fundraiser target`): per-sender stacks, TSM→Auctionator→manual price, vendor vs AH advice, one AH post per stack
@@ -58,7 +58,7 @@ With `Config.DEBUG = true`:
 ## Usage
 
 1. Officers: `/fundraiser` → fill event fields → **Publish event** (target = dedicated fundraiser alt).
-2. Members open bags to see reminders when due; mailing the target clears the interval.
+2. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
 3. On the target alt: open mailbox → `/fundraiser target` (or **Target inbox assist**) → Post AH / Vendor per stack; AH sales also hit the ledger.
 
 Close windows with the frame X or Escape (`UISpecialFrames`).
@@ -71,7 +71,7 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua):
 | --- | --- | --- |
 | `ENABLED` | `true` | Master feature flag |
 | `COMM` | `true` | Guild addon messages |
-| `REMINDER` | `true` | Bag reminder + mail dismiss |
+| `REMINDER` | `true` | Mailbox reminder popup + mail dismiss |
 | `ADMIN_UI` | `true` | Main window |
 | `LEDGER` | `true` | Target logging + officer ledger UI |
 | `TARGET_UI` | `true` | Donation-target inbox assist window |

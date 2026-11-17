@@ -1,4 +1,4 @@
--- Domain: when to show the bag donation reminder.
+-- Domain: when to show the mailbox donation reminder.
 Fundraiser = Fundraiser or {}
 Fundraiser.Domain = Fundraiser.Domain or {}
 
@@ -8,18 +8,11 @@ Fundraiser.Domain.Reminder = Reminder
 --[[
   Show reminder when:
   - there is an active event
-  - enough time has passed since lastDismissedAt (donation) for this event window
-  - enough time has passed since lastShownAt (avoid spam on every bag open)
+  - enough time has passed since lastDismissedAt for this event window
 
-  After a donation (lastDismissedAt), the next window opens at
-  lastDismissedAt + intervalSeconds. Within a window, lastShownAt suppresses
-  repeats until the next bag-open after... we show once per bag open only if
-  lastShownAt is nil or older than a short suppress — plan says reminder stays
-  until mail sent, and returns at next interval after donate.
-
-  Interpretation:
-  - Until donated for this cycle: show on every bag open (caller may throttle UI).
-  - After donate: suppress until lastDismissedAt + interval.
+  After mailing the target (lastDismissedAt), the next window opens at
+  lastDismissedAt + intervalSeconds. UI shows the popup while the mailbox
+  is open and hides it on MAIL_CLOSED.
 ]]
 function Reminder.ShouldRemind(now, event, state)
   now = tonumber(now) or 0

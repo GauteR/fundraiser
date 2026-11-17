@@ -85,7 +85,7 @@ L.PRESENCE_EMPTY = "No guild roster data yet."
 
 L.OPTIONS_VERSION_FMT = "Version %s"
 L.OPTIONS_HELP =
-  "Guild fundraiser reminders for Forever. Officers publish an event; members are reminded when opening bags until they mail the designated target. The ledger lives on the donation-target character (all incoming mail + all AH sales) and merges peer-to-peer among officers. That character should be used only for the fundraiser."
+  "Guild fundraiser reminders for Forever. Officers publish an event; members see a reminder beside the mailbox until they mail the designated target. The ledger lives on the donation-target character (all incoming mail + all AH sales) and merges peer-to-peer among officers. That character should be used only for the fundraiser."
 L.OPTIONS_OPEN = "Open Fundraiser"
 
 function Fundraiser:T(key, ...)

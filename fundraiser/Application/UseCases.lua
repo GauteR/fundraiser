@@ -129,7 +129,7 @@ function UC.ShouldShowReminder(deps, now)
   local event = deps.getEvent and deps.getEvent() or nil
   local state = deps.getReminderState and deps.getReminderState() or {}
   local me = deps.getPlayerName and deps.getPlayerName() or nil
-  -- Donation target does not need bag reminders about mailing themselves.
+  -- Donation target does not need mailbox reminders about mailing themselves.
   if event and Roles.IsDonationTarget(event, me) then
     return false, event
   end

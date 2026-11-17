@@ -1,4 +1,4 @@
--- Bootstrap: slash, store, sync, mail, bags, UI.
+-- Bootstrap: slash, store, sync, mail, reminder, UI.
 Fundraiser = Fundraiser or {}
 
 local function Print(message)
@@ -97,8 +97,8 @@ eventFrame:SetScript("OnEvent", function(_, event)
   if Fundraiser.Adapters.Auction then
     Fundraiser.Adapters.Auction:Initialize()
   end
-  if Fundraiser.Adapters.Bags then
-    Fundraiser.Adapters.Bags:Initialize()
+  if Fundraiser.Adapters.MailboxReminder then
+    Fundraiser.Adapters.MailboxReminder:Initialize()
   end
   if Fundraiser.Options and Fundraiser.Options.Initialize then
     Fundraiser.Options:Initialize()

@@ -26,7 +26,7 @@ Adapters/Mail.lua
 Adapters/Auction.lua
 Adapters/AuctionPost.lua
 Adapters/InboxAssist.lua
-Adapters/Bags.lua
+Adapters/MailboxReminder.lua
 Adapters/Debug.lua
 Core.lua
 UI/Reminder.lua
