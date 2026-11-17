@@ -91,6 +91,20 @@ function Sync:BroadcastEvent(event)
   return self:Send(Codec.EncodeEvent(event))
 end
 
+-- Officer broadcast: peers apply local wipe for scope (all|event|ledger|presence).
+function Sync:BroadcastReset(scope)
+  if not cfg().RESET_SYNC then
+    return false
+  end
+  if not (Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi()) then
+    return false
+  end
+  local Codec = Fundraiser.Adapters.Codec
+  local Roster = Fundraiser.Adapters.Roster
+  local publisher = Roster and Roster.GetPlayerName and Roster:GetPlayerName() or ""
+  return self:Send(Codec.EncodeReset(scope or "all", now(), publisher))
+end
+
 -- Originating write or mesh rebroadcast of a stored row (any holder may send).
 function Sync:BroadcastLedgerEntry(entry)
   if not (cfg().LEDGER) then
@@ -165,6 +179,24 @@ function Sync:OnAddonMessage(prefix, message, channel, sender)
   if msg.kind == "EVENT" then
     local rank = Roster:RankIndexOfName(sender)
     UC.AcceptRemoteEvent(storeDeps(), msg, rank)
+    return
+  end
+
+  if msg.kind == "RESET" then
+    if not cfg().RESET_SYNC then
+      return
+    end
+    local rank = Roster:RankIndexOfName(sender)
+    local ok = UC.AcceptRemoteReset({
+      applyReset = function(scope)
+        return Store:ApplyResetScope(scope)
+      end,
+    }, msg.scope, rank)
+    if ok and DEFAULT_CHAT_FRAME and Fundraiser.T then
+      DEFAULT_CHAT_FRAME:AddMessage(
+        Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("CHAT_RESET_APPLIED", tostring(msg.scope), tostring(sender))
+      )
+    end
     return
   end
 

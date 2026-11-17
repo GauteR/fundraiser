@@ -168,6 +168,37 @@ local decoded = Codec.Decode(payload)
 assert_eq(decoded.msgKind, "LEDGER", "msgKind")
 assert_eq(decoded.copper, 10, "codec copper")
 
+-- Codec RESET + AcceptRemoteReset rank gate
+local resetPayload = Codec.EncodeReset("ledger", 123, "Officer One")
+local resetMsg = Codec.Decode(resetPayload)
+assert_eq(resetMsg.kind, "RESET", "reset kind")
+assert_eq(resetMsg.scope, "ledger", "reset scope")
+assert_eq(resetMsg.at, 123, "reset at")
+local applied = false
+local resetOk, resetErr = Fundraiser.Application.UseCases.AcceptRemoteReset({
+  applyReset = function(scope)
+    applied = scope == "ledger"
+    return true
+  end,
+}, "ledger", 1)
+assert_true(resetOk, "officer reset accepted")
+assert_true(applied, "apply called")
+Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK = 1
+resetOk, resetErr = Fundraiser.Application.UseCases.AcceptRemoteReset({
+  applyReset = function()
+    return true
+  end,
+}, "all", 5)
+assert_eq(resetOk, nil, "member reset rejected")
+assert_eq(resetErr, "not_admin", "member reset err")
+resetOk, resetErr = Fundraiser.Application.UseCases.AcceptRemoteReset({
+  applyReset = function()
+    return true
+  end,
+}, "nope", 0)
+assert_eq(resetOk, nil, "bad scope rejected")
+assert_eq(resetErr, "bad_scope", "bad scope err")
+
 -- Forever full names (First Last)
 assert_true(Fundraiser.Domain.Roles.IsFullCharacterName("Jane Doe"), "full name ok")
 assert_true(not Fundraiser.Domain.Roles.IsFullCharacterName("Jane"), "first only rejected")

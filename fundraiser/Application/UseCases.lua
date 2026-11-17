@@ -66,6 +66,28 @@ function UC.AcceptRemoteEvent(deps, event, senderRankIndex)
   return event
 end
 
+-- Officer-only remote wipe (guild addon message). Local apply via deps.applyReset(scope).
+function UC.AcceptRemoteReset(deps, scope, senderRankIndex)
+  local Rank = Domain().Rank
+  local Roles = Domain().Roles
+  local minRank = (Roles and Roles.GetMinAdminRank and Roles.GetMinAdminRank()) or 0
+  if not Rank.IsAdmin(senderRankIndex, minRank) then
+    return nil, "not_admin"
+  end
+  scope = tostring(scope or "all")
+  if scope ~= "all" and scope ~= "event" and scope ~= "ledger" and scope ~= "presence" then
+    return nil, "bad_scope"
+  end
+  if not deps.applyReset then
+    return nil, "no_apply"
+  end
+  local ok, err = deps.applyReset(scope)
+  if ok == nil and err then
+    return nil, err
+  end
+  return true
+end
+
 -- Target-only write of a new ledger row; then replicate to officers.
 function UC.AppendLedgerEntry(deps, fields, actor)
   local Ledger = Domain().Ledger

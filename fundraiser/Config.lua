@@ -5,6 +5,8 @@ Fundraiser.Config = {
   -- Master switch: false disables slash, UI, sync, and reminders.
   ENABLED = true,
   COMM = true,
+  -- Allow officers to broadcast RESET over guild addon messages (best-effort wipe).
+  RESET_SYNC = true,
   -- Reminder popup while the mailbox is open (not bags).
   REMINDER = true,
   ADMIN_UI = true,

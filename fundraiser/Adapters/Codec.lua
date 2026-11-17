@@ -147,6 +147,33 @@ function Codec.DecodeLedgerEntry(payload)
   return entry
 end
 
+-- scope: all | event | ledger | presence
+function Codec.EncodeReset(scope, at, publisher)
+  return table.concat({
+    "RESET",
+    esc(scope or "all"),
+    tostring(at or 0),
+    esc(publisher),
+  }, SEP)
+end
+
+function Codec.DecodeReset(payload)
+  local p = split(payload)
+  if p[1] ~= "RESET" then
+    return nil
+  end
+  local scope = p[2] or "all"
+  if scope ~= "all" and scope ~= "event" and scope ~= "ledger" and scope ~= "presence" then
+    return nil, "bad_scope"
+  end
+  return {
+    kind = "RESET",
+    scope = scope,
+    at = tonumber(p[3]) or 0,
+    publisher = p[4],
+  }
+end
+
 function Codec.EncodeDigest(eventRevision, ledgerCount, ledgerSum, ledgerMaxAt)
   return table.concat({
     "DIGEST",
@@ -181,6 +208,8 @@ function Codec.Decode(payload)
     return Codec.DecodeLedgerEntry(payload)
   elseif kind == "DIGEST" then
     return Codec.DecodeDigest(payload)
+  elseif kind == "RESET" then
+    return Codec.DecodeReset(payload)
   end
   return nil, "unknown"
 end

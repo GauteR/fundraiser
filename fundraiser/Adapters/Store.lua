@@ -154,3 +154,25 @@ function Store:ClearEvent()
   self.db.reminder = {}
   return true
 end
+
+-- scope: all | event | ledger | presence
+function Store:ApplyResetScope(scope)
+  scope = tostring(scope or "all")
+  if scope == "all" then
+    self:ResetAll()
+    return true
+  end
+  if scope == "event" then
+    self:ClearEvent()
+    return true
+  end
+  if scope == "ledger" then
+    self:ClearLedger()
+    return true
+  end
+  if scope == "presence" then
+    self:ClearPresence()
+    return true
+  end
+  return nil, "bad_scope"
+end

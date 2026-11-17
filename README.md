@@ -76,7 +76,7 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 | Status | Settings-style rows: enabled, guild, event, admin access, installed count |
 | Online installs | Scrollable table (name / status / version from HELLO) |
 | Defaults | Settings-style rows with tooltips; Apply saves to `FundraiserDB.settings` |
-| Cleanup (admin) | Reset all data, clear presence / ledger / event — local SavedVariables only; confirm dialog |
+| Cleanup (admin) | Local reset/clear actions; **Broadcast reset** sends guild `RESET\|all` (requires `COMM` + `RESET_SYNC`, rank-gated on receive) |
 | Default reminder interval | Hours; used when publishing without a per-event override / empty interval field |
 | Min admin rank | Global only (0 = GM); not set per event |
 | Open Fundraiser | Shown only when your rank may manage fundraisers |
@@ -91,6 +91,7 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua) for feature flags and comp
 | --- | --- | --- |
 | `ENABLED` | `true` | Master feature flag |
 | `COMM` | `true` | Guild addon messages |
+| `RESET_SYNC` | `true` | Accept/send officer `RESET` wipe messages |
 | `REMINDER` | `true` | Mailbox reminder popup + mail dismiss |
 | `ADMIN_UI` | `true` | Main window |
 | `LEDGER` | `true` | Target logging + officer ledger UI |

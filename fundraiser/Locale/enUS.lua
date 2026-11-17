@@ -148,6 +148,15 @@ L.OPTIONS_TIP_CLEAR_LEDGER_BODY = "Deletes local contribution rows. Peers may re
 L.OPTIONS_TIP_CLEAR_EVENT_TITLE = "Clear event"
 L.OPTIONS_TIP_CLEAR_EVENT_BODY = "Removes the local event snapshot and reminder dismiss state."
 L.OPTIONS_CLEANUP_DONE = "Local cleanup applied."
+L.OPTIONS_BTN_BROADCAST_RESET = "Broadcast reset"
+L.OPTIONS_CONFIRM_BROADCAST_RESET =
+  "Broadcast RESET (all) to the guild? Online peers with the addon will wipe local Fundraiser data if your rank is allowed. Offline peers and later mesh relays may still hold copies."
+L.OPTIONS_TIP_BROADCAST_RESET_TITLE = "Broadcast reset"
+L.OPTIONS_TIP_BROADCAST_RESET_BODY =
+  "Sends a guild addon RESET|all. Receivers apply a local wipe when the sender passes the global min admin rank check. Best-effort only; not cryptographically signed."
+L.OPTIONS_BROADCAST_RESET_SENT = "Broadcast RESET sent to guild."
+L.OPTIONS_BROADCAST_RESET_FAILED = "Could not broadcast RESET (comms off, not admin, or send failed)."
+L.CHAT_RESET_APPLIED = "Applied remote RESET (%s) from %s."
 
 function Fundraiser:T(key, ...)
   local text = (self.L and self.L[key]) or key

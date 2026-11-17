@@ -473,7 +473,7 @@ function Options:Initialize()
 
   -- Admin-only local cleanup (does not wipe other clients' mesh replicas).
   local cleanup = CreateFrame("Frame", "FundraiserOptionsCleanup", content)
-  cleanup:SetSize(CONTENT_WIDTH - 32, 120)
+  cleanup:SetSize(CONTENT_WIDTH - 32, 150)
   cleanup:SetPoint("TOPLEFT", 16, y)
   panel.cleanupFrame = cleanup
 
@@ -560,7 +560,34 @@ function Options:Initialize()
     end)
   end)
 
-  y = y - 130
+  local broadcastReset = CreateFrame("Button", "FundraiserOptionsBroadcastReset", cleanup, "UIPanelButtonTemplate")
+  broadcastReset:SetSize(160, 24)
+  broadcastReset:SetPoint("TOPLEFT", clearLedger, "BOTTOMLEFT", 0, -8)
+  broadcastReset:SetText(Fundraiser:T("OPTIONS_BTN_BROADCAST_RESET"))
+  AttachTooltip(broadcastReset, "OPTIONS_TIP_BROADCAST_RESET_TITLE", "OPTIONS_TIP_BROADCAST_RESET_BODY")
+  broadcastReset:SetScript("OnClick", function()
+    if not (Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi()) then
+      return
+    end
+    ConfirmAction("FUNDRAISER_BROADCAST_RESET", "OPTIONS_CONFIRM_BROADCAST_RESET", function()
+      local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+      local Sync = Fundraiser.Adapters and Fundraiser.Adapters.ThinGuildSync
+      if Store and Store.ApplyResetScope then
+        Store:ApplyResetScope("all")
+      end
+      local sent = Sync and Sync.BroadcastReset and Sync:BroadcastReset("all")
+      AfterLocalDataChange(panel)
+      if DEFAULT_CHAT_FRAME then
+        if sent then
+          DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_BROADCAST_RESET_SENT"))
+        else
+          DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_BROADCAST_RESET_FAILED"))
+        end
+      end
+    end)
+  end)
+
+  y = y - 160
   content:SetHeight(math.abs(y) + 24)
 
   local ok, category = pcall(Settings.RegisterCanvasLayoutCategory, panel, panel.name)
