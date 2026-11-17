@@ -58,8 +58,6 @@ function Window:Ensure()
   f.target = editBox("FundraiserTarget")
   label(Fundraiser:T("LABEL_INTERVAL"))
   f.interval = editBox("FundraiserInterval", 80)
-  label(Fundraiser:T("LABEL_MIN_ADMIN_RANK"))
-  f.minRank = editBox("FundraiserMinRank", 80)
   label(Fundraiser:T("LABEL_GOAL"))
   f.goal = editBox("FundraiserGoal", 400)
 
@@ -79,9 +77,19 @@ function Window:Ensure()
     Window:Refresh()
   end)
 
+  local settingsBtn = CreateFrame("Button", "FundraiserAddonSettingsButton", f, "UIPanelButtonTemplate")
+  settingsBtn:SetSize(120, 24)
+  settingsBtn:SetPoint("LEFT", refresh, "RIGHT", 8, 0)
+  settingsBtn:SetText(Fundraiser:T("BTN_ADDON_SETTINGS"))
+  settingsBtn:SetScript("OnClick", function()
+    if Fundraiser.Options and Fundraiser.Options.Open then
+      Fundraiser.Options:Open()
+    end
+  end)
+
   local targetBtn = CreateFrame("Button", "FundraiserTargetOpenButton", f, "UIPanelButtonTemplate")
   targetBtn:SetSize(140, 24)
-  targetBtn:SetPoint("LEFT", refresh, "RIGHT", 8, 0)
+  targetBtn:SetPoint("TOPLEFT", 16, y - 28)
   targetBtn:SetText(Fundraiser:T("BTN_TARGET_UI"))
   targetBtn:SetScript("OnClick", function()
     if Fundraiser.UI.Target then
@@ -89,7 +97,7 @@ function Window:Ensure()
     end
   end)
   f.targetBtn = targetBtn
-  y = y - 36
+  y = y - 64
 
   label(Fundraiser:T("SECTION_LEDGER"), 20)
   f.ledgerTotal = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -122,13 +130,18 @@ function Window:Publish()
   local Store = Fundraiser.Adapters.Store
   local Roster = Fundraiser.Adapters.Roster
   local UC = Fundraiser.Application.UseCases
-  local hours = tonumber(f.interval:GetText()) or 24
+  local hours = tonumber(f.interval:GetText())
+  local intervalSeconds
+  if hours then
+    intervalSeconds = math.floor(hours * 3600)
+  else
+    intervalSeconds = (Fundraiser.Config and tonumber(Fundraiser.Config.DEFAULT_REMINDER_INTERVAL)) or 86400
+  end
   local fields = {
     name = f.eventName:GetText(),
     target = f.target:GetText(),
     goal = f.goal:GetText(),
-    intervalSeconds = math.floor(hours * 3600),
-    minAdminRank = tonumber(f.minRank:GetText()) or 0,
+    intervalSeconds = intervalSeconds,
   }
   local deps = {
     getEvent = function()
@@ -173,8 +186,10 @@ function Window:Refresh()
     f.eventName:SetText(event.name or "")
     f.target:SetText(event.target or "")
     f.interval:SetText(tostring((event.intervalSeconds or 0) / 3600))
-    f.minRank:SetText(tostring(event.minAdminRank or 0))
     f.goal:SetText(event.goal or "")
+  else
+    local defaultSeconds = (Fundraiser.Config and tonumber(Fundraiser.Config.DEFAULT_REMINDER_INTERVAL)) or 86400
+    f.interval:SetText(tostring(defaultSeconds / 3600))
   end
 
   local Roles = Fundraiser.Domain.Roles
