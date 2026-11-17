@@ -190,7 +190,7 @@ function Debug:PrintPresence()
   local n = 0
   for key, entry in pairs(presence) do
     n = n + 1
-    Print(string.format("  %s → hello=%s ver=%s", tostring(key), tostring(entry.lastHello), tostring(entry.version)))
+    Print(string.format("  %s -> hello=%s ver=%s", tostring(key), tostring(entry.lastHello), tostring(entry.version)))
   end
   if n == 0 then
     Print(Fundraiser:T("CHAT_DEBUG_PRESENCE_EMPTY"))

@@ -115,7 +115,7 @@ local status = Settings.BuildStatus({
 })
 assert_eq(status.enabledKey, "OPTIONS_STATUS_ENABLED_ON", "enabled on key")
 assert_eq(status.guildText, "Test Guild", "guild text")
-assert_eq(status.eventText, "Tabard → Bank Alt", "event text")
+assert_eq(status.eventText, "Tabard -> Bank Alt", "event text")
 assert_eq(status.accessKey, "OPTIONS_STATUS_ACCESS_YES", "access yes")
 
 status = Settings.BuildStatus({

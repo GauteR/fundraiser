@@ -217,7 +217,7 @@ function Window:Refresh()
     else
       local lines = { Fundraiser:T("LEDGER_DEDICATED_HINT") }
       for _, row in ipairs(rows) do
-        lines[#lines + 1] = string.format("[%s] %s %s — %s", row.kind or "?", row.name or "?", row.detail or "", money(row.copper))
+        lines[#lines + 1] = string.format("[%s] %s %s - %s", row.kind or "?", row.name or "?", row.detail or "", money(row.copper))
       end
       f.ledgerBody:SetText(table.concat(lines, "\n"))
     end
@@ -254,7 +254,7 @@ function Window:Refresh()
     local lines = {}
     for _, m in ipairs(missing) do
       local status = m.status == "missing" and Fundraiser:T("STATUS_MISSING") or Fundraiser:T("STATUS_UNKNOWN")
-      lines[#lines + 1] = string.format("%s — %s", m.name, status)
+      lines[#lines + 1] = string.format("%s - %s", m.name, status)
     end
     f.presenceBody:SetText(table.concat(lines, "\n"))
   end

@@ -102,7 +102,8 @@ function Settings.BuildStatus(info)
   end
   if info.eventName and info.eventName ~= "" then
     local target = info.eventTarget or "?"
-    status.eventText = string.format("%s → %s", info.eventName, target)
+    -- ASCII separator: Forever UI fonts often miss Unicode arrows.
+    status.eventText = string.format("%s -> %s", info.eventName, target)
   else
     status.eventKey = "OPTIONS_STATUS_EVENT_NONE"
   end
