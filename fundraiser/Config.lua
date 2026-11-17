@@ -8,6 +8,8 @@ Fundraiser.Config = {
   REMINDER = true,
   ADMIN_UI = true,
   LEDGER = true,
+  -- Solo in-game simulation: /fundraiser debug …
+  DEBUG = true,
 
   ADDON_NAME = "Fundraiser",
   VERSION = "0.1.0",

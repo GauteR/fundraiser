@@ -20,6 +20,7 @@ Adapters/Roster.lua
 Adapters/ThinGuildSync.lua
 Adapters/Mail.lua
 Adapters/Bags.lua
+Adapters/Debug.lua
 Core.lua
 UI/Reminder.lua
 UI/Window.lua

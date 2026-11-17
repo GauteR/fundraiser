@@ -1,0 +1,234 @@
+-- Solo in-game debug helpers (Config.DEBUG). Simulates peer guild messages locally.
+Fundraiser = Fundraiser or {}
+Fundraiser.Adapters = Fundraiser.Adapters or {}
+
+local Debug = {}
+Fundraiser.Adapters.Debug = Debug
+
+local function Print(msg)
+  if DEFAULT_CHAT_FRAME then
+    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. msg)
+  end
+end
+
+local function now()
+  return (GetServerTime and GetServerTime()) or (time and time()) or 0
+end
+
+local function prefix()
+  return (Fundraiser.Config and Fundraiser.Config.COMM_PREFIX) or "Fundraiser"
+end
+
+function Debug:IsEnabled()
+  return Fundraiser:IsEnabled() and Fundraiser.Config and Fundraiser.Config.DEBUG == true
+end
+
+function Debug:Inject(payload, sender)
+  sender = sender or "DebugPeer"
+  local Sync = Fundraiser.Adapters.ThinGuildSync
+  if not Sync or not Sync.OnAddonMessage then
+    Print(Fundraiser:T("CHAT_DEBUG_NO_SYNC"))
+    return false
+  end
+  Sync:OnAddonMessage(prefix(), payload, "GUILD", sender)
+  return true
+end
+
+function Debug:SeedEvent()
+  local Event = Fundraiser.Domain.Event
+  local Store = Fundraiser.Adapters.Store
+  local Roster = Fundraiser.Adapters.Roster
+  local current = Store:GetEvent()
+  local revision = current and ((tonumber(current.revision) or 0) + 1) or 1
+  local target = Roster:GetPlayerName() or "Bankalt"
+  local event, err = Event.Create({
+    id = "debug-event",
+    name = "Debug Tabard Fund",
+    target = target,
+    goal = "Solo debug seed",
+    intervalSeconds = 60,
+    minAdminRank = 1,
+    revision = revision,
+    publishedAt = now(),
+    publisher = "DebugOfficer",
+  })
+  if not event then
+    Print(Fundraiser:T("CHAT_DEBUG_FAIL", tostring(err)))
+    return nil
+  end
+  Store:SetEvent(event)
+  Print(Fundraiser:T("CHAT_DEBUG_SEEDED", event.name, event.target, tostring(event.intervalSeconds)))
+  return event
+end
+
+function Debug:FakeHello(name, guid)
+  name = name or "DebugMember"
+  guid = guid or ("debug-guid-" .. name)
+  local Codec = Fundraiser.Adapters.Codec
+  local version = (Fundraiser.Config and Fundraiser.Config.VERSION) or "0.0.0"
+  if self:Inject(Codec.EncodeHello(version, guid), name) then
+    Print(Fundraiser:T("CHAT_DEBUG_HELLO", name, guid))
+  end
+end
+
+function Debug:FakeEvent(asRank)
+  asRank = tonumber(asRank) or 0
+  local Store = Fundraiser.Adapters.Store
+  local event = Store:GetEvent() or self:SeedEvent()
+  if not event then
+    return
+  end
+  -- Bypass roster lookup: apply with an explicit simulated sender rank.
+  local UC = Fundraiser.Application.UseCases
+  local deps = {
+    getEvent = function()
+      return Store:GetEvent()
+    end,
+    setEvent = function(e)
+      Store:SetEvent(e)
+    end,
+  }
+  -- Bump revision so AcceptRemoteEvent sees a newer snapshot.
+  local copy = {}
+  for k, v in pairs(event) do
+    copy[k] = v
+  end
+  copy.revision = (tonumber(event.revision) or 0) + 1
+  copy.publishedAt = now()
+  copy.publisher = "DebugOfficer"
+  local accepted, err = UC.AcceptRemoteEvent(deps, copy, asRank)
+  if accepted then
+    Print(Fundraiser:T("CHAT_DEBUG_EVENT", accepted.name, tostring(asRank), tostring(accepted.revision)))
+  else
+    Print(Fundraiser:T("CHAT_DEBUG_FAIL", tostring(err)))
+  end
+end
+
+function Debug:FakeDonate(name, copper)
+  name = name or "DebugDonor"
+  copper = tonumber(copper) or 12345
+  local Store = Fundraiser.Adapters.Store
+  local event = Store:GetEvent()
+  if not event then
+    event = self:SeedEvent()
+  end
+  if not event then
+    return
+  end
+  local Codec = Fundraiser.Adapters.Codec
+  local entry = {
+    guid = "debug-guid-" .. name,
+    name = name,
+    eventId = event.id,
+    copper = copper,
+    at = now(),
+  }
+  if self:Inject(Codec.EncodeDonate(entry), name) then
+    Print(Fundraiser:T("CHAT_DEBUG_DONATE", name, Fundraiser.FormatCopper(copper)))
+  end
+end
+
+function Debug:FakeDigest()
+  local Codec = Fundraiser.Adapters.Codec
+  local Store = Fundraiser.Adapters.Store
+  local event = Store:GetEvent()
+  local contribs = Store:GetContributions() or {}
+  local payload = Codec.EncodeDigest(event and event.revision or 0, #contribs)
+  if self:Inject(payload, "DebugPeer") then
+    Print(Fundraiser:T("CHAT_DEBUG_DIGEST", tostring(event and event.revision or 0), tostring(#contribs)))
+  end
+end
+
+function Debug:ShowReminder()
+  local Store = Fundraiser.Adapters.Store
+  local event = Store:GetEvent() or self:SeedEvent()
+  if not event then
+    return
+  end
+  if Fundraiser.UI and Fundraiser.UI.Reminder and Fundraiser.UI.Reminder.ShowForEvent then
+    Fundraiser.UI.Reminder:ShowForEvent(event)
+    Print(Fundraiser:T("CHAT_DEBUG_REMINDER"))
+  end
+end
+
+function Debug:DismissReminder()
+  local Store = Fundraiser.Adapters.Store
+  local event = Store:GetEvent()
+  if not event then
+    Print(Fundraiser:T("CHAT_NO_EVENT"))
+    return
+  end
+  local UC = Fundraiser.Application.UseCases
+  UC.DismissReminder({
+    getReminderState = function()
+      return Store:GetReminderState()
+    end,
+    setReminderState = function(s)
+      Store:SetReminderState(s)
+    end,
+  }, now(), event.id)
+  if Fundraiser.UI and Fundraiser.UI.Reminder and Fundraiser.UI.Reminder.Hide then
+    Fundraiser.UI.Reminder:Hide()
+  end
+  Print(Fundraiser:T("CHAT_DEBUG_DISMISS"))
+end
+
+function Debug:PrintPresence()
+  local Store = Fundraiser.Adapters.Store
+  local presence = Store:GetPresence() or {}
+  local n = 0
+  for key, entry in pairs(presence) do
+    n = n + 1
+    Print(string.format("  %s → hello=%s ver=%s", tostring(key), tostring(entry.lastHello), tostring(entry.version)))
+  end
+  if n == 0 then
+    Print(Fundraiser:T("CHAT_DEBUG_PRESENCE_EMPTY"))
+  else
+    Print(Fundraiser:T("CHAT_DEBUG_PRESENCE", tostring(n)))
+  end
+end
+
+function Debug:Help()
+  Print(Fundraiser:T("CHAT_DEBUG_HELP"))
+end
+
+-- msg is the text after "debug"
+function Debug:Handle(msg)
+  if not self:IsEnabled() then
+    Print(Fundraiser:T("CHAT_DEBUG_OFF"))
+    return
+  end
+  msg = (msg or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  if msg == "" or msg == "help" then
+    self:Help()
+    return
+  end
+
+  local cmd, rest = msg:match("^(%S+)%s*(.*)$")
+  cmd = cmd and cmd:lower() or ""
+  rest = rest or ""
+
+  if cmd == "seed" then
+    self:SeedEvent()
+  elseif cmd == "hello" then
+    local name, guid = rest:match("^(%S+)%s*(%S*)$")
+    self:FakeHello(name ~= "" and name or nil, guid ~= "" and guid or nil)
+  elseif cmd == "event" then
+    local rank = rest:match("^(%d+)")
+    self:FakeEvent(rank)
+  elseif cmd == "donate" then
+    local name, copper = rest:match("^(%S+)%s*(%S*)$")
+    self:FakeDonate(name ~= "" and name or nil, copper)
+  elseif cmd == "digest" then
+    self:FakeDigest()
+  elseif cmd == "reminder" then
+    self:ShowReminder()
+  elseif cmd == "dismiss" then
+    self:DismissReminder()
+  elseif cmd == "presence" then
+    self:PrintPresence()
+  else
+    Print(Fundraiser:T("CHAT_DEBUG_UNKNOWN", cmd))
+    self:Help()
+  end
+end

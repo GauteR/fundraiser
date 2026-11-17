@@ -18,6 +18,10 @@ Fundraiser uses a **thin** hidden guild channel (`SendAddonMessage` / `CHAT_MSG_
 - `DONATE` is treated as **self-attested** (honor system), not proof from the guild bank.
 - SavedVariables (`FundraiserDB`) are a cache; Forever may omit them after cold start — peers rehydrate via HELLO/DIGEST/EVENT when online.
 
+## Solo debug
+
+With `Config.DEBUG = true`, `/fundraiser debug …` injects HELLO/DONATE/DIGEST through `ThinGuildSync:OnAddonMessage`, and `event [rank]` applies a snapshot via `AcceptRemoteEvent` with a simulated rank (roster bypass). See README.
+
 ## Later
 
 When [LibGuildSync](https://github.com/Nedyar/LibGuildSync) is available on CurseForge, it can replace the thin adapter behind the same application ports (see GitHub issue #6).

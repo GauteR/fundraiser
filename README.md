@@ -33,6 +33,23 @@ Officers publish a shared fundraising goal; members get bag reminders until they
 
 Local publish: `./scripts/publish-local.sh` or `scripts/publish-local.ps1`, then `/reload`.
 
+### Solo debug (no other guild clients)
+
+With `Config.DEBUG = true`:
+
+```
+/fundraiser debug help
+/fundraiser debug seed
+/fundraiser debug hello DebugMember
+/fundraiser debug event 0
+/fundraiser debug donate DebugDonor 50000
+/fundraiser debug reminder
+/fundraiser debug dismiss
+/fundraiser debug presence
+```
+
+`event [rank]` applies a newer snapshot with a simulated sender rank (bypasses roster). `hello` / `donate` inject through the same `CHAT_MSG_ADDON` handler as real peers.
+
 ## Usage
 
 1. Log in on a guild character.
@@ -53,6 +70,7 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua):
 | `REMINDER` | `true` | Bag reminder + mail dismiss |
 | `ADMIN_UI` | `true` | Main window |
 | `LEDGER` | `true` | Show ledger totals |
+| `DEBUG` | `true` | Solo sim: `/fundraiser debug …` (set `false` for normal play) |
 | `DEFAULT_REMINDER_INTERVAL` | `86400` | Fallback interval (seconds) |
 | `PRESENCE_STALE` | `600` | HELLO freshness for “missing install” |
 | `SLASH_COMMAND` | `"/fundraiser"` | Slash command |

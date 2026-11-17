@@ -64,9 +64,19 @@ eventFrame:SetScript("OnEvent", function(_, event)
 
   SLASH_FUNDRAISER1 = (Fundraiser.Config and Fundraiser.Config.SLASH_COMMAND) or "/fundraiser"
   SlashCmdList["FUNDRAISER"] = function(msg)
-    msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-    if msg == "status" then
+    msg = (msg or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local lower = msg:lower()
+    if lower == "status" then
       Fundraiser:PrintStatus()
+      return
+    end
+    local debugArg = lower:match("^debug%s*(.*)$")
+    if debugArg ~= nil then
+      if Fundraiser.Adapters.Debug then
+        -- Pass original tail after "debug" to preserve Name casing.
+        local tail = msg:match("^[Dd][Ee][Bb][Uu][Gg]%s*(.*)$") or debugArg
+        Fundraiser.Adapters.Debug:Handle(tail)
+      end
       return
     end
     Fundraiser:ToggleWindow()
