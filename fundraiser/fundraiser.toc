@@ -22,3 +22,5 @@ Adapters/Mail.lua
 Adapters/Bags.lua
 Core.lua
 UI/Reminder.lua
+UI/Window.lua
+UI/Options.lua
