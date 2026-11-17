@@ -1,4 +1,5 @@
--- Options → AddOns → Fundraiser (status + install table + global defaults).
+-- Options → AddOns → Fundraiser.
+-- Blizzard Settings-style canvas: section headers, left labels, right values/controls, scroll.
 Fundraiser = Fundraiser or {}
 Fundraiser.UI = Fundraiser.UI or {}
 Fundraiser.Options = Fundraiser.Options or {}
@@ -7,11 +8,14 @@ local Options = Fundraiser.Options
 local ADDON_FOLDER = "fundraiser"
 
 local COL_NAME_X = 8
-local COL_STATUS_X = 220
-local COL_VERSION_X = 360
-local ROW_HEIGHT = 16
+local COL_STATUS_X = 240
+local COL_VERSION_X = 380
+local ROW_HEIGHT = 18
 local MAX_INSTALL_ROWS = 40
-local INSTALL_SCROLL_HEIGHT = 140
+local INSTALL_TABLE_HEIGHT = 160
+local CONTENT_WIDTH = 560
+local LABEL_WIDTH = 280
+local CONTROL_X = 320
 
 local function GetMeta(field, fallback)
   local value
@@ -37,6 +41,26 @@ local function GetDisplayVersion()
   return "?"
 end
 
+local function AttachTooltip(frame, titleKey, bodyKey)
+  frame:EnableMouse(true)
+  frame:SetScript("OnEnter", function(self)
+    if not GameTooltip then
+      return
+    end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(Fundraiser:T(titleKey), 1, 1, 1)
+    if bodyKey then
+      GameTooltip:AddLine(Fundraiser:T(bodyKey), 1, 0.82, 0, true)
+    end
+    GameTooltip:Show()
+  end)
+  frame:SetScript("OnLeave", function()
+    if GameTooltip then
+      GameTooltip:Hide()
+    end
+  end)
+end
+
 local function StatusLocaleKey(status)
   if status == "installed" then
     return "OPTIONS_INSTALL_STATUS_INSTALLED"
@@ -55,20 +79,25 @@ local function EnsureInstallRow(panel, index)
   end
   local parent = panel.installContent
   row = CreateFrame("Frame", nil, parent)
-  row:SetSize(500, ROW_HEIGHT)
+  row:SetSize(CONTENT_WIDTH - 40, ROW_HEIGHT)
   row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -((index - 1) * ROW_HEIGHT))
 
-  row.nameFS = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  -- Subtle highlight bar like Settings list rows.
+  row.bg = row:CreateTexture(nil, "BACKGROUND")
+  row.bg:SetAllPoints()
+  row.bg:SetColorTexture(1, 1, 1, index % 2 == 0 and 0.03 or 0.06)
+
+  row.nameFS = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   row.nameFS:SetPoint("LEFT", row, "LEFT", COL_NAME_X, 0)
-  row.nameFS:SetWidth(200)
+  row.nameFS:SetWidth(220)
   row.nameFS:SetJustifyH("LEFT")
 
-  row.statusFS = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  row.statusFS = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   row.statusFS:SetPoint("LEFT", row, "LEFT", COL_STATUS_X, 0)
   row.statusFS:SetWidth(130)
   row.statusFS:SetJustifyH("LEFT")
 
-  row.versionFS = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  row.versionFS = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   row.versionFS:SetPoint("LEFT", row, "LEFT", COL_VERSION_X, 0)
   row.versionFS:SetWidth(120)
   row.versionFS:SetJustifyH("LEFT")
@@ -98,8 +127,7 @@ local function RefreshInstallTable(panel, rows)
   for i = n + 1, #(panel.installRows or {}) do
     panel.installRows[i]:Hide()
   end
-  local height = math.max(n * ROW_HEIGHT, 1)
-  panel.installContent:SetHeight(height)
+  panel.installContent:SetHeight(math.max(n * ROW_HEIGHT, 1))
   if panel.installScroll and panel.installScroll.UpdateScrollChildRect then
     panel.installScroll:UpdateScrollChildRect()
   end
@@ -150,36 +178,26 @@ local function RefreshPanel(panel)
   }
   local status = SettingsDomain and SettingsDomain.BuildStatus and SettingsDomain.BuildStatus(info) or {}
 
-  if panel.enabledLabel then
-    panel.enabledLabel:SetText(
-      Fundraiser:T("OPTIONS_STATUS_ENABLED_FMT", Fundraiser:T(status.enabledKey or "OPTIONS_STATUS_ENABLED_OFF"))
-    )
+  if panel.enabledValue then
+    panel.enabledValue:SetText(Fundraiser:T(status.enabledKey or "OPTIONS_STATUS_ENABLED_OFF"))
   end
-  if panel.guildLabel then
-    local guild = status.guildText or Fundraiser:T(status.guildKey or "OPTIONS_STATUS_GUILD_NONE")
-    panel.guildLabel:SetText(Fundraiser:T("OPTIONS_STATUS_GUILD_FMT", guild))
+  if panel.guildValue then
+    panel.guildValue:SetText(status.guildText or Fundraiser:T(status.guildKey or "OPTIONS_STATUS_GUILD_NONE"))
   end
-  if panel.eventLabel then
-    local ev = status.eventText or Fundraiser:T(status.eventKey or "OPTIONS_STATUS_EVENT_NONE")
-    panel.eventLabel:SetText(Fundraiser:T("OPTIONS_STATUS_EVENT_FMT", ev))
+  if panel.eventValue then
+    panel.eventValue:SetText(status.eventText or Fundraiser:T(status.eventKey or "OPTIONS_STATUS_EVENT_NONE"))
   end
-  if panel.accessLabel then
-    panel.accessLabel:SetText(
-      Fundraiser:T("OPTIONS_STATUS_ACCESS_FMT", Fundraiser:T(status.accessKey or "OPTIONS_STATUS_ACCESS_NO"))
-    )
+  if panel.accessValue then
+    panel.accessValue:SetText(Fundraiser:T(status.accessKey or "OPTIONS_STATUS_ACCESS_NO"))
   end
-  if panel.installLabel then
-    local installText
+  if panel.installSummaryValue then
     if status.installKey then
-      installText = Fundraiser:T(status.installKey)
+      panel.installSummaryValue:SetText(Fundraiser:T(status.installKey))
     else
-      installText = Fundraiser:T(
-        "OPTIONS_STATUS_INSTALL_FMT",
-        status.installInstalled or 0,
-        status.installOnline or 0
+      panel.installSummaryValue:SetText(
+        Fundraiser:T("OPTIONS_STATUS_INSTALL_FMT", status.installInstalled or 0, status.installOnline or 0)
       )
     end
-    panel.installLabel:SetText(Fundraiser:T("OPTIONS_STATUS_INSTALL_LABEL_FMT", installText))
   end
 
   RefreshInstallTable(panel, installRows)
@@ -217,6 +235,56 @@ local function ApplySettingsFromPanel(panel)
   RefreshPanel(panel)
 end
 
+local function AddSectionHeader(parent, text, y)
+  local fs = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  fs:SetPoint("TOPLEFT", 16, y)
+  fs:SetText(text)
+  return y - 22
+end
+
+local function AddStatusRow(parent, labelText, y)
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetSize(CONTENT_WIDTH - 32, 22)
+  row:SetPoint("TOPLEFT", 16, y)
+  row.bg = row:CreateTexture(nil, "BACKGROUND")
+  row.bg:SetAllPoints()
+  row.bg:SetColorTexture(1, 1, 1, 0.04)
+
+  local label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  label:SetPoint("LEFT", 8, 0)
+  label:SetWidth(LABEL_WIDTH)
+  label:SetJustifyH("LEFT")
+  label:SetText(labelText)
+
+  local value = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  value:SetPoint("LEFT", CONTROL_X - 16, 0)
+  value:SetWidth(220)
+  value:SetJustifyH("LEFT")
+  return value, y - 24
+end
+
+local function AddEditRow(parent, labelText, tipTitle, tipBody, nameSuffix, y)
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetSize(CONTENT_WIDTH - 32, 26)
+  row:SetPoint("TOPLEFT", 16, y)
+  row.bg = row:CreateTexture(nil, "BACKGROUND")
+  row.bg:SetAllPoints()
+  row.bg:SetColorTexture(1, 1, 1, 0.04)
+
+  local label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  label:SetPoint("LEFT", 8, 0)
+  label:SetWidth(LABEL_WIDTH)
+  label:SetJustifyH("LEFT")
+  label:SetText(labelText)
+  AttachTooltip(row, tipTitle, tipBody)
+
+  local box = CreateFrame("EditBox", "FundraiserOptions" .. nameSuffix, row, "InputBoxTemplate")
+  box:SetSize(80, 20)
+  box:SetPoint("LEFT", CONTROL_X - 16, 0)
+  box:SetAutoFocus(false)
+  return box, y - 28
+end
+
 function Options:Open()
   if not self.category then
     self:Initialize()
@@ -224,7 +292,6 @@ function Options:Open()
   if not self.category or not Settings or not Settings.OpenToCategory then
     return
   end
-  -- Forever/Settings variants accept category object or ID/name.
   local ok = pcall(Settings.OpenToCategory, self.category)
   if not ok then
     local id = self.category.ID or (self.panel and self.panel.name)
@@ -255,127 +322,105 @@ function Options:Initialize()
     RefreshPanel(self)
   end
 
-  local y = -16
+  -- Outer Settings canvas; inner scroll matches Blizzard AddOns option pages.
+  local scroll = CreateFrame("ScrollFrame", "FundraiserOptionsScroll", panel, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 0, -8)
+  scroll:SetPoint("BOTTOMRIGHT", -28, 8)
+  panel.mainScroll = scroll
 
-  local icon = panel:CreateTexture(nil, "ARTWORK")
-  icon:SetSize(48, 48)
-  icon:SetPoint("TOPLEFT", 16, y)
-  icon:SetTexture("Interface\\Icons\\INV_Misc_Coin_01")
+  local content = CreateFrame("Frame", "FundraiserOptionsContent", scroll)
+  content:SetSize(CONTENT_WIDTH, 900)
+  scroll:SetScrollChild(content)
+  panel.content = content
 
-  local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  title:SetPoint("LEFT", icon, "RIGHT", 12, 8)
+  local y = -12
+
+  local title = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  title:SetPoint("TOPLEFT", 16, y)
   title:SetText(panel.name)
 
-  local version = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  local version = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   version:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
   version:SetText(Fundraiser:T("OPTIONS_VERSION_FMT", GetDisplayVersion()))
+  y = y - 40
 
-  y = y - 68
-
-  local help = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  local help = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   help:SetPoint("TOPLEFT", 16, y)
-  help:SetWidth(520)
+  help:SetWidth(CONTENT_WIDTH - 40)
   help:SetJustifyH("LEFT")
   help:SetJustifyV("TOP")
   help:SetWordWrap(true)
   help:SetText(Fundraiser:T("OPTIONS_HELP"))
-  y = y - 40
+  y = y - 36
 
-  local statusHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  statusHeader:SetPoint("TOPLEFT", 16, y)
-  statusHeader:SetText(Fundraiser:T("OPTIONS_SECTION_STATUS"))
-  y = y - 20
+  y = AddSectionHeader(content, Fundraiser:T("OPTIONS_SECTION_STATUS"), y)
+  panel.enabledValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_ENABLED"), y)
+  panel.guildValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_GUILD"), y)
+  panel.eventValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_EVENT"), y)
+  panel.accessValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_ACCESS"), y)
+  panel.installSummaryValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_INSTALL_SUMMARY"), y)
+  y = y - 8
 
-  panel.enabledLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  panel.enabledLabel:SetPoint("TOPLEFT", 16, y)
-  y = y - 18
-  panel.guildLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  panel.guildLabel:SetPoint("TOPLEFT", 16, y)
-  y = y - 18
-  panel.eventLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  panel.eventLabel:SetPoint("TOPLEFT", 16, y)
-  panel.eventLabel:SetWidth(520)
-  panel.eventLabel:SetJustifyH("LEFT")
-  y = y - 18
-  panel.accessLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  panel.accessLabel:SetPoint("TOPLEFT", 16, y)
-  y = y - 18
-  panel.installLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  panel.installLabel:SetPoint("TOPLEFT", 16, y)
-  panel.installLabel:SetWidth(520)
-  panel.installLabel:SetJustifyH("LEFT")
-  y = y - 22
+  y = AddSectionHeader(content, Fundraiser:T("OPTIONS_SECTION_INSTALL"), y)
 
-  local installHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  installHeader:SetPoint("TOPLEFT", 16, y)
-  installHeader:SetText(Fundraiser:T("OPTIONS_SECTION_INSTALL"))
-  y = y - 18
-
-  local colName = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-  colName:SetPoint("TOPLEFT", 16 + COL_NAME_X, y)
+  local colName = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+  colName:SetPoint("TOPLEFT", 24 + COL_NAME_X, y)
   colName:SetText(Fundraiser:T("OPTIONS_INSTALL_COL_NAME"))
-  local colStatus = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-  colStatus:SetPoint("TOPLEFT", 16 + COL_STATUS_X, y)
+  local colStatus = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+  colStatus:SetPoint("TOPLEFT", 24 + COL_STATUS_X, y)
   colStatus:SetText(Fundraiser:T("OPTIONS_INSTALL_COL_STATUS"))
-  local colVersion = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-  colVersion:SetPoint("TOPLEFT", 16 + COL_VERSION_X, y)
+  local colVersion = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+  colVersion:SetPoint("TOPLEFT", 24 + COL_VERSION_X, y)
   colVersion:SetText(Fundraiser:T("OPTIONS_INSTALL_COL_VERSION"))
   y = y - 16
 
-  local scroll = CreateFrame("ScrollFrame", "FundraiserOptionsInstallScroll", panel, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 16, y)
-  scroll:SetSize(520, INSTALL_SCROLL_HEIGHT)
-  panel.installScroll = scroll
+  local installScroll = CreateFrame("ScrollFrame", "FundraiserOptionsInstallScroll", content, "UIPanelScrollFrameTemplate")
+  installScroll:SetPoint("TOPLEFT", 16, y)
+  installScroll:SetSize(CONTENT_WIDTH - 32, INSTALL_TABLE_HEIGHT)
+  panel.installScroll = installScroll
 
-  local content = CreateFrame("Frame", "FundraiserOptionsInstallContent", scroll)
-  content:SetSize(500, 1)
-  scroll:SetScrollChild(content)
-  panel.installContent = content
+  local installContent = CreateFrame("Frame", "FundraiserOptionsInstallContent", installScroll)
+  installContent:SetSize(CONTENT_WIDTH - 48, 1)
+  installScroll:SetScrollChild(installContent)
+  panel.installContent = installContent
   panel.installRows = {}
 
-  panel.installEmpty = content:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-  panel.installEmpty:SetPoint("TOPLEFT", content, "TOPLEFT", COL_NAME_X, 0)
+  panel.installEmpty = installContent:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+  panel.installEmpty:SetPoint("TOPLEFT", installContent, "TOPLEFT", COL_NAME_X, 0)
   panel.installEmpty:SetText(Fundraiser:T("OPTIONS_INSTALL_EMPTY"))
 
-  y = y - INSTALL_SCROLL_HEIGHT - 16
+  y = y - INSTALL_TABLE_HEIGHT - 16
 
-  local settingsHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  settingsHeader:SetPoint("TOPLEFT", 16, y)
-  settingsHeader:SetText(Fundraiser:T("OPTIONS_SECTION_SETTINGS"))
-  y = y - 20
+  y = AddSectionHeader(content, Fundraiser:T("OPTIONS_SECTION_SETTINGS"), y)
+  panel.intervalBox, y = AddEditRow(
+    content,
+    Fundraiser:T("OPTIONS_LABEL_DEFAULT_INTERVAL"),
+    "OPTIONS_TIP_INTERVAL_TITLE",
+    "OPTIONS_TIP_INTERVAL_BODY",
+    "Interval",
+    y
+  )
+  panel.rankBox, y = AddEditRow(
+    content,
+    Fundraiser:T("OPTIONS_LABEL_MIN_ADMIN_RANK"),
+    "OPTIONS_TIP_RANK_TITLE",
+    "OPTIONS_TIP_RANK_BODY",
+    "MinRank",
+    y
+  )
+  y = y - 8
 
-  local intervalLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  intervalLabel:SetPoint("TOPLEFT", 16, y)
-  intervalLabel:SetText(Fundraiser:T("OPTIONS_LABEL_DEFAULT_INTERVAL"))
-  y = y - 18
-  panel.intervalBox = CreateFrame("EditBox", "FundraiserOptionsInterval", panel, "InputBoxTemplate")
-  panel.intervalBox:SetSize(80, 20)
-  panel.intervalBox:SetPoint("TOPLEFT", 16, y)
-  panel.intervalBox:SetAutoFocus(false)
-  y = y - 28
-
-  local rankLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  rankLabel:SetPoint("TOPLEFT", 16, y)
-  rankLabel:SetText(Fundraiser:T("OPTIONS_LABEL_MIN_ADMIN_RANK"))
-  y = y - 18
-  panel.rankBox = CreateFrame("EditBox", "FundraiserOptionsMinRank", panel, "InputBoxTemplate")
-  panel.rankBox:SetSize(80, 20)
-  panel.rankBox:SetPoint("TOPLEFT", 16, y)
-  panel.rankBox:SetAutoFocus(false)
-  y = y - 28
-
-  local applyButton = CreateFrame("Button", "FundraiserOptionsApplyButton", panel, "UIPanelButtonTemplate")
+  local applyButton = CreateFrame("Button", "FundraiserOptionsApplyButton", content, "UIPanelButtonTemplate")
   applyButton:SetSize(120, 24)
   applyButton:SetPoint("TOPLEFT", 16, y)
   applyButton:SetText(Fundraiser:T("OPTIONS_APPLY"))
   applyButton:SetScript("OnClick", function()
     ApplySettingsFromPanel(panel)
   end)
-  y = y - 36
 
-  panel.openButton = CreateFrame("Button", "FundraiserOptionsOpenButton", panel, "UIPanelButtonTemplate")
+  panel.openButton = CreateFrame("Button", "FundraiserOptionsOpenButton", content, "UIPanelButtonTemplate")
   panel.openButton:SetSize(160, 24)
-  panel.openButton:SetPoint("TOPLEFT", 16, y)
+  panel.openButton:SetPoint("LEFT", applyButton, "RIGHT", 8, 0)
   panel.openButton:SetText(Fundraiser:T("OPTIONS_OPEN"))
   panel.openButton:SetScript("OnClick", function()
     if SettingsPanel and HideUIPanel then
@@ -385,6 +430,9 @@ function Options:Initialize()
       Fundraiser:ToggleWindow()
     end
   end)
+  y = y - 40
+
+  content:SetHeight(math.abs(y) + 24)
 
   local ok, category = pcall(Settings.RegisterCanvasLayoutCategory, panel, panel.name)
   if not ok or not category then
