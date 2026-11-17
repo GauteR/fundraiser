@@ -18,4 +18,7 @@ Adapters/Codec.lua
 Adapters/Store.lua
 Adapters/Roster.lua
 Adapters/ThinGuildSync.lua
+Adapters/Mail.lua
+Adapters/Bags.lua
 Core.lua
+UI/Reminder.lua
