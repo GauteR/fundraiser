@@ -192,6 +192,49 @@ status = Settings.BuildStatus({
 })
 assert_eq(status.installKey, "OPTIONS_STATUS_INSTALL_NONE", "no guild install key")
 
+-- Store cleanup: ResetAll / ClearPresence / ClearLedger / ClearEvent
+Fundraiser.ConfigFileDefaults = {
+  DEFAULT_REMINDER_INTERVAL = 86400,
+  DEFAULT_MIN_ADMIN_RANK = 1,
+}
+_G.FundraiserDB = {
+  event = { name = "X", target = "Bank Alt" },
+  contributions = { { id = "1" } },
+  presence = { g1 = { lastHello = 1 } },
+  reminder = { lastDismissedAt = 1 },
+  settings = { defaultReminderInterval = 900, defaultMinAdminRank = 3 },
+}
+Fundraiser.Config.DEFAULT_REMINDER_INTERVAL = 900
+Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK = 3
+Store.db = nil
+Store:Load()
+assert_eq(Store:GetEvent().name, "X", "loaded event before reset")
+Store:ClearPresence()
+assert_eq(next(Store:GetPresence()), nil, "presence cleared")
+Store:ClearLedger()
+assert_eq(#Store:GetContributions(), 0, "ledger cleared")
+Store:ClearEvent()
+assert_eq(Store:GetEvent(), nil, "event cleared")
+assert_eq(next(Store:GetReminderState()) == nil, true, "reminder cleared with event")
+
+_G.FundraiserDB = {
+  event = { name = "Y" },
+  contributions = { { id = "2" } },
+  presence = { g2 = { lastHello = 2 } },
+  reminder = { x = 1 },
+  settings = { defaultReminderInterval = 1200, defaultMinAdminRank = 4 },
+}
+Store.db = nil
+Store:Load()
+Store:ResetAll()
+assert_eq(Store:GetEvent(), nil, "reset clears event")
+assert_eq(#Store:GetContributions(), 0, "reset clears ledger")
+assert_eq(next(Store:GetPresence()), nil, "reset clears presence")
+assert_eq(Store:GetSettings().defaultReminderInterval, 86400, "reset settings fall back to file")
+assert_eq(Store:GetSettings().defaultMinAdminRank, 1, "reset settings rank fall back")
+assert_eq(Fundraiser.Config.DEFAULT_REMINDER_INTERVAL, 86400, "reset restores config interval")
+assert_eq(Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK, 1, "reset restores config rank")
+
 if failed > 0 then
   io.stderr:write(failed .. " failure(s)\n")
   os.exit(1)

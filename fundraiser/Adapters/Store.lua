@@ -110,3 +110,47 @@ function Store:SetReminderState(state)
   self.db = self.db or self:Load()
   self.db.reminder = state or {}
 end
+
+function Store:RestoreConfigFileDefaults()
+  local cfg = Fundraiser.Config
+  local file = Fundraiser.ConfigFileDefaults
+  if not cfg or not file then
+    return
+  end
+  if file.DEFAULT_REMINDER_INTERVAL ~= nil then
+    cfg.DEFAULT_REMINDER_INTERVAL = file.DEFAULT_REMINDER_INTERVAL
+  end
+  if file.DEFAULT_MIN_ADMIN_RANK ~= nil then
+    cfg.DEFAULT_MIN_ADMIN_RANK = file.DEFAULT_MIN_ADMIN_RANK
+  end
+end
+
+-- Wipe SavedVariables to empty defaults and restore Config file defaults for Options overlays.
+function Store:ResetAll()
+  local name = (Fundraiser.Config and Fundraiser.Config.SAVED_VARIABLE) or "FundraiserDB"
+  local db = emptyDb()
+  _G[name] = db
+  self.db = db
+  self:RestoreConfigFileDefaults()
+  self:ApplySettingsToConfig()
+  return db
+end
+
+function Store:ClearPresence()
+  self.db = self.db or self:Load()
+  self.db.presence = {}
+  return self.db.presence
+end
+
+function Store:ClearLedger()
+  self.db = self.db or self:Load()
+  self.db.contributions = {}
+  return self.db.contributions
+end
+
+function Store:ClearEvent()
+  self.db = self.db or self:Load()
+  self.db.event = nil
+  self.db.reminder = {}
+  return true
+end

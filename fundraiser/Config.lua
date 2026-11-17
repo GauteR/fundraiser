@@ -39,3 +39,9 @@ Fundraiser.Config = {
   -- SavedVariables global name (also listed in TOC).
   SAVED_VARIABLE = "FundraiserDB",
 }
+
+-- Snapshot of file defaults for Options "reset" (Config may be overlaid at runtime).
+Fundraiser.ConfigFileDefaults = {
+  DEFAULT_REMINDER_INTERVAL = Fundraiser.Config.DEFAULT_REMINDER_INTERVAL,
+  DEFAULT_MIN_ADMIN_RANK = Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK,
+}

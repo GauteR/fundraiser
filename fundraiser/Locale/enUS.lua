@@ -126,6 +126,28 @@ L.OPTIONS_TIP_RANK_BODY =
 L.OPTIONS_APPLY = "Apply"
 L.OPTIONS_SAVE_FAILED = "Could not save settings (%s)."
 L.OPTIONS_OPEN = "Open Fundraiser"
+L.OPTIONS_SECTION_CLEANUP = "Cleanup (admin)"
+L.OPTIONS_CLEANUP_HELP =
+  "These actions clear data on this character only. Other clients keep their own SavedVariables until they reset too."
+L.OPTIONS_BTN_RESET_ALL = "Reset all data"
+L.OPTIONS_BTN_CLEAR_PRESENCE = "Clear presence"
+L.OPTIONS_BTN_CLEAR_LEDGER = "Clear ledger"
+L.OPTIONS_BTN_CLEAR_EVENT = "Clear event"
+L.OPTIONS_CONFIRM_RESET_ALL =
+  "Reset all Fundraiser SavedVariables on this character (event, ledger, presence, reminder, settings)?"
+L.OPTIONS_CONFIRM_CLEAR_PRESENCE = "Clear local install-presence (HELLO) cache?"
+L.OPTIONS_CONFIRM_CLEAR_LEDGER = "Clear the local ledger replica on this character?"
+L.OPTIONS_CONFIRM_CLEAR_EVENT = "Clear the local active event and reminder state?"
+L.OPTIONS_TIP_RESET_ALL_TITLE = "Reset all data"
+L.OPTIONS_TIP_RESET_ALL_BODY =
+  "Wipes FundraiserDB on this character and restores default interval/rank from Config.lua."
+L.OPTIONS_TIP_CLEAR_PRESENCE_TITLE = "Clear presence"
+L.OPTIONS_TIP_CLEAR_PRESENCE_BODY = "Removes cached HELLO rows used for the online installs table."
+L.OPTIONS_TIP_CLEAR_LEDGER_TITLE = "Clear ledger"
+L.OPTIONS_TIP_CLEAR_LEDGER_BODY = "Deletes local contribution rows. Peers may re-mesh data if they still hold copies."
+L.OPTIONS_TIP_CLEAR_EVENT_TITLE = "Clear event"
+L.OPTIONS_TIP_CLEAR_EVENT_BODY = "Removes the local event snapshot and reminder dismiss state."
+L.OPTIONS_CLEANUP_DONE = "Local cleanup applied."
 
 function Fundraiser:T(key, ...)
   local text = (self.L and self.L[key]) or key

@@ -215,6 +215,45 @@ local function RefreshPanel(panel)
       panel.openButton:Hide()
     end
   end
+
+  if panel.cleanupFrame then
+    if canOpen then
+      panel.cleanupFrame:Show()
+    else
+      panel.cleanupFrame:Hide()
+    end
+  end
+end
+
+local function ConfirmAction(dialogKey, textKey, onAccept)
+  if StaticPopupDialogs and StaticPopup_Show then
+    StaticPopupDialogs[dialogKey] = {
+      text = Fundraiser:T(textKey),
+      button1 = YES or ACCEPT or "Yes",
+      button2 = NO or CANCEL or "No",
+      OnAccept = onAccept,
+      timeout = 0,
+      whileDead = 1,
+      hideOnEscape = 1,
+      preferredIndex = 3,
+    }
+    StaticPopup_Show(dialogKey)
+    return
+  end
+  onAccept()
+end
+
+local function AfterLocalDataChange(panel)
+  if Fundraiser.UI and Fundraiser.UI.Window and Fundraiser.UI.Window.Refresh then
+    Fundraiser.UI.Window:Refresh()
+  end
+  if Fundraiser.UI and Fundraiser.UI.Reminder and Fundraiser.UI.Reminder.Hide then
+    Fundraiser.UI.Reminder:Hide()
+  end
+  RefreshPanel(panel)
+  if DEFAULT_CHAT_FRAME then
+    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_CLEANUP_DONE"))
+  end
 end
 
 local function ApplySettingsFromPanel(panel)
@@ -430,8 +469,98 @@ function Options:Initialize()
       Fundraiser:ToggleWindow()
     end
   end)
-  y = y - 40
+  y = y - 36
 
+  -- Admin-only local cleanup (does not wipe other clients' mesh replicas).
+  local cleanup = CreateFrame("Frame", "FundraiserOptionsCleanup", content)
+  cleanup:SetSize(CONTENT_WIDTH - 32, 120)
+  cleanup:SetPoint("TOPLEFT", 16, y)
+  panel.cleanupFrame = cleanup
+
+  local cleanupHeader = cleanup:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  cleanupHeader:SetPoint("TOPLEFT", 0, 0)
+  cleanupHeader:SetText(Fundraiser:T("OPTIONS_SECTION_CLEANUP"))
+
+  local cleanupHelp = cleanup:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  cleanupHelp:SetPoint("TOPLEFT", 0, -20)
+  cleanupHelp:SetWidth(CONTENT_WIDTH - 40)
+  cleanupHelp:SetJustifyH("LEFT")
+  cleanupHelp:SetWordWrap(true)
+  cleanupHelp:SetText(Fundraiser:T("OPTIONS_CLEANUP_HELP"))
+
+  local resetAll = CreateFrame("Button", "FundraiserOptionsResetAll", cleanup, "UIPanelButtonTemplate")
+  resetAll:SetSize(140, 24)
+  resetAll:SetPoint("TOPLEFT", 0, -52)
+  resetAll:SetText(Fundraiser:T("OPTIONS_BTN_RESET_ALL"))
+  AttachTooltip(resetAll, "OPTIONS_TIP_RESET_ALL_TITLE", "OPTIONS_TIP_RESET_ALL_BODY")
+  resetAll:SetScript("OnClick", function()
+    if not (Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi()) then
+      return
+    end
+    ConfirmAction("FUNDRAISER_RESET_ALL", "OPTIONS_CONFIRM_RESET_ALL", function()
+      local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+      if Store and Store.ResetAll then
+        Store:ResetAll()
+      end
+      AfterLocalDataChange(panel)
+    end)
+  end)
+
+  local clearPresence = CreateFrame("Button", "FundraiserOptionsClearPresence", cleanup, "UIPanelButtonTemplate")
+  clearPresence:SetSize(140, 24)
+  clearPresence:SetPoint("LEFT", resetAll, "RIGHT", 8, 0)
+  clearPresence:SetText(Fundraiser:T("OPTIONS_BTN_CLEAR_PRESENCE"))
+  AttachTooltip(clearPresence, "OPTIONS_TIP_CLEAR_PRESENCE_TITLE", "OPTIONS_TIP_CLEAR_PRESENCE_BODY")
+  clearPresence:SetScript("OnClick", function()
+    if not (Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi()) then
+      return
+    end
+    ConfirmAction("FUNDRAISER_CLEAR_PRESENCE", "OPTIONS_CONFIRM_CLEAR_PRESENCE", function()
+      local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+      if Store and Store.ClearPresence then
+        Store:ClearPresence()
+      end
+      AfterLocalDataChange(panel)
+    end)
+  end)
+
+  local clearLedger = CreateFrame("Button", "FundraiserOptionsClearLedger", cleanup, "UIPanelButtonTemplate")
+  clearLedger:SetSize(140, 24)
+  clearLedger:SetPoint("TOPLEFT", resetAll, "BOTTOMLEFT", 0, -8)
+  clearLedger:SetText(Fundraiser:T("OPTIONS_BTN_CLEAR_LEDGER"))
+  AttachTooltip(clearLedger, "OPTIONS_TIP_CLEAR_LEDGER_TITLE", "OPTIONS_TIP_CLEAR_LEDGER_BODY")
+  clearLedger:SetScript("OnClick", function()
+    if not (Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi()) then
+      return
+    end
+    ConfirmAction("FUNDRAISER_CLEAR_LEDGER", "OPTIONS_CONFIRM_CLEAR_LEDGER", function()
+      local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+      if Store and Store.ClearLedger then
+        Store:ClearLedger()
+      end
+      AfterLocalDataChange(panel)
+    end)
+  end)
+
+  local clearEvent = CreateFrame("Button", "FundraiserOptionsClearEvent", cleanup, "UIPanelButtonTemplate")
+  clearEvent:SetSize(140, 24)
+  clearEvent:SetPoint("LEFT", clearLedger, "RIGHT", 8, 0)
+  clearEvent:SetText(Fundraiser:T("OPTIONS_BTN_CLEAR_EVENT"))
+  AttachTooltip(clearEvent, "OPTIONS_TIP_CLEAR_EVENT_TITLE", "OPTIONS_TIP_CLEAR_EVENT_BODY")
+  clearEvent:SetScript("OnClick", function()
+    if not (Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi()) then
+      return
+    end
+    ConfirmAction("FUNDRAISER_CLEAR_EVENT", "OPTIONS_CONFIRM_CLEAR_EVENT", function()
+      local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+      if Store and Store.ClearEvent then
+        Store:ClearEvent()
+      end
+      AfterLocalDataChange(panel)
+    end)
+  end)
+
+  y = y - 130
   content:SetHeight(math.abs(y) + 24)
 
   local ok, category = pcall(Settings.RegisterCanvasLayoutCategory, panel, panel.name)

@@ -76,6 +76,7 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 | Status | Settings-style rows: enabled, guild, event, admin access, installed count |
 | Online installs | Scrollable table (name / status / version from HELLO) |
 | Defaults | Settings-style rows with tooltips; Apply saves to `FundraiserDB.settings` |
+| Cleanup (admin) | Reset all data, clear presence / ledger / event — local SavedVariables only; confirm dialog |
 | Default reminder interval | Hours; used when publishing without a per-event override / empty interval field |
 | Min admin rank | Global only (0 = GM); not set per event |
 | Open Fundraiser | Shown only when your rank may manage fundraisers |
