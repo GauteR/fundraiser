@@ -10,4 +10,8 @@ Officers set a shared fundraising goal; members get bag reminders until they mai
 | Slash command | `/fundraiser` |
 | Language | English (UI and docs) |
 
-See upcoming docs after scaffold.
+| Doc | Purpose |
+| --- | --- |
+| [`CHANGELOG.md`](CHANGELOG.md) | Keep a Changelog (CurseForge webhook reads repo root) |
+
+See upcoming docs after full scaffold.
