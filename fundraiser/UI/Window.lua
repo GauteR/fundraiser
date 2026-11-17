@@ -78,6 +78,17 @@ function Window:Ensure()
   refresh:SetScript("OnClick", function()
     Window:Refresh()
   end)
+
+  local targetBtn = CreateFrame("Button", "FundraiserTargetOpenButton", f, "UIPanelButtonTemplate")
+  targetBtn:SetSize(140, 24)
+  targetBtn:SetPoint("LEFT", refresh, "RIGHT", 8, 0)
+  targetBtn:SetText(Fundraiser:T("BTN_TARGET_UI"))
+  targetBtn:SetScript("OnClick", function()
+    if Fundraiser.UI.Target then
+      Fundraiser.UI.Target:Toggle()
+    end
+  end)
+  f.targetBtn = targetBtn
   y = y - 36
 
   label(Fundraiser:T("SECTION_LEDGER"), 20)
@@ -196,6 +207,17 @@ function Window:Refresh()
   else
     f.ledgerTotal:SetText("")
     f.ledgerBody:SetText(Fundraiser:T("LEDGER_OFFICER_ONLY"))
+  end
+
+  if f.targetBtn then
+    local showTarget = Fundraiser.Config.TARGET_UI
+      and event
+      and Roles.IsDonationTarget(event, Roster:GetPlayerName())
+    if showTarget then
+      f.targetBtn:Show()
+    else
+      f.targetBtn:Hide()
+    end
   end
 
   local now = (GetServerTime and GetServerTime()) or (time and time()) or 0

@@ -18,6 +18,7 @@ Officers publish a shared fundraising goal; members get bag reminders until they
 - Bag-open reminder for members until mail is sent to the target
 - Ledger on the **donation-target** character only for writes; officers hold merged replicas
 - Logs incoming mailbox money/items and **all** AH sales on that character
+- Target inbox assist (`/fundraiser target`): per-sender stacks, TSM→Auctionator→manual price, vendor vs AH advice, one AH post per stack
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST`) — see [`docs/SYNC.md`](docs/SYNC.md)
 - Options → AddOns → Fundraiser panel
 - Pure Lua unit tests
@@ -58,7 +59,7 @@ With `Config.DEBUG = true`:
 
 1. Officers: `/fundraiser` → fill event fields → **Publish event** (target = dedicated fundraiser alt).
 2. Members open bags to see reminders when due; mailing the target clears the interval.
-3. On the target alt: open mailbox / sell on AH — rows appear in the officer ledger after sync.
+3. On the target alt: open mailbox → `/fundraiser target` (or **Target inbox assist**) → Post AH / Vendor per stack; AH sales also hit the ledger.
 
 Close windows with the frame X or Escape (`UISpecialFrames`).
 
@@ -73,6 +74,9 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua):
 | `REMINDER` | `true` | Bag reminder + mail dismiss |
 | `ADMIN_UI` | `true` | Main window |
 | `LEDGER` | `true` | Target logging + officer ledger UI |
+| `TARGET_UI` | `true` | Donation-target inbox assist window |
+| `AH_ASSIST` | `true` | AH/vendor actions from target UI |
+| `TSM_PRICE_SOURCE` | `"DBMinBuyout"` | TSM price key for min AH reference |
 | `DEBUG` | `true` | Solo sim: `/fundraiser debug …` |
 | `DEFAULT_REMINDER_INTERVAL` | `86400` | Fallback interval (seconds) |
 | `PRESENCE_STALE` | `600` | HELLO freshness for “missing install” |

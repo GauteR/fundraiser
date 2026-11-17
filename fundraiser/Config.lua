@@ -8,12 +8,20 @@ Fundraiser.Config = {
   REMINDER = true,
   ADMIN_UI = true,
   LEDGER = true,
+  TARGET_UI = true,
+  AH_ASSIST = true,
   -- Solo in-game simulation: /fundraiser debug …
   DEBUG = true,
 
   ADDON_NAME = "Fundraiser",
   VERSION = "0.1.0",
   SLASH_COMMAND = "/fundraiser",
+
+  -- TSM custom price for "lowest" AH reference (fallback: Auctionator, then manual).
+  TSM_PRICE_SOURCE = "DBMinBuyout",
+  AH_CUT_FRACTION = 0.05,
+  AH_DURATION = 2,
+  AH_UNDERCUT_COPPER = 0,
 
   -- Addon message prefix (max 16 characters on Classic-era clients).
   COMM_PREFIX = "Fundraiser",

@@ -70,6 +70,12 @@ eventFrame:SetScript("OnEvent", function(_, event)
       Fundraiser:PrintStatus()
       return
     end
+    if lower == "target" then
+      if Fundraiser.Config.TARGET_UI and Fundraiser.UI.Target then
+        Fundraiser.UI.Target:Toggle()
+      end
+      return
+    end
     local debugArg = lower:match("^debug%s*(.*)$")
     if debugArg ~= nil then
       if Fundraiser.Adapters.Debug then

@@ -9,6 +9,7 @@ dofile(repo .. "/fundraiser/Domain/Rank.lua")
 dofile(repo .. "/fundraiser/Domain/Roles.lua")
 dofile(repo .. "/fundraiser/Domain/Reminder.lua")
 dofile(repo .. "/fundraiser/Domain/Ledger.lua")
+dofile(repo .. "/fundraiser/Domain/SaleAdvice.lua")
 dofile(repo .. "/fundraiser/Application/UseCases.lua")
 dofile(repo .. "/fundraiser/Adapters/Codec.lua")
 
@@ -133,6 +134,14 @@ local payload = Codec.EncodeLedgerEntry(entry)
 local decoded = Codec.Decode(payload)
 assert_eq(decoded.msgKind, "LEDGER", "msgKind")
 assert_eq(decoded.copper, 10, "codec copper")
+
+-- SaleAdvice vendor vs AH
+local advice = Fundraiser.Domain.SaleAdvice.Recommend(100, 100, 1, 0.05)
+assert_eq(advice, "vendor", "vendor wins vs cut AH")
+advice = Fundraiser.Domain.SaleAdvice.Recommend(10, 100, 1, 0.05)
+assert_eq(advice, "ah", "ah wins")
+advice = Fundraiser.Domain.SaleAdvice.Recommend(nil, nil, 1, 0.05)
+assert_eq(advice, "manual", "manual when no prices")
 
 if failed > 0 then
   io.stderr:write(failed .. " failure(s)\n")
