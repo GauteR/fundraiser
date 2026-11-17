@@ -96,20 +96,16 @@ function UC.AppendLedgerEntry(deps, fields, actor)
   return entry, changed
 end
 
--- Officer/target merge of a remote replica (id union).
-function UC.MergeRemoteLedger(deps, remoteEntries, senderName, senderRankIndex)
+-- Mesh merge: every installed client stores the id-union replica.
+-- UI still gates view via Roles.CanViewLedger. Addon messages are not signed;
+-- a malicious peer can forge rows (documented in SYNC.md).
+function UC.MergeRemoteLedger(deps, remoteEntries, senderName, _senderRankIndex)
   local Ledger = Domain().Ledger
-  local Roles = Domain().Roles
   local event = deps.getEvent and deps.getEvent() or nil
   if not event then
     return nil, "no_event"
   end
-  local me = deps.getPlayerName and deps.getPlayerName() or nil
-  local myRank = deps.getPlayerRankIndex and deps.getPlayerRankIndex() or nil
-  if not Roles.CanViewLedger(event, myRank, me) then
-    return nil, "no_access"
-  end
-  if not Roles.CanAcceptLedgerFrom(event, senderName, senderRankIndex) then
+  if not senderName or tostring(senderName) == "" then
     return nil, "bad_sender"
   end
   local localList = (deps.getContributions and deps.getContributions()) or {}

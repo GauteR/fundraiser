@@ -6,19 +6,25 @@ Fundraiser uses a **thin** hidden guild channel (`SendAddonMessage` / `CHAT_MSG_
 
 | Who | Data |
 | --- | --- |
-| All members | `EVENT` + mailbox reminder until they mail the designated target |
-| Donation target character | Writes ledger rows (incoming mail + **all** AH sales) into local SavedVariables, then broadcasts |
-| Officers (`rank <= minAdminRank`) | Replica of the ledger via peer merge; UI access |
+| All members with the addon | `EVENT`, mailbox reminder, and a **ledger mesh replica** (store + relay) |
+| Donation target character | Writes ledger rows (incoming mail + **all** AH sales), then broadcasts |
+| Officers (`rank <= minAdminRank`) + donation target | May **view** the ledger in UI |
 
 **Important:** The donation-target character should be used **only** for this fundraiser (mail intake + AH). Personal AH on that alt will be logged as fundraiser income.
+
+## Ledger mesh
+
+Every installed client keeps the same id-union replica and will push a snapshot when peers say `HELLO` / when `DIGEST` shows they are behind. Officers do **not** all need to be online for the mesh to move data — any online member with rows can relay.
+
+**UI gate only:** members without view access still store/relay; they do not see ledger totals in the admin window. This is **not** encryption. A modified addon or inspection of local data can read plaintext rows.
 
 ## Messages
 
 | Kind | Purpose |
 | --- | --- |
-| `HELLO` | Presence; officers/target may push full ledger snapshot |
+| `HELLO` | Presence; any peer holding rows may push a full ledger snapshot |
 | `EVENT` | Officer event snapshot (revisioned; receive-side rank check) |
-| `LEDGER` | Single ledger row (`mail` or `ah`) |
+| `LEDGER` | Single ledger row (`mail` or `ah`); all clients merge into local store |
 | `DIGEST` | Event revision + ledger fingerprint (count/sum/maxAt) |
 
 ## Ledger merge
@@ -29,12 +35,13 @@ Replicas merge by **entry id** (union). Same id → newer `at` wins (then higher
 
 - Addon messages are not cryptographically signed.
 - `EVENT` requires sender guild rank `<= minAdminRank`.
-- `LEDGER` accepted from the donation target **or** an officer; only officers/target store & view.
-- Members never write ledger rows (sending mail only dismisses their reminder).
+- `LEDGER` rows are accepted from any guild peer for mesh storage (so relays work). A malicious member can forge rows — treat the ledger as guild-trusted, not secret.
+- Only the donation target **writes** new rows from mail/AH; members only dismiss reminders when they send mail.
+- Viewing remains `Roles.CanViewLedger` (target or `rank <= minAdminRank`).
 
 ## Solo debug
 
-`Config.DEBUG = true` → `/fundraiser debug …` (see README).
+`Config.DEBUG = true` → `/fundraiser debug …` (see README). Use `debug member` / `asrank` to confirm UI refusal while mesh store still applies.
 
 ## Later
 

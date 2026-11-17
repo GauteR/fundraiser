@@ -135,6 +135,32 @@ local merged2, changed = Fundraiser.Application.UseCases.MergeRemoteLedger({
 assert_true(changed, "merged remote")
 assert_true(#merged2 >= 2, "rows after merge")
 
+-- Mesh: non-officer member still stores relayed rows (UI view stays gated separately).
+local memberList = {}
+local memberRemote = {
+  Fundraiser.Domain.Ledger.CreateEntry({ kind = "mail", name = "Donor2", copper = 42, eventId = ev.id, at = 11, detail = "relay" }),
+}
+local mergedMember, memberChanged = Fundraiser.Application.UseCases.MergeRemoteLedger({
+  getEvent = function()
+    return ev
+  end,
+  getContributions = function()
+    return memberList
+  end,
+  setContributions = function(list)
+    memberList = list
+  end,
+  getPlayerName = function()
+    return "Grunt"
+  end,
+  getPlayerRankIndex = function()
+    return 5
+  end,
+}, memberRemote, "Some Relay", 5)
+assert_true(memberChanged, "member mesh store")
+assert_eq(#mergedMember, 1, "member holds relayed row")
+assert_true(not Fundraiser.Domain.Roles.CanViewLedger(ev, 5, "Grunt"), "member still no UI view")
+
 -- Codec ledger
 local Codec = Fundraiser.Adapters.Codec
 local payload = Codec.EncodeLedgerEntry(entry)

@@ -2,7 +2,7 @@
 
 Guild donation reminders for **World of Warcraft: Forever**.
 
-Officers publish a shared fundraising goal; members see a reminder beside the mailbox until they mail the designated recipient. The **ledger** is written on the donation-target character (incoming mail + all AH sales) and merged peer-to-peer among officers.
+Officers publish a shared fundraising goal; members see a reminder beside the mailbox until they mail the designated recipient. The **ledger** is written on the donation-target character (incoming mail + all AH sales) and **meshed** across every installed client; only officers and the target may view it in the UI (not encrypted).
 
 | | |
 | --- | --- |
@@ -16,7 +16,7 @@ Officers publish a shared fundraising goal; members see a reminder beside the ma
 - Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `REMINDER`, `ADMIN_UI`, `LEDGER`, `DEBUG`
 - Officer-published event (name, mail target, reminder interval, min admin rank)
 - Mailbox reminder for members (beside the mail window) until mail is sent to the target
-- Ledger on the **donation-target** character only for writes; officers hold merged replicas
+- Ledger writes on the **donation-target** only; all clients store/relay the mesh; officers + target view in UI
 - Logs incoming mailbox money/items and **all** AH sales on that character
 - Target inbox assist (`/fundraiser target`): per-sender stacks, TSM→Auctionator→manual price, vendor vs AH advice, one AH post per stack
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST`) — see [`docs/SYNC.md`](docs/SYNC.md)

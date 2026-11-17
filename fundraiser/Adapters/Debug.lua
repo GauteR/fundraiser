@@ -131,7 +131,7 @@ function Debug:FakeLedger(kind, name, copper, detail)
     return
   end
   local Codec = Fundraiser.Adapters.Codec
-  -- Inject as if sent by the donation target so officers accept the merge.
+  -- Mesh accepts any guild peer as relay sender; use target name for realism.
   local sender = event.target or name
   if self:Inject(Codec.EncodeLedgerEntry(entry), sender) then
     Print(Fundraiser:T("CHAT_DEBUG_LEDGER", kind, name, Fundraiser.FormatCopper(copper)))
