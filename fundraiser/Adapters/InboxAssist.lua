@@ -36,7 +36,7 @@ function InboxAssist:Scan()
   for mailIndex = 1, n do
     local _, _, sender = GetInboxHeaderInfo(mailIndex)
     if sender then
-      sender = sender:match("^([^%-]+)") or sender
+      sender = Fundraiser.Domain.Roles.DisplayName(sender) or sender
       for attachIndex = 1, MAX_ATTACH do
         local name, count, link, itemId
         if GetInboxItemLink then

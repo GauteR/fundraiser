@@ -31,16 +31,16 @@ end
 
 local ev = Fundraiser.Domain.Event.Create({
   name = "Tabard",
-  target = "Bankalt",
+  target = "Bank Alt",
   intervalSeconds = 3600,
   minAdminRank = 1,
 })
 assert_true(ev, "create event")
 
-assert_true(Fundraiser.Domain.Roles.IsDonationTarget(ev, "Bankalt"), "target")
+assert_true(Fundraiser.Domain.Roles.IsDonationTarget(ev, "Bank Alt"), "target")
 assert_true(Fundraiser.Domain.Roles.CanViewLedger(ev, 0, "GM"), "officer view")
 assert_true(not Fundraiser.Domain.Roles.CanViewLedger(ev, 5, "Grunt"), "member no ledger")
-assert_true(Fundraiser.Domain.Roles.CanWriteLedger(ev, "Bankalt"), "target write")
+assert_true(Fundraiser.Domain.Roles.CanWriteLedger(ev, "Bank Alt"), "target write")
 assert_true(not Fundraiser.Domain.Roles.CanWriteLedger(ev, "GM"), "officer no write")
 
 -- Reminder skipped for donation target
@@ -52,7 +52,7 @@ local should = Fundraiser.Application.UseCases.ShouldShowReminder({
     return {}
   end,
   getPlayerName = function()
-    return "Bankalt"
+    return "Bank Alt"
   end,
 }, 100)
 assert_true(not should, "no reminder on target")
@@ -101,7 +101,7 @@ entry = Fundraiser.Application.UseCases.AppendLedgerEntry(deps, {
   copper = 10,
   detail = "hi",
   at = 9,
-}, { name = "Bankalt" })
+}, { name = "Bank Alt" })
 assert_true(entry, "target append")
 
 -- Merge remote from target
@@ -124,7 +124,7 @@ local merged2, changed = Fundraiser.Application.UseCases.MergeRemoteLedger({
   getPlayerRankIndex = function()
     return 1
   end,
-}, remote, "Bankalt", 5)
+}, remote, "Bank Alt", 5)
 assert_true(changed, "merged remote")
 assert_true(#merged2 >= 2, "rows after merge")
 
@@ -134,6 +134,19 @@ local payload = Codec.EncodeLedgerEntry(entry)
 local decoded = Codec.Decode(payload)
 assert_eq(decoded.msgKind, "LEDGER", "msgKind")
 assert_eq(decoded.copper, 10, "codec copper")
+
+-- Forever full names (First Last)
+assert_true(Fundraiser.Domain.Roles.IsFullCharacterName("Jane Doe"), "full name ok")
+assert_true(not Fundraiser.Domain.Roles.IsFullCharacterName("Jane"), "first only rejected")
+assert_true(Fundraiser.Domain.Roles.NamesEqual("Jane Doe", "jane  doe"), "collapse spaces")
+assert_true(Fundraiser.Domain.Roles.NamesEqual("Jane Doe-Realm", "Jane Doe"), "strip realm")
+local badTarget = Fundraiser.Domain.Event.Create({
+  name = "X",
+  target = "OnlyFirst",
+  intervalSeconds = 3600,
+  minAdminRank = 0,
+})
+assert_eq(badTarget, nil, "reject single-token target")
 
 -- SaleAdvice vendor vs AH
 local advice = Fundraiser.Domain.SaleAdvice.Recommend(100, 100, 1, 0.05)

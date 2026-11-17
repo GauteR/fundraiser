@@ -149,7 +149,9 @@ function Window:Publish()
   local event, err = UC.PublishEvent(deps, fields, actor)
   if not event then
     if DEFAULT_CHAT_FRAME then
-      local msg = err == "not_admin" and Fundraiser:T("CHAT_NOT_ADMIN") or tostring(err)
+      local msg = err == "not_admin" and Fundraiser:T("CHAT_NOT_ADMIN")
+        or err == "target_need_full_name" and Fundraiser:T("CHAT_TARGET_NEED_FULL_NAME")
+        or tostring(err)
       DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. msg)
     end
     return

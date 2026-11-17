@@ -142,7 +142,7 @@ function Mail:ScanInbox()
         UC.AppendLedgerEntry(deps, {
           id = id,
           kind = "mail",
-          name = sender:match("^([^%-]+)") or sender,
+          name = Fundraiser.Domain.Roles.DisplayName(sender) or sender,
           detail = subject or "",
           copper = money,
           eventId = event.id,

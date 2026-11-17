@@ -141,9 +141,9 @@ function Sync:OnAddonMessage(prefix, message, channel, sender)
   if msg.kind == "HELLO" then
     local key = msg.guid ~= "" and msg.guid or sender
     Store:SetPresenceEntry(key, { name = sender, guid = msg.guid, version = msg.version, lastHello = t })
-    local short = sender and (sender:match("^([^%-]+)") or sender)
-    if short then
-      Store:SetPresenceEntry(short, { name = short, guid = msg.guid, version = msg.version, lastHello = t })
+    local full = sender and Fundraiser.Domain.Roles.DisplayName(sender)
+    if full then
+      Store:SetPresenceEntry(full, { name = full, guid = msg.guid, version = msg.version, lastHello = t })
     end
     -- If we hold a ledger replica and the peer is target/officer, push our rows.
     local event = Store:GetEvent()

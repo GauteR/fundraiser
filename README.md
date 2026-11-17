@@ -25,7 +25,7 @@ Officers publish a shared fundraising goal; members get bag reminders until they
 
 ## Dedicated donation character
 
-Set `DesignatedDonationTarget` to an alt used **only** for this fundraiser (receive mail + post AH). Do not run personal auctions on that character — every AH sale is recorded as fundraiser income.
+Set `DesignatedDonationTarget` to an alt used **only** for this fundraiser (receive mail + post AH). Forever names are **First Last** — enter both parts (e.g. `Bank Alt`). Do not run personal auctions on that character — every AH sale is recorded as fundraiser income.
 
 ## Install
 

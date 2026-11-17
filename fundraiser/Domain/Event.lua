@@ -29,6 +29,12 @@ function Event.Create(fields)
   if target == "" then
     return nil, "empty_target"
   end
+  -- Forever: character names are "First Last" — require both parts.
+  local Roles = Fundraiser.Domain.Roles
+  target = (Roles and Roles.DisplayName(target)) or target
+  if not Roles or not Roles.IsFullCharacterName(target) then
+    return nil, "target_need_full_name"
+  end
   if not interval or interval < 60 then
     return nil, "bad_interval"
   end
