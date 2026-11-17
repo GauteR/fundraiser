@@ -33,28 +33,58 @@ function Settings.ApplyToConfig(settings, config)
   end
 end
 
--- Count online guild members with a fresh HELLO (best-effort install presence).
-function Settings.CountOnlineInstalls(roster, presence, now, staleSeconds)
+-- Online roster rows with install status + HELLO version (best-effort).
+-- status: "installed" | "stale" | "missing"
+function Settings.BuildInstallRows(roster, presence, now, staleSeconds)
   roster = roster or {}
   presence = presence or {}
   now = tonumber(now) or 0
   staleSeconds = tonumber(staleSeconds) or 600
-  local online = 0
-  local installed = 0
+  local rows = {}
   for _, member in ipairs(roster) do
     if member and member.online then
-      online = online + 1
       local p = presence[member.guid] or presence[member.name]
       local lastHello = p and tonumber(p.lastHello) or 0
-      if lastHello > 0 and (now - lastHello) <= staleSeconds then
-        installed = installed + 1
+      local status = "missing"
+      local version = nil
+      if lastHello > 0 then
+        if (now - lastHello) <= staleSeconds then
+          status = "installed"
+        else
+          status = "stale"
+        end
+        if p and p.version and tostring(p.version) ~= "" then
+          version = tostring(p.version)
+        end
       end
+      rows[#rows + 1] = {
+        name = member.name or "?",
+        status = status,
+        version = version,
+      }
     end
   end
+  table.sort(rows, function(a, b)
+    return tostring(a.name):lower() < tostring(b.name):lower()
+  end)
+  return rows
+end
+
+-- Count online guild members with a fresh HELLO (best-effort install presence).
+function Settings.CountOnlineInstalls(roster, presence, now, staleSeconds)
+  local rows = Settings.BuildInstallRows(roster, presence, now, staleSeconds)
+  local installed = 0
+  for _, row in ipairs(rows) do
+    if row.status == "installed" then
+      installed = installed + 1
+    end
+  end
+  local online = #rows
   return {
     online = online,
     installed = installed,
     missing = online - installed,
+    rows = rows,
   }
 end
 

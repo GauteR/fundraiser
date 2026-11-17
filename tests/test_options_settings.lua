@@ -130,7 +130,31 @@ assert_eq(status.guildKey, "OPTIONS_STATUS_GUILD_NONE", "no guild key")
 assert_eq(status.eventKey, "OPTIONS_STATUS_EVENT_NONE", "no event key")
 assert_eq(status.accessKey, "OPTIONS_STATUS_ACCESS_NO", "access no")
 
--- Online install counts (fresh HELLO = installed)
+-- Online install rows + counts (fresh HELLO = installed; version from presence)
+local rows = Settings.BuildInstallRows({
+  { name = "Cee", guid = "g3", online = true },
+  { name = "A", guid = "g1", online = true },
+  { name = "B", guid = "g2", online = true },
+  { name = "D", guid = "g4", online = false },
+}, {
+  g1 = { lastHello = 1000, version = "0.1.0" },
+  ["B"] = { lastHello = 1000, version = "0.2.0" },
+  g3 = { lastHello = 100, version = "0.0.1" },
+}, 1000, 600)
+assert_eq(#rows, 3, "online rows only")
+assert_eq(rows[1].name, "A", "sorted by name")
+assert_eq(rows[1].status, "installed", "A installed")
+assert_eq(rows[1].version, "0.1.0", "A version")
+assert_eq(rows[2].status, "installed", "B installed")
+assert_eq(rows[3].status, "stale", "Cee stale")
+assert_eq(rows[3].version, "0.0.1", "stale keeps version")
+
+local missingRows = Settings.BuildInstallRows({
+  { name = "Zed", guid = "gz", online = true },
+}, {}, 1000, 600)
+assert_eq(missingRows[1].status, "missing", "no hello = missing")
+assert_eq(missingRows[1].version, nil, "missing has no version")
+
 local counts = Settings.CountOnlineInstalls({
   { name = "A", guid = "g1", online = true },
   { name = "B", guid = "g2", online = true },
@@ -144,6 +168,7 @@ local counts = Settings.CountOnlineInstalls({
 assert_eq(counts.online, 3, "online count")
 assert_eq(counts.installed, 2, "installed fresh hello")
 assert_eq(counts.missing, 1, "missing or stale")
+assert_eq(#counts.rows, 3, "counts includes rows")
 
 counts = Settings.CountOnlineInstalls({}, {}, 1000, 600)
 assert_eq(counts.online, 0, "empty roster online")

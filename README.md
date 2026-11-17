@@ -73,7 +73,8 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 
 | Control | Meaning |
 | --- | --- |
-| Status | Enabled, guild, active event, admin access, installed count among online members (HELLO presence) |
+| Status | Enabled, guild, active event, admin access, installed count |
+| Online installs | Table of online members: name, status (installed / stale / missing), version from HELLO when known |
 | Default reminder interval | Hours; used when publishing without a per-event override / empty interval field |
 | Min admin rank | Global only (0 = GM); not set per event |
 | Open Fundraiser | Shown only when your rank may manage fundraisers |

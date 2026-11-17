@@ -1,10 +1,17 @@
--- Options → AddOns → Fundraiser (status + global defaults).
+-- Options → AddOns → Fundraiser (status + install table + global defaults).
 Fundraiser = Fundraiser or {}
 Fundraiser.UI = Fundraiser.UI or {}
 Fundraiser.Options = Fundraiser.Options or {}
 
 local Options = Fundraiser.Options
 local ADDON_FOLDER = "fundraiser"
+
+local COL_NAME_X = 8
+local COL_STATUS_X = 220
+local COL_VERSION_X = 360
+local ROW_HEIGHT = 16
+local MAX_INSTALL_ROWS = 40
+local INSTALL_SCROLL_HEIGHT = 140
 
 local function GetMeta(field, fallback)
   local value
@@ -30,6 +37,81 @@ local function GetDisplayVersion()
   return "?"
 end
 
+local function StatusLocaleKey(status)
+  if status == "installed" then
+    return "OPTIONS_INSTALL_STATUS_INSTALLED"
+  end
+  if status == "stale" then
+    return "OPTIONS_INSTALL_STATUS_STALE"
+  end
+  return "OPTIONS_INSTALL_STATUS_MISSING"
+end
+
+local function EnsureInstallRow(panel, index)
+  panel.installRows = panel.installRows or {}
+  local row = panel.installRows[index]
+  if row then
+    return row
+  end
+  local parent = panel.installContent
+  row = CreateFrame("Frame", nil, parent)
+  row:SetSize(500, ROW_HEIGHT)
+  row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -((index - 1) * ROW_HEIGHT))
+
+  row.nameFS = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  row.nameFS:SetPoint("LEFT", row, "LEFT", COL_NAME_X, 0)
+  row.nameFS:SetWidth(200)
+  row.nameFS:SetJustifyH("LEFT")
+
+  row.statusFS = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  row.statusFS:SetPoint("LEFT", row, "LEFT", COL_STATUS_X, 0)
+  row.statusFS:SetWidth(130)
+  row.statusFS:SetJustifyH("LEFT")
+
+  row.versionFS = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  row.versionFS:SetPoint("LEFT", row, "LEFT", COL_VERSION_X, 0)
+  row.versionFS:SetWidth(120)
+  row.versionFS:SetJustifyH("LEFT")
+
+  panel.installRows[index] = row
+  return row
+end
+
+local function RefreshInstallTable(panel, rows)
+  if not panel or not panel.installContent then
+    return
+  end
+  rows = rows or {}
+  local n = math.min(#rows, MAX_INSTALL_ROWS)
+  for i = 1, n do
+    local data = rows[i]
+    local row = EnsureInstallRow(panel, i)
+    row:Show()
+    row.nameFS:SetText(data.name or "?")
+    row.statusFS:SetText(Fundraiser:T(StatusLocaleKey(data.status)))
+    local ver = data.version
+    if not ver or ver == "" then
+      ver = Fundraiser:T("OPTIONS_INSTALL_VERSION_UNKNOWN")
+    end
+    row.versionFS:SetText(ver)
+  end
+  for i = n + 1, #(panel.installRows or {}) do
+    panel.installRows[i]:Hide()
+  end
+  local height = math.max(n * ROW_HEIGHT, 1)
+  panel.installContent:SetHeight(height)
+  if panel.installScroll and panel.installScroll.UpdateScrollChildRect then
+    panel.installScroll:UpdateScrollChildRect()
+  end
+  if panel.installEmpty then
+    if n == 0 then
+      panel.installEmpty:Show()
+    else
+      panel.installEmpty:Hide()
+    end
+  end
+end
+
 local function RefreshPanel(panel)
   if not panel then
     return
@@ -44,6 +126,7 @@ local function RefreshPanel(panel)
   end
   local canOpen = Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi() or false
   local installOnline, installInstalled = 0, 0
+  local installRows = {}
   if guildName and SettingsDomain and SettingsDomain.CountOnlineInstalls and Roster and Roster.GetMembers then
     if Roster.Request then
       Roster:Request()
@@ -54,6 +137,7 @@ local function RefreshPanel(panel)
     local counts = SettingsDomain.CountOnlineInstalls(Roster:GetMembers(), presence, now, stale)
     installOnline = counts.online
     installInstalled = counts.installed
+    installRows = counts.rows or {}
   end
   local info = {
     enabled = Fundraiser.IsEnabled and Fundraiser:IsEnabled() or false,
@@ -97,6 +181,8 @@ local function RefreshPanel(panel)
     end
     panel.installLabel:SetText(Fundraiser:T("OPTIONS_STATUS_INSTALL_LABEL_FMT", installText))
   end
+
+  RefreshInstallTable(panel, installRows)
 
   if panel.intervalBox and Store and Store.GetSettings then
     local settings = Store:GetSettings()
@@ -193,7 +279,7 @@ function Options:Initialize()
   help:SetJustifyV("TOP")
   help:SetWordWrap(true)
   help:SetText(Fundraiser:T("OPTIONS_HELP"))
-  y = y - 48
+  y = y - 40
 
   local statusHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   statusHeader:SetPoint("TOPLEFT", 16, y)
@@ -218,7 +304,40 @@ function Options:Initialize()
   panel.installLabel:SetPoint("TOPLEFT", 16, y)
   panel.installLabel:SetWidth(520)
   panel.installLabel:SetJustifyH("LEFT")
-  y = y - 28
+  y = y - 22
+
+  local installHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  installHeader:SetPoint("TOPLEFT", 16, y)
+  installHeader:SetText(Fundraiser:T("OPTIONS_SECTION_INSTALL"))
+  y = y - 18
+
+  local colName = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+  colName:SetPoint("TOPLEFT", 16 + COL_NAME_X, y)
+  colName:SetText(Fundraiser:T("OPTIONS_INSTALL_COL_NAME"))
+  local colStatus = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+  colStatus:SetPoint("TOPLEFT", 16 + COL_STATUS_X, y)
+  colStatus:SetText(Fundraiser:T("OPTIONS_INSTALL_COL_STATUS"))
+  local colVersion = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+  colVersion:SetPoint("TOPLEFT", 16 + COL_VERSION_X, y)
+  colVersion:SetText(Fundraiser:T("OPTIONS_INSTALL_COL_VERSION"))
+  y = y - 16
+
+  local scroll = CreateFrame("ScrollFrame", "FundraiserOptionsInstallScroll", panel, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 16, y)
+  scroll:SetSize(520, INSTALL_SCROLL_HEIGHT)
+  panel.installScroll = scroll
+
+  local content = CreateFrame("Frame", "FundraiserOptionsInstallContent", scroll)
+  content:SetSize(500, 1)
+  scroll:SetScrollChild(content)
+  panel.installContent = content
+  panel.installRows = {}
+
+  panel.installEmpty = content:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  panel.installEmpty:SetPoint("TOPLEFT", content, "TOPLEFT", COL_NAME_X, 0)
+  panel.installEmpty:SetText(Fundraiser:T("OPTIONS_INSTALL_EMPTY"))
+
+  y = y - INSTALL_SCROLL_HEIGHT - 16
 
   local settingsHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   settingsHeader:SetPoint("TOPLEFT", 16, y)
