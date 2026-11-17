@@ -1,4 +1,5 @@
--- Thin guild sync: HELLO / EVENT / DONATE / DIGEST over SendAddonMessage.
+-- Thin guild sync: HELLO / EVENT / LEDGER / DIGEST over SendAddonMessage.
+-- Ledger mesh: all installed clients store + relay rows; UI view stays rank-gated.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
 
@@ -9,10 +10,8 @@ local function cfg()
   return Fundraiser.Config or {}
 end
 
-local function printMsg(msg)
-  if DEFAULT_CHAT_FRAME and Fundraiser.T then
-    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. msg)
-  end
+local function now()
+  return (GetServerTime and GetServerTime()) or (time and time()) or 0
 end
 
 function Sync:IsEnabled()
@@ -38,6 +37,48 @@ function Sync:Send(payload)
   return false
 end
 
+local function storeDeps()
+  local Store = Fundraiser.Adapters.Store
+  local Roster = Fundraiser.Adapters.Roster
+  return {
+    getEvent = function()
+      return Store:GetEvent()
+    end,
+    setEvent = function(e)
+      Store:SetEvent(e)
+    end,
+    getContributions = function()
+      return Store:GetContributions()
+    end,
+    setContributions = function(list)
+      Store:SetContributions(list)
+    end,
+    getPlayerName = function()
+      return Roster:GetPlayerName()
+    end,
+    getPlayerRankIndex = function()
+      return Roster:GetPlayerRankIndex()
+    end,
+    broadcastLedgerEntry = function(entry)
+      Sync:BroadcastLedgerEntry(entry)
+    end,
+  }
+end
+
+function Sync:LocalCanViewLedger()
+  local Roles = Fundraiser.Domain.Roles
+  local Store = Fundraiser.Adapters.Store
+  local Roster = Fundraiser.Adapters.Roster
+  local event = Store:GetEvent()
+  return Roles.CanViewLedger(event, Roster:GetPlayerRankIndex(), Roster:GetPlayerName())
+end
+
+function Sync:LocalLedgerCount()
+  local Store = Fundraiser.Adapters.Store
+  local list = Store:GetContributions() or {}
+  return #list
+end
+
 function Sync:BroadcastHello()
   local Codec = Fundraiser.Adapters.Codec
   local version = cfg().VERSION or "?"
@@ -50,17 +91,40 @@ function Sync:BroadcastEvent(event)
   return self:Send(Codec.EncodeEvent(event))
 end
 
-function Sync:BroadcastDonation(entry)
+-- Originating write or mesh rebroadcast of a stored row (any holder may send).
+function Sync:BroadcastLedgerEntry(entry)
+  if not (cfg().LEDGER) then
+    return false
+  end
+  if not entry then
+    return false
+  end
   local Codec = Fundraiser.Adapters.Codec
-  return self:Send(Codec.EncodeDonate(entry))
+  return self:Send(Codec.EncodeLedgerEntry(entry))
+end
+
+function Sync:BroadcastLedgerSnapshot()
+  if not (cfg().LEDGER) then
+    return false
+  end
+  local Store = Fundraiser.Adapters.Store
+  local list = Store:GetContributions() or {}
+  for _, entry in ipairs(list) do
+    self:BroadcastLedgerEntry(entry)
+  end
+  return true
 end
 
 function Sync:BroadcastDigest()
   local Codec = Fundraiser.Adapters.Codec
   local Store = Fundraiser.Adapters.Store
+  local Ledger = Fundraiser.Domain.Ledger
   local event = Store:GetEvent()
-  local contribs = Store:GetContributions() or {}
-  return self:Send(Codec.EncodeDigest(event and event.revision or 0, #contribs))
+  local count, sum, maxAt = 0, 0, 0
+  if cfg().LEDGER then
+    count, sum, maxAt = Ledger.Fingerprint(Store:GetContributions() or {})
+  end
+  return self:Send(Codec.EncodeDigest(event and event.revision or 0, count, sum, maxAt))
 end
 
 function Sync:OnAddonMessage(prefix, message, channel, sender)
@@ -82,48 +146,38 @@ function Sync:OnAddonMessage(prefix, message, channel, sender)
   local Store = Fundraiser.Adapters.Store
   local Roster = Fundraiser.Adapters.Roster
   local UC = Fundraiser.Application.UseCases
-  local now = (GetServerTime and GetServerTime()) or (time and time()) or 0
+  local t = now()
 
   if msg.kind == "HELLO" then
     local key = msg.guid ~= "" and msg.guid or sender
-    Store:SetPresenceEntry(key, { name = sender, guid = msg.guid, version = msg.version, lastHello = now })
-    -- Also index by short name for missing-install scans.
-    local short = sender and (sender:match("^([^%-]+)") or sender)
-    if short then
-      Store:SetPresenceEntry(short, { name = short, guid = msg.guid, version = msg.version, lastHello = now })
+    Store:SetPresenceEntry(key, { name = sender, guid = msg.guid, version = msg.version, lastHello = t })
+    local full = sender and Fundraiser.Domain.Roles.DisplayName(sender)
+    if full then
+      Store:SetPresenceEntry(full, { name = full, guid = msg.guid, version = msg.version, lastHello = t })
+    end
+    -- Any peer holding rows can push so officers need not all be online.
+    if Store:GetEvent() and self:LocalLedgerCount() > 0 then
+      self:BroadcastLedgerSnapshot()
     end
     return
   end
 
   if msg.kind == "EVENT" then
     local rank = Roster:RankIndexOfName(sender)
-    local deps = {
-      getEvent = function()
-        return Store:GetEvent()
-      end,
-      setEvent = function(e)
-        Store:SetEvent(e)
-      end,
-    }
-    UC.AcceptRemoteEvent(deps, msg, rank)
+    UC.AcceptRemoteEvent(storeDeps(), msg, rank)
     return
   end
 
-  if msg.kind == "DONATE" then
-    -- Only accept donations claimed for the sender's own identity (best-effort).
-    local short = sender and (sender:match("^([^%-]+)") or sender)
-    if msg.name and short and msg.name ~= short then
+  if msg.msgKind == "LEDGER" then
+    if not cfg().LEDGER then
       return
     end
-    local deps = {
-      getContributions = function()
-        return Store:GetContributions()
-      end,
-      setContributions = function(list)
-        Store:SetContributions(list)
-      end,
-    }
-    UC.RecordDonation(deps, msg)
+    local event = Store:GetEvent()
+    if not event then
+      return
+    end
+    local senderRank = Roster:RankIndexOfName(sender)
+    UC.MergeRemoteLedger(storeDeps(), { msg }, sender, senderRank)
     return
   end
 
@@ -135,8 +189,19 @@ function Sync:OnAddonMessage(prefix, message, channel, sender)
         self:BroadcastEvent(event)
       end
     elseif (msg.eventRevision or 0) > myRev then
-      -- Peer has newer event; ask by re-broadcasting digest — they may push EVENT.
       self:BroadcastDigest()
+    end
+    if cfg().LEDGER then
+      local Ledger = Fundraiser.Domain.Ledger
+      local count, sum, maxAt = Ledger.Fingerprint(Store:GetContributions() or {})
+      local remoteNewer = (msg.ledgerMaxAt or 0) > maxAt
+        or (msg.ledgerCount or 0) > count
+        or (msg.ledgerSum or 0) > sum
+      if remoteNewer then
+        self:BroadcastHello()
+      elseif (msg.ledgerCount or 0) < count then
+        self:BroadcastLedgerSnapshot()
+      end
     end
   end
 end

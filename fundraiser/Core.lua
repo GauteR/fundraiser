@@ -1,4 +1,4 @@
--- Bootstrap: slash, store, sync, mail, bags, UI.
+-- Bootstrap: slash, store, sync, mail, reminder, UI.
 Fundraiser = Fundraiser or {}
 
 local function Print(message)
@@ -27,6 +27,40 @@ function Fundraiser.FormatCopper(copper)
   return table.concat(parts, " ")
 end
 
+function Fundraiser:CanOpenAdminUi()
+  if not self:IsEnabled() then
+    return false
+  end
+  if not (self.Config and self.Config.ADMIN_UI) then
+    return false
+  end
+  local Roster = self.Adapters and self.Adapters.Roster
+  local Store = self.Adapters and self.Adapters.Store
+  local Roles = self.Domain and self.Domain.Roles
+  if not Roster or not Roles then
+    return false
+  end
+  local event = Store and Store.GetEvent and Store:GetEvent() or nil
+  return Roles.CanManageFundraiser(Roster:GetPlayerRankIndex(), event)
+end
+
+function Fundraiser:CanOpenTargetUi()
+  if not self:IsEnabled() then
+    return false
+  end
+  if not (self.Config and self.Config.TARGET_UI) then
+    return false
+  end
+  local Roster = self.Adapters and self.Adapters.Roster
+  local Store = self.Adapters and self.Adapters.Store
+  local Roles = self.Domain and self.Domain.Roles
+  if not Roster or not Roles or not Store then
+    return false
+  end
+  local event = Store:GetEvent()
+  return Roles.IsDonationTarget(event, Roster:GetPlayerName())
+end
+
 function Fundraiser:ToggleWindow()
   if not self:IsEnabled() then
     Print(self:T("CHAT_DISABLED"))
@@ -35,8 +69,35 @@ function Fundraiser:ToggleWindow()
   if not (self.Config and self.Config.ADMIN_UI) then
     return
   end
+  if not self:CanOpenAdminUi() then
+    Print(self:T("CHAT_NOT_ADMIN"))
+    if self.UI and self.UI.Window and self.UI.Window.Hide then
+      self.UI.Window:Hide()
+    end
+    return
+  end
   if self.UI and self.UI.Window then
     self.UI.Window:Toggle()
+  end
+end
+
+function Fundraiser:ToggleTargetUi()
+  if not self:IsEnabled() then
+    Print(self:T("CHAT_DISABLED"))
+    return
+  end
+  if not (self.Config and self.Config.TARGET_UI) then
+    return
+  end
+  if not self:CanOpenTargetUi() then
+    Print(self:T("CHAT_TARGET_NO_ACCESS"))
+    if self.UI and self.UI.Target and self.UI.Target.Hide then
+      self.UI.Target:Hide()
+    end
+    return
+  end
+  if self.UI and self.UI.Target then
+    self.UI.Target:Toggle()
   end
 end
 
@@ -64,9 +125,23 @@ eventFrame:SetScript("OnEvent", function(_, event)
 
   SLASH_FUNDRAISER1 = (Fundraiser.Config and Fundraiser.Config.SLASH_COMMAND) or "/fundraiser"
   SlashCmdList["FUNDRAISER"] = function(msg)
-    msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-    if msg == "status" then
+    msg = (msg or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local lower = msg:lower()
+    if lower == "status" then
       Fundraiser:PrintStatus()
+      return
+    end
+    if lower == "target" then
+      Fundraiser:ToggleTargetUi()
+      return
+    end
+    local debugArg = lower:match("^debug%s*(.*)$")
+    if debugArg ~= nil then
+      if Fundraiser.Adapters.Debug then
+        -- Pass original tail after "debug" to preserve Name casing.
+        local tail = msg:match("^[Dd][Ee][Bb][Uu][Gg]%s*(.*)$") or debugArg
+        Fundraiser.Adapters.Debug:Handle(tail)
+      end
       return
     end
     Fundraiser:ToggleWindow()
@@ -78,8 +153,11 @@ eventFrame:SetScript("OnEvent", function(_, event)
   if Fundraiser.Adapters.Mail then
     Fundraiser.Adapters.Mail:Initialize()
   end
-  if Fundraiser.Adapters.Bags then
-    Fundraiser.Adapters.Bags:Initialize()
+  if Fundraiser.Adapters.Auction then
+    Fundraiser.Adapters.Auction:Initialize()
+  end
+  if Fundraiser.Adapters.MailboxReminder then
+    Fundraiser.Adapters.MailboxReminder:Initialize()
   end
   if Fundraiser.Options and Fundraiser.Options.Initialize then
     Fundraiser.Options:Initialize()

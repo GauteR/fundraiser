@@ -2,7 +2,7 @@
 
 Guild donation reminders for **World of Warcraft: Forever**.
 
-Officers publish a shared fundraising goal; members get bag reminders until they mail the designated recipient. A self-attested ledger and install-presence list help officers follow up.
+Officers publish a shared fundraising goal; members see a reminder beside the mailbox until they mail the designated recipient. The **ledger** is written on the donation-target character (incoming mail + all AH sales) and **meshed** across every installed client; only officers and the target may view it in the UI (not encrypted).
 
 | | |
 | --- | --- |
@@ -13,13 +13,19 @@ Officers publish a shared fundraising goal; members get bag reminders until they
 
 ## Features
 
-- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `REMINDER`, `ADMIN_UI`, `LEDGER`
+- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `REMINDER`, `ADMIN_UI`, `LEDGER`, `DEBUG`
 - Officer-published event (name, mail target, reminder interval, min admin rank)
-- Bag-open reminder until mail is sent to the target (returns after the next interval)
-- Thin guild sync (`HELLO` / `EVENT` / `DONATE` / `DIGEST`) — see [`docs/SYNC.md`](docs/SYNC.md)
-- Self-attested ledger (not bank verification)
+- Mailbox reminder for members (beside the mail window) until mail is sent to the target
+- Ledger writes on the **donation-target** only; all clients store/relay the mesh; officers + target view in UI
+- Logs incoming mailbox money/items and **all** AH sales on that character
+- Target inbox assist (`/fundraiser target`): per-sender stacks, TSM→Auctionator→manual price, vendor vs AH advice, one AH post per stack
+- Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST`) — see [`docs/SYNC.md`](docs/SYNC.md)
 - Options → AddOns → Fundraiser panel
 - Pure Lua unit tests
+
+## Dedicated donation character
+
+Set `DesignatedDonationTarget` to an alt used **only** for this fundraiser (receive mail + post AH). Forever names are **First Last** — enter both parts (e.g. `Bank Alt`). Do not run personal auctions on that character — every AH sale is recorded as fundraiser income.
 
 ## Install
 
@@ -33,12 +39,32 @@ Officers publish a shared fundraising goal; members get bag reminders until they
 
 Local publish: `./scripts/publish-local.sh` or `scripts/publish-local.ps1`, then `/reload`.
 
+### Solo debug (no other guild clients)
+
+With `Config.DEBUG = true`:
+
+```
+/fundraiser debug help
+/fundraiser debug seed
+/fundraiser debug hello DebugMember
+/fundraiser debug event 0
+/fundraiser debug ledger mail DebugDonor 50000 gift
+/fundraiser debug ledger ah AH 120000 Sword
+/fundraiser debug reminder
+/fundraiser debug dismiss
+/fundraiser debug presence
+/fundraiser debug access
+/fundraiser debug member
+/fundraiser debug officer
+/fundraiser debug asrank 9
+/fundraiser debug asrank clear
+```
+
 ## Usage
 
-1. Log in on a guild character.
-2. Officers: `/fundraiser` → fill event fields → **Publish event**.
-3. Members open bags to see reminders when due.
-4. Mail gold/items to the designated character to clear the current reminder window.
+1. Officers (guild rank ≤ event `minAdminRank`, or `DEFAULT_MIN_ADMIN_RANK` before any event): `/fundraiser` → fill event fields → **Publish event** (target = dedicated fundraiser alt). Members get a chat refusal if they open `/fundraiser`.
+2. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
+3. On the target alt: open mailbox → `/fundraiser target` (or **Target inbox assist**) → Post AH / Vendor per stack; AH sales also hit the ledger. Other characters cannot open the target UI.
 
 Close windows with the frame X or Escape (`UISpecialFrames`).
 
@@ -50,10 +76,15 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua):
 | --- | --- | --- |
 | `ENABLED` | `true` | Master feature flag |
 | `COMM` | `true` | Guild addon messages |
-| `REMINDER` | `true` | Bag reminder + mail dismiss |
+| `REMINDER` | `true` | Mailbox reminder popup + mail dismiss |
 | `ADMIN_UI` | `true` | Main window |
-| `LEDGER` | `true` | Show ledger totals |
+| `LEDGER` | `true` | Target logging + officer ledger UI |
+| `TARGET_UI` | `true` | Donation-target inbox assist window |
+| `AH_ASSIST` | `true` | AH/vendor actions from target UI |
+| `TSM_PRICE_SOURCE` | `"DBMinBuyout"` | TSM price key for min AH reference |
+| `DEBUG` | `true` | Solo sim: `/fundraiser debug …` |
 | `DEFAULT_REMINDER_INTERVAL` | `86400` | Fallback interval (seconds) |
+| `DEFAULT_MIN_ADMIN_RANK` | `1` | Admin UI gate when no event yet (rank ≤ this) |
 | `PRESENCE_STALE` | `600` | HELLO freshness for “missing install” |
 | `SLASH_COMMAND` | `"/fundraiser"` | Slash command |
 | `VERSION` | `"0.1.0"` | Options version when TOC placeholder is unpackaged |
@@ -64,7 +95,7 @@ After changing config, `/reload`.
 
 | Doc | Topic |
 | --- | --- |
-| [`docs/SYNC.md`](docs/SYNC.md) | Thin sync protocol and trust model |
+| [`docs/SYNC.md`](docs/SYNC.md) | Thin sync, ledger merge, trust model |
 | [`docs/CURSEFORGE.md`](docs/CURSEFORGE.md) | Store description |
 | [`docs/RELEASE.md`](docs/RELEASE.md) | Packager / GitHub Release |
 

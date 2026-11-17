@@ -108,38 +108,52 @@ function Codec.DecodeEvent(payload)
   return event
 end
 
-function Codec.EncodeDonate(entry)
+function Codec.EncodeLedgerEntry(entry)
   entry = entry or {}
   return table.concat({
-    "DONATE",
-    esc(entry.guid),
+    "LEDGER",
+    esc(entry.id),
+    esc(entry.kind),
     esc(entry.name),
+    esc(entry.detail),
     esc(entry.eventId),
     tostring(entry.copper or 0),
     tostring(entry.at or 0),
   }, SEP)
 end
 
-function Codec.DecodeDonate(payload)
+function Codec.DecodeLedgerEntry(payload)
   local p = split(payload)
-  if p[1] ~= "DONATE" then
+  if p[1] ~= "LEDGER" then
     return nil
   end
-  return {
-    kind = "DONATE",
-    guid = p[2],
-    name = p[3],
-    eventId = p[4],
-    copper = tonumber(p[5]) or 0,
-    at = tonumber(p[6]) or 0,
-  }
+  local Ledger = Fundraiser.Domain and Fundraiser.Domain.Ledger
+  if not Ledger then
+    return nil
+  end
+  local entry = Ledger.CreateEntry({
+    id = p[2],
+    kind = p[3],
+    name = p[4],
+    detail = p[5],
+    eventId = p[6],
+    copper = tonumber(p[7]),
+    at = tonumber(p[8]),
+  })
+  if not entry then
+    return nil
+  end
+  entry.msgKind = "LEDGER"
+  return entry
 end
 
-function Codec.EncodeDigest(eventRevision, contributionCount)
+function Codec.EncodeDigest(eventRevision, ledgerCount, ledgerSum, ledgerMaxAt)
   return table.concat({
     "DIGEST",
     tostring(eventRevision or 0),
-    tostring(contributionCount or 0),
+    tostring(ledgerCount or 0),
+    tostring(ledgerSum or 0),
+    tostring(ledgerMaxAt or 0),
   }, SEP)
 end
 
@@ -151,7 +165,9 @@ function Codec.DecodeDigest(payload)
   return {
     kind = "DIGEST",
     eventRevision = tonumber(p[2]) or 0,
-    contributionCount = tonumber(p[3]) or 0,
+    ledgerCount = tonumber(p[3]) or 0,
+    ledgerSum = tonumber(p[4]) or 0,
+    ledgerMaxAt = tonumber(p[5]) or 0,
   }
 end
 
@@ -161,8 +177,8 @@ function Codec.Decode(payload)
     return Codec.DecodeHello(payload)
   elseif kind == "EVENT" then
     return Codec.DecodeEvent(payload)
-  elseif kind == "DONATE" then
-    return Codec.DecodeDonate(payload)
+  elseif kind == "LEDGER" then
+    return Codec.DecodeLedgerEntry(payload)
   elseif kind == "DIGEST" then
     return Codec.DecodeDigest(payload)
   end

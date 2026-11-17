@@ -67,30 +67,68 @@ function UC.AcceptRemoteEvent(deps, event, senderRankIndex)
   return event
 end
 
-function UC.RecordDonation(deps, entry)
+-- Target-only write of a new ledger row; then replicate to officers.
+function UC.AppendLedgerEntry(deps, fields, actor)
   local Ledger = Domain().Ledger
-  if not entry or not entry.guid or not entry.eventId then
-    return nil, "bad_entry"
+  local Roles = Domain().Roles
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
   end
-  entry.copper = tonumber(entry.copper) or 0
-  if entry.copper < 0 then
-    return nil, "bad_copper"
+  actor = actor or {}
+  if not Roles.CanWriteLedger(event, actor.name) then
+    return nil, "not_target"
+  end
+  fields = fields or {}
+  fields.eventId = fields.eventId or event.id
+  local entry, err = Ledger.CreateEntry(fields)
+  if not entry then
+    return nil, err
   end
   local list = (deps.getContributions and deps.getContributions()) or {}
   local updated, changed = Ledger.Upsert(list, entry)
   if deps.setContributions then
     deps.setContributions(updated)
   end
-  if changed and deps.broadcastDonation then
-    deps.broadcastDonation(entry)
+  if changed and deps.broadcastLedgerEntry then
+    deps.broadcastLedgerEntry(entry)
   end
   return entry, changed
 end
 
+-- Mesh merge: every installed client stores the id-union replica.
+-- UI still gates view via Roles.CanViewLedger. Addon messages are not signed;
+-- a malicious peer can forge rows (documented in SYNC.md).
+function UC.MergeRemoteLedger(deps, remoteEntries, senderName, _senderRankIndex)
+  local Ledger = Domain().Ledger
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
+  end
+  if not senderName or tostring(senderName) == "" then
+    return nil, "bad_sender"
+  end
+  local localList = (deps.getContributions and deps.getContributions()) or {}
+  local merged = Ledger.Merge(localList, remoteEntries)
+  local _, localSum = Ledger.Fingerprint(localList)
+  local _, mergedSum, _ = Ledger.Fingerprint(merged)
+  local changed = #merged ~= #localList or mergedSum ~= localSum
+  if changed and deps.setContributions then
+    deps.setContributions(merged)
+  end
+  return merged, changed
+end
+
 function UC.ShouldShowReminder(deps, now)
   local Reminder = Domain().Reminder
+  local Roles = Domain().Roles
   local event = deps.getEvent and deps.getEvent() or nil
   local state = deps.getReminderState and deps.getReminderState() or {}
+  local me = deps.getPlayerName and deps.getPlayerName() or nil
+  -- Donation target does not need mailbox reminders about mailing themselves.
+  if event and Roles.IsDonationTarget(event, me) then
+    return false, event
+  end
   return Reminder.ShouldRemind(now, event, state), event
 end
 
@@ -128,6 +166,13 @@ end
 
 function UC.GetLedger(deps, eventId)
   local Ledger = Domain().Ledger
+  local Roles = Domain().Roles
+  local event = deps.getEvent and deps.getEvent() or nil
+  local me = deps.getPlayerName and deps.getPlayerName() or nil
+  local myRank = deps.getPlayerRankIndex and deps.getPlayerRankIndex() or nil
+  if event and not Roles.CanViewLedger(event, myRank, me) then
+    return {}, 0
+  end
   local list = (deps.getContributions and deps.getContributions()) or {}
   local filtered = Ledger.FilterByEvent(list, eventId)
   return filtered, Ledger.TotalCopper(filtered)

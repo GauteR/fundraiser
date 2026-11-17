@@ -1,26 +1,35 @@
 ## Interface: 16001
 ## Title: Fundraiser
-## Notes: Guild donation reminders and self-attested ledger for Forever.
+## Notes: Guild donation reminders and target ledger for Forever.
 ## Author: GauteR
 ## Version: @project-version@
 ## DefaultState: enabled
 ## IconTexture: Interface\Icons\INV_Misc_Coin_01
+## OptionalDeps: TradeSkillMaster, Auctionator
 ## SavedVariables: FundraiserDB
 
 Config.lua
 Locale/enUS.lua
 Domain/Event.lua
 Domain/Rank.lua
+Domain/Roles.lua
 Domain/Reminder.lua
 Domain/Ledger.lua
+Domain/SaleAdvice.lua
 Application/UseCases.lua
 Adapters/Codec.lua
 Adapters/Store.lua
 Adapters/Roster.lua
+Adapters/Pricing.lua
 Adapters/ThinGuildSync.lua
 Adapters/Mail.lua
-Adapters/Bags.lua
+Adapters/Auction.lua
+Adapters/AuctionPost.lua
+Adapters/InboxAssist.lua
+Adapters/MailboxReminder.lua
+Adapters/Debug.lua
 Core.lua
 UI/Reminder.lua
 UI/Window.lua
+UI/Target.lua
 UI/Options.lua

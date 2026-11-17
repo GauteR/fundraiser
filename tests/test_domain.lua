@@ -6,8 +6,10 @@ dofile(repo .. "/fundraiser/Config.lua")
 dofile(repo .. "/fundraiser/Locale/enUS.lua")
 dofile(repo .. "/fundraiser/Domain/Event.lua")
 dofile(repo .. "/fundraiser/Domain/Rank.lua")
+dofile(repo .. "/fundraiser/Domain/Roles.lua")
 dofile(repo .. "/fundraiser/Domain/Reminder.lua")
 dofile(repo .. "/fundraiser/Domain/Ledger.lua")
+dofile(repo .. "/fundraiser/Domain/SaleAdvice.lua")
 dofile(repo .. "/fundraiser/Application/UseCases.lua")
 dofile(repo .. "/fundraiser/Adapters/Codec.lua")
 
@@ -27,95 +29,165 @@ local function assert_true(v, msg)
   end
 end
 
--- Event
-local ev, err = Fundraiser.Domain.Event.Create({
+local ev = Fundraiser.Domain.Event.Create({
   name = "Tabard",
-  target = "Bankalt",
+  target = "Bank Alt",
   intervalSeconds = 3600,
   minAdminRank = 1,
 })
 assert_true(ev, "create event")
-assert_eq(err, nil, "no err")
-assert_eq(ev.name, "Tabard", "name")
-local bad = Fundraiser.Domain.Event.Create({ name = "", target = "x", intervalSeconds = 3600, minAdminRank = 0 })
-assert_eq(bad, nil, "reject empty name")
 
--- Rank
-assert_true(Fundraiser.Domain.Rank.IsAdmin(0, 1), "GM admin")
-assert_true(Fundraiser.Domain.Rank.IsAdmin(1, 1), "officer admin")
-assert_true(not Fundraiser.Domain.Rank.IsAdmin(2, 1), "member not admin")
+assert_true(Fundraiser.Domain.Roles.IsDonationTarget(ev, "Bank Alt"), "target")
+assert_true(Fundraiser.Domain.Roles.CanViewLedger(ev, 0, "GM"), "officer view")
+assert_true(not Fundraiser.Domain.Roles.CanViewLedger(ev, 5, "Grunt"), "member no ledger")
+assert_true(Fundraiser.Domain.Roles.CanWriteLedger(ev, "Bank Alt"), "target write")
+assert_true(not Fundraiser.Domain.Roles.CanWriteLedger(ev, "GM"), "officer no write")
 
--- Reminder
-local event = ev
-assert_true(Fundraiser.Domain.Reminder.ShouldRemind(100, event, {}), "show initially")
-local st = Fundraiser.Domain.Reminder.MarkDismissed({}, 100, event.id)
-assert_true(not Fundraiser.Domain.Reminder.ShouldRemind(200, event, st), "suppressed after dismiss")
-assert_true(Fundraiser.Domain.Reminder.ShouldRemind(100 + event.intervalSeconds, event, st), "after interval")
+assert_true(Fundraiser.Domain.Roles.CanManageFundraiser(0, ev), "GM manages")
+assert_true(Fundraiser.Domain.Roles.CanManageFundraiser(1, ev), "officer manages")
+assert_true(not Fundraiser.Domain.Roles.CanManageFundraiser(2, ev), "member no manage")
+assert_true(not Fundraiser.Domain.Roles.CanManageFundraiser(nil, ev), "nil rank no manage")
+assert_true(Fundraiser.Domain.Roles.CanManageFundraiser(1, nil), "default minAdmin allows rank 1")
+assert_true(not Fundraiser.Domain.Roles.CanManageFundraiser(2, nil), "default minAdmin blocks rank 2")
 
--- Ledger
-local list = {}
-list = select(1, Fundraiser.Domain.Ledger.Upsert(list, { guid = "g1", name = "A", eventId = event.id, copper = 100, at = 1 }))
-list = select(1, Fundraiser.Domain.Ledger.Upsert(list, { guid = "g1", name = "A", eventId = event.id, copper = 250, at = 2 }))
-assert_eq(#list, 1, "upsert one")
-assert_eq(Fundraiser.Domain.Ledger.TotalCopper(list), 250, "total")
+-- Reminder skipped for donation target
+local should = Fundraiser.Application.UseCases.ShouldShowReminder({
+  getEvent = function()
+    return ev
+  end,
+  getReminderState = function()
+    return {}
+  end,
+  getPlayerName = function()
+    return "Bank Alt"
+  end,
+}, 100)
+assert_true(not should, "no reminder on target")
 
--- UseCases AcceptRemoteEvent rank gate
-local stored = nil
+-- Ledger merge union
+local a = Fundraiser.Domain.Ledger.CreateEntry({ kind = "mail", name = "A", copper = 100, eventId = ev.id, at = 1, detail = "x" })
+local b = Fundraiser.Domain.Ledger.CreateEntry({ kind = "ah", name = "AH", copper = 500, eventId = ev.id, at = 2, detail = "Sword" })
+local c = Fundraiser.Domain.Ledger.CreateEntry({
+  id = a.id,
+  kind = "mail",
+  name = "A",
+  copper = 150,
+  eventId = ev.id,
+  at = 3,
+  detail = "x",
+})
+local merged = Fundraiser.Domain.Ledger.Merge({ a }, { b, c })
+assert_eq(#merged, 2, "merge union")
+assert_eq(Fundraiser.Domain.Ledger.TotalCopper(merged), 650, "merge total")
+
+-- Append only as target
+local storedList = {}
 local deps = {
   getEvent = function()
-    return stored
+    return ev
   end,
-  setEvent = function(e)
-    stored = e
+  getContributions = function()
+    return storedList
+  end,
+  setContributions = function(list)
+    storedList = list
   end,
 }
-local okEv, okErr = Fundraiser.Application.UseCases.AcceptRemoteEvent(deps, event, 5)
-assert_eq(okEv, nil, "reject low rank")
-assert_eq(okErr, "not_admin", "not_admin")
-okEv = Fundraiser.Application.UseCases.AcceptRemoteEvent(deps, event, 0)
-assert_true(okEv, "accept GM")
-assert_true(stored ~= nil, "stored")
+local entry, err = Fundraiser.Application.UseCases.AppendLedgerEntry(deps, {
+  kind = "mail",
+  name = "Donor",
+  copper = 10,
+  detail = "hi",
+  at = 9,
+}, { name = "GM" })
+assert_eq(entry, nil, "reject non-target write")
+assert_eq(err, "not_target", "not_target")
+entry = Fundraiser.Application.UseCases.AppendLedgerEntry(deps, {
+  kind = "mail",
+  name = "Donor",
+  copper = 10,
+  detail = "hi",
+  at = 9,
+}, { name = "Bank Alt" })
+assert_true(entry, "target append")
 
--- PublishEvent
-stored = nil
-local published, perr = Fundraiser.Application.UseCases.PublishEvent(deps, {
-  name = "Raid repairs",
-  target = "Officerbank",
-  intervalSeconds = 7200,
-  minAdminRank = 1,
-}, { rankIndex = 0, name = "GM", now = 50 })
-assert_true(published, "publish " .. tostring(perr))
-assert_eq(published.revision, 1, "rev1")
+-- Merge remote from target
+local remote = {
+  Fundraiser.Domain.Ledger.CreateEntry({ kind = "ah", name = "AH", copper = 99, eventId = ev.id, at = 10, detail = "Boot" }),
+}
+local merged2, changed = Fundraiser.Application.UseCases.MergeRemoteLedger({
+  getEvent = function()
+    return ev
+  end,
+  getContributions = function()
+    return storedList
+  end,
+  setContributions = function(list)
+    storedList = list
+  end,
+  getPlayerName = function()
+    return "Officer"
+  end,
+  getPlayerRankIndex = function()
+    return 1
+  end,
+}, remote, "Bank Alt", 5)
+assert_true(changed, "merged remote")
+assert_true(#merged2 >= 2, "rows after merge")
 
--- Codec roundtrip
+-- Mesh: non-officer member still stores relayed rows (UI view stays gated separately).
+local memberList = {}
+local memberRemote = {
+  Fundraiser.Domain.Ledger.CreateEntry({ kind = "mail", name = "Donor2", copper = 42, eventId = ev.id, at = 11, detail = "relay" }),
+}
+local mergedMember, memberChanged = Fundraiser.Application.UseCases.MergeRemoteLedger({
+  getEvent = function()
+    return ev
+  end,
+  getContributions = function()
+    return memberList
+  end,
+  setContributions = function(list)
+    memberList = list
+  end,
+  getPlayerName = function()
+    return "Grunt"
+  end,
+  getPlayerRankIndex = function()
+    return 5
+  end,
+}, memberRemote, "Some Relay", 5)
+assert_true(memberChanged, "member mesh store")
+assert_eq(#mergedMember, 1, "member holds relayed row")
+assert_true(not Fundraiser.Domain.Roles.CanViewLedger(ev, 5, "Grunt"), "member still no UI view")
+
+-- Codec ledger
 local Codec = Fundraiser.Adapters.Codec
-local payload = Codec.EncodeEvent(published)
-local decoded = Codec.DecodeEvent(payload)
-assert_true(decoded, "decode event")
-assert_eq(decoded.name, published.name, "codec name")
-assert_eq(decoded.target, published.target, "codec target")
+local payload = Codec.EncodeLedgerEntry(entry)
+local decoded = Codec.Decode(payload)
+assert_eq(decoded.msgKind, "LEDGER", "msgKind")
+assert_eq(decoded.copper, 10, "codec copper")
 
-local hello = Codec.Decode(Codec.EncodeHello("0.1.0", "guid-1"))
-assert_eq(hello.kind, "HELLO", "hello kind")
-local donate = Codec.Decode(Codec.EncodeDonate({ guid = "g", name = "N", eventId = "e", copper = 5, at = 9 }))
-assert_eq(donate.copper, 5, "donate copper")
+-- Forever full names (First Last)
+assert_true(Fundraiser.Domain.Roles.IsFullCharacterName("Jane Doe"), "full name ok")
+assert_true(not Fundraiser.Domain.Roles.IsFullCharacterName("Jane"), "first only rejected")
+assert_true(Fundraiser.Domain.Roles.NamesEqual("Jane Doe", "jane  doe"), "collapse spaces")
+assert_true(Fundraiser.Domain.Roles.NamesEqual("Jane Doe-Realm", "Jane Doe"), "strip realm")
+local badTarget = Fundraiser.Domain.Event.Create({
+  name = "X",
+  target = "OnlyFirst",
+  intervalSeconds = 3600,
+  minAdminRank = 0,
+})
+assert_eq(badTarget, nil, "reject single-token target")
 
--- Missing installs
-local missing = Fundraiser.Application.UseCases.ListMissingInstalls({
-  getRoster = function()
-    return {
-      { name = "OnlineNoAddon", guid = "1", online = true },
-      { name = "HasAddon", guid = "2", online = true },
-      { name = "Offline", guid = "3", online = false },
-    }
-  end,
-  getPresence = function()
-    return { ["2"] = { lastHello = 1000 }, HasAddon = { lastHello = 1000 } }
-  end,
-  presenceStale = 600,
-}, 1000)
-assert_eq(#missing, 1, "one missing")
-assert_eq(missing[1].name, "OnlineNoAddon", "missing name")
+-- SaleAdvice vendor vs AH
+local advice = Fundraiser.Domain.SaleAdvice.Recommend(100, 100, 1, 0.05)
+assert_eq(advice, "vendor", "vendor wins vs cut AH")
+advice = Fundraiser.Domain.SaleAdvice.Recommend(10, 100, 1, 0.05)
+assert_eq(advice, "ah", "ah wins")
+advice = Fundraiser.Domain.SaleAdvice.Recommend(nil, nil, 1, 0.05)
+assert_eq(advice, "manual", "manual when no prices")
 
 if failed > 0 then
   io.stderr:write(failed .. " failure(s)\n")

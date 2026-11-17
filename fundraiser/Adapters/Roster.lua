@@ -1,9 +1,18 @@
 -- Guild roster port (Forever / Classic-compatible APIs).
+-- Forever names include first + last (spaces); do not truncate at the first space.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
 
 local Roster = {}
 Fundraiser.Adapters.Roster = Roster
+
+local function displayName(name)
+  local Roles = Fundraiser.Domain and Fundraiser.Domain.Roles
+  if Roles and Roles.DisplayName then
+    return Roles.DisplayName(name)
+  end
+  return name
+end
 
 function Roster:IsInGuild()
   if IsInGuild then
@@ -20,10 +29,13 @@ function Roster:GetGuildName()
 end
 
 function Roster:GetPlayerRankIndex()
+  -- Debug override: /fundraiser debug asrank <n> | member | officer | asrank clear
+  if self.rankOverride ~= nil then
+    return self.rankOverride
+  end
   if not self:IsInGuild() then
     return nil
   end
-  -- GetGuildRosterInfo index for player; fall back to GuildRoster scan.
   if GetGuildInfo then
     local _, _, rankIndex = GetGuildInfo("player")
     return rankIndex
@@ -31,11 +43,27 @@ function Roster:GetPlayerRankIndex()
   return nil
 end
 
-function Roster:GetPlayerName()
-  if UnitName then
-    return UnitName("player")
+function Roster:SetRankOverride(rankIndex)
+  if rankIndex == nil then
+    self.rankOverride = nil
+    return
   end
-  return nil
+  self.rankOverride = tonumber(rankIndex)
+end
+
+function Roster:GetPlayerName()
+  local name
+  -- Prefer full name APIs when present (Forever first+last).
+  if UnitFullName then
+    local n = UnitFullName("player")
+    if type(n) == "string" and n ~= "" then
+      name = n
+    end
+  end
+  if (not name or name == "") and UnitName then
+    name = UnitName("player")
+  end
+  return displayName(name)
 end
 
 function Roster:GetPlayerGUID()
@@ -51,7 +79,6 @@ function Roster:Request()
   end
 end
 
--- Returns array of { name, guid, rankIndex, online }.
 function Roster:GetMembers()
   local members = {}
   if not self:IsInGuild() or not GetNumGuildMembers then
@@ -61,8 +88,7 @@ function Roster:GetMembers()
   for i = 1, n do
     local name, _, rankIndex, _, _, _, _, _, online, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
     if name then
-      -- Strip realm if present.
-      name = name:match("^([^%-]+)") or name
+      name = displayName(name)
       members[#members + 1] = {
         name = name,
         guid = guid or name,
@@ -78,9 +104,9 @@ function Roster:RankIndexOfName(senderName)
   if not senderName then
     return nil
   end
-  senderName = senderName:match("^([^%-]+)") or senderName
+  local Roles = Fundraiser.Domain.Roles
   for _, m in ipairs(self:GetMembers()) do
-    if m.name == senderName then
+    if Roles.NamesEqual(m.name, senderName) then
       return m.rankIndex
     end
   end

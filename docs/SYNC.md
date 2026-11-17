@@ -1,23 +1,48 @@
-# Guild sync (MVP)
+# Guild sync
 
 Fundraiser uses a **thin** hidden guild channel (`SendAddonMessage` / `CHAT_MSG_ADDON`, prefix `Fundraiser`).
+
+## Roles
+
+| Who | Data |
+| --- | --- |
+| All members with the addon | `EVENT`, mailbox reminder, and a **ledger mesh replica** (store + relay) |
+| Donation target character | Writes ledger rows (incoming mail + **all** AH sales), then broadcasts |
+| Officers (`rank <= minAdminRank`) + donation target | May **view** the ledger in UI |
+
+**Important:** The donation-target character should be used **only** for this fundraiser (mail intake + AH). Personal AH on that alt will be logged as fundraiser income.
+
+## Ledger mesh
+
+Every installed client keeps the same id-union replica and will push a snapshot when peers say `HELLO` / when `DIGEST` shows they are behind. Officers do **not** all need to be online for the mesh to move data — any online member with rows can relay.
+
+**UI gate only:** members without view access still store/relay; they do not see ledger totals in the admin window. This is **not** encryption. A modified addon or inspection of local data can read plaintext rows.
 
 ## Messages
 
 | Kind | Purpose |
 | --- | --- |
-| `HELLO` | Presence + addon version |
-| `EVENT` | Officer event snapshot (revisioned) |
-| `DONATE` | Self-attested contribution |
-| `DIGEST` | Catch-up hint (event revision + contribution count) |
+| `HELLO` | Presence; any peer holding rows may push a full ledger snapshot |
+| `EVENT` | Officer event snapshot (revisioned; receive-side rank check) |
+| `LEDGER` | Single ledger row (`mail` or `ah`); all clients merge into local store |
+| `DIGEST` | Event revision + ledger fingerprint (count/sum/maxAt) |
+
+## Ledger merge
+
+Replicas merge by **entry id** (union). Same id → newer `at` wins (then higher copper). Stale logins do not wipe peers; they rebase/merge like combining commits.
 
 ## Trust model
 
-- Addon messages are **not** cryptographically signed.
-- `EVENT` is accepted only if the sender’s **guild rank index** (from roster) is `<= event.minAdminRank`.
-- `DONATE` is treated as **self-attested** (honor system), not proof from the guild bank.
-- SavedVariables (`FundraiserDB`) are a cache; Forever may omit them after cold start — peers rehydrate via HELLO/DIGEST/EVENT when online.
+- Addon messages are not cryptographically signed.
+- `EVENT` requires sender guild rank `<= minAdminRank`.
+- `LEDGER` rows are accepted from any guild peer for mesh storage (so relays work). A malicious member can forge rows — treat the ledger as guild-trusted, not secret.
+- Only the donation target **writes** new rows from mail/AH; members only dismiss reminders when they send mail.
+- Viewing remains `Roles.CanViewLedger` (target or `rank <= minAdminRank`).
+
+## Solo debug
+
+`Config.DEBUG = true` → `/fundraiser debug …` (see README). Use `debug member` / `asrank` to confirm UI refusal while mesh store still applies.
 
 ## Later
 
-When [LibGuildSync](https://github.com/Nedyar/LibGuildSync) is available on CurseForge, it can replace the thin adapter behind the same application ports (see GitHub issue #6).
+LibGuildSync on CurseForge can replace the thin adapter (issue #6).

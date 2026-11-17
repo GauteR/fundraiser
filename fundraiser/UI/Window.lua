@@ -78,6 +78,17 @@ function Window:Ensure()
   refresh:SetScript("OnClick", function()
     Window:Refresh()
   end)
+
+  local targetBtn = CreateFrame("Button", "FundraiserTargetOpenButton", f, "UIPanelButtonTemplate")
+  targetBtn:SetSize(140, 24)
+  targetBtn:SetPoint("LEFT", refresh, "RIGHT", 8, 0)
+  targetBtn:SetText(Fundraiser:T("BTN_TARGET_UI"))
+  targetBtn:SetScript("OnClick", function()
+    if Fundraiser.UI.Target then
+      Fundraiser.UI.Target:Toggle()
+    end
+  end)
+  f.targetBtn = targetBtn
   y = y - 36
 
   label(Fundraiser:T("SECTION_LEDGER"), 20)
@@ -138,7 +149,9 @@ function Window:Publish()
   local event, err = UC.PublishEvent(deps, fields, actor)
   if not event then
     if DEFAULT_CHAT_FRAME then
-      local msg = err == "not_admin" and Fundraiser:T("CHAT_NOT_ADMIN") or tostring(err)
+      local msg = err == "not_admin" and Fundraiser:T("CHAT_NOT_ADMIN")
+        or err == "target_need_full_name" and Fundraiser:T("CHAT_TARGET_NEED_FULL_NAME")
+        or tostring(err)
       DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. msg)
     end
     return
@@ -164,25 +177,49 @@ function Window:Refresh()
     f.goal:SetText(event.goal or "")
   end
 
-  if Fundraiser.Config.LEDGER and event then
+  local Roles = Fundraiser.Domain.Roles
+  local canLedger = Fundraiser.Config.LEDGER
+    and event
+    and Roles.CanViewLedger(event, Roster:GetPlayerRankIndex(), Roster:GetPlayerName())
+  if canLedger then
     local rows, total = UC.GetLedger({
+      getEvent = function()
+        return Store:GetEvent()
+      end,
       getContributions = function()
         return Store:GetContributions()
+      end,
+      getPlayerName = function()
+        return Roster:GetPlayerName()
+      end,
+      getPlayerRankIndex = function()
+        return Roster:GetPlayerRankIndex()
       end,
     }, event.id)
     f.ledgerTotal:SetText(Fundraiser:T("LEDGER_TOTAL_FMT", money(total)))
     if #rows == 0 then
-      f.ledgerBody:SetText(Fundraiser:T("LEDGER_EMPTY"))
+      f.ledgerBody:SetText(Fundraiser:T("LEDGER_EMPTY") .. "\n" .. Fundraiser:T("LEDGER_DEDICATED_HINT"))
     else
-      local lines = {}
+      local lines = { Fundraiser:T("LEDGER_DEDICATED_HINT") }
       for _, row in ipairs(rows) do
-        lines[#lines + 1] = string.format("%s — %s", row.name or "?", money(row.copper))
+        lines[#lines + 1] = string.format("[%s] %s %s — %s", row.kind or "?", row.name or "?", row.detail or "", money(row.copper))
       end
       f.ledgerBody:SetText(table.concat(lines, "\n"))
     end
   else
     f.ledgerTotal:SetText("")
-    f.ledgerBody:SetText(Fundraiser:T("LEDGER_EMPTY"))
+    f.ledgerBody:SetText(Fundraiser:T("LEDGER_OFFICER_ONLY"))
+  end
+
+  if f.targetBtn then
+    local showTarget = Fundraiser.Config.TARGET_UI
+      and event
+      and Roles.IsDonationTarget(event, Roster:GetPlayerName())
+    if showTarget then
+      f.targetBtn:Show()
+    else
+      f.targetBtn:Hide()
+    end
   end
 
   local now = (GetServerTime and GetServerTime()) or (time and time()) or 0
@@ -205,6 +242,12 @@ function Window:Refresh()
       lines[#lines + 1] = string.format("%s — %s", m.name, status)
     end
     f.presenceBody:SetText(table.concat(lines, "\n"))
+  end
+end
+
+function Window:Hide()
+  if self.frame then
+    self.frame:Hide()
   end
 end
 
