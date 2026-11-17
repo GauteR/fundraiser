@@ -13,6 +13,7 @@ Locale/enUS.lua
 Domain/Event.lua
 Domain/Rank.lua
 Domain/Roles.lua
+Domain/Settings.lua
 Domain/Reminder.lua
 Domain/Ledger.lua
 Domain/SaleAdvice.lua

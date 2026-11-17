@@ -12,13 +12,10 @@ end
 function UC.PublishEvent(deps, fields, actor)
   local Event = Domain().Event
   local Rank = Domain().Rank
+  local Roles = Domain().Roles
   actor = actor or {}
-  local minRank = tonumber(fields and fields.minAdminRank)
-  if minRank == nil and deps.getEvent then
-    local current = deps.getEvent()
-    minRank = current and current.minAdminRank
-  end
-  minRank = minRank or 0
+  -- Admin gate and stamped wire field both use global Config/Options rank.
+  local minRank = (Roles and Roles.GetMinAdminRank and Roles.GetMinAdminRank()) or 0
   if not Rank.IsAdmin(actor.rankIndex, minRank) then
     return nil, "not_admin"
   end
@@ -28,6 +25,7 @@ function UC.PublishEvent(deps, fields, actor)
     revision = (tonumber(current.revision) or 0) + 1
   end
   fields = fields or {}
+  fields.minAdminRank = minRank
   fields.revision = revision
   fields.publishedAt = actor.now or fields.publishedAt or 0
   fields.publisher = actor.name or fields.publisher or ""
@@ -50,10 +48,11 @@ end
 function UC.AcceptRemoteEvent(deps, event, senderRankIndex)
   local Event = Domain().Event
   local Rank = Domain().Rank
+  local Roles = Domain().Roles
   if not event then
     return nil, "no_event"
   end
-  local minRank = tonumber(event.minAdminRank) or 0
+  local minRank = (Roles and Roles.GetMinAdminRank and Roles.GetMinAdminRank()) or 0
   if not Rank.IsAdmin(senderRankIndex, minRank) then
     return nil, "not_admin"
   end

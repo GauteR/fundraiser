@@ -11,7 +11,24 @@ local function emptyDb()
     contributions = {},
     presence = {},
     reminder = {},
+    settings = {},
   }
+end
+
+local function defaultSettingsFromConfig()
+  local cfg = Fundraiser.Config or {}
+  return {
+    defaultReminderInterval = tonumber(cfg.DEFAULT_REMINDER_INTERVAL) or 86400,
+    defaultMinAdminRank = tonumber(cfg.DEFAULT_MIN_ADMIN_RANK) or 0,
+  }
+end
+
+function Store:ApplySettingsToConfig()
+  local Settings = Fundraiser.Domain and Fundraiser.Domain.Settings
+  local settings = self:GetSettings()
+  if Settings and Settings.ApplyToConfig and Fundraiser.Config then
+    Settings.ApplyToConfig(settings, Fundraiser.Config)
+  end
 end
 
 function Store:Load()
@@ -24,8 +41,35 @@ function Store:Load()
   db.contributions = db.contributions or {}
   db.presence = db.presence or {}
   db.reminder = db.reminder or {}
+  db.settings = db.settings or {}
   self.db = db
+  self:ApplySettingsToConfig()
   return db
+end
+
+function Store:GetSettings()
+  self.db = self.db or self:Load()
+  local stored = self.db.settings or {}
+  local defaults = defaultSettingsFromConfig()
+  return {
+    defaultReminderInterval = tonumber(stored.defaultReminderInterval) or defaults.defaultReminderInterval,
+    defaultMinAdminRank = tonumber(stored.defaultMinAdminRank) or defaults.defaultMinAdminRank,
+  }
+end
+
+function Store:SetSettings(raw)
+  local Settings = Fundraiser.Domain and Fundraiser.Domain.Settings
+  if not Settings or not Settings.Normalize then
+    return nil, "no_settings"
+  end
+  local normalized, err = Settings.Normalize(raw)
+  if not normalized then
+    return nil, err
+  end
+  self.db = self.db or self:Load()
+  self.db.settings = normalized
+  self:ApplySettingsToConfig()
+  return normalized
 end
 
 function Store:GetEvent()

@@ -70,15 +70,15 @@ function Roles.IsDonationTarget(event, playerName)
   return Roles.NamesEqual(event.target, playerName)
 end
 
+-- Global Options/Config gate (event.minAdminRank is wire-only, ignored locally).
+function Roles.GetMinAdminRank()
+  return (Fundraiser.Config and tonumber(Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK)) or 0
+end
+
 -- Officers (and GM) may open the admin window / publish. Members may not.
--- With no event yet, uses Config.DEFAULT_MIN_ADMIN_RANK (fallback 0).
-function Roles.CanManageFundraiser(rankIndex, event)
-  local minRank = event and tonumber(event.minAdminRank) or nil
-  if minRank == nil then
-    minRank = (Fundraiser.Config and tonumber(Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK)) or 0
-  end
+function Roles.CanManageFundraiser(rankIndex, _event)
   local Rank = Fundraiser.Domain.Rank
-  return Rank.IsAdmin(rankIndex, minRank)
+  return Rank.IsAdmin(rankIndex, Roles.GetMinAdminRank())
 end
 
 function Roles.CanViewLedger(event, rankIndex, playerName)
@@ -103,5 +103,5 @@ function Roles.CanAcceptLedgerFrom(event, senderName, senderRankIndex)
     return true
   end
   local Rank = Fundraiser.Domain.Rank
-  return Rank.IsAdmin(senderRankIndex, event.minAdminRank)
+  return Rank.IsAdmin(senderRankIndex, Roles.GetMinAdminRank())
 end
