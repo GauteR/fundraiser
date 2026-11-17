@@ -1,0 +1,67 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime": {
+    "version": "Lua 5.1",
+    "builtin": {
+      "basic": "default",
+      "bit": "default",
+      "bit32": "default",
+      "coroutine": "default",
+      "debug": "default",
+      "io": "default",
+      "math": "default",
+      "os": "default",
+      "package": "default",
+      "string": "default",
+      "table": "default",
+      "utf8": "default"
+    }
+  },
+  "diagnostics": {
+    "globals": [
+      "Fundraiser",
+      "FundraiserDB",
+      "DEFAULT_CHAT_FRAME",
+      "CreateFrame",
+      "UIParent",
+      "UISpecialFrames",
+      "tinsert",
+      "SlashCmdList",
+      "SLASH_FUNDRAISER1",
+      "GameFontHighlight",
+      "GameFontNormal",
+      "GameFontNormalLarge",
+      "GameFontHighlightSmall",
+      "Settings",
+      "SettingsPanel",
+      "HideUIPanel",
+      "C_AddOns",
+      "GetAddOnMetadata",
+      "IsInGuild",
+      "GetGuildInfo",
+      "GetNumGuildMembers",
+      "GetGuildRosterInfo",
+      "GuildRoster",
+      "UnitName",
+      "UnitGUID",
+      "SendAddonMessage",
+      "C_ChatInfo",
+      "CHAT_MSG_ADDON",
+      "GetServerTime",
+      "time",
+      "hooksecurefunc",
+      "SendMail",
+      "GetSendMailMoney",
+      "OpenAllBags",
+      "ToggleBackpack",
+      "ToggleAllBags",
+      "BasicFrameTemplateWithInset",
+      "InputBoxTemplate",
+      "UIPanelButtonTemplate",
+      "BackdropTemplate"
+    ]
+  },
+  "workspace": {
+    "checkThirdParty": false
+  }
+}

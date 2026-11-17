@@ -1,0 +1,17 @@
+# Repo root is the VCS checkout; addon files live under fundraiser/.
+package-as: fundraiser
+
+move-folders:
+  fundraiser/fundraiser: fundraiser
+
+ignore:
+  - docs
+  - tests
+  - reports
+  - scripts
+  - README.md
+  - .luarc.json
+  - .github
+  - CHANGELOG.md
+
+enable-nolib-creation: no

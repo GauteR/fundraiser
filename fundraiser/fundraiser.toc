@@ -1,0 +1,18 @@
+## Interface: 16001
+## Title: Fundraiser
+## Notes: Guild donation reminders and self-attested ledger for Forever.
+## Author: GauteR
+## Version: @project-version@
+## DefaultState: enabled
+## IconTexture: Interface\Icons\INV_Misc_Coin_01
+## SavedVariables: FundraiserDB
+
+Config.lua
+Locale/enUS.lua
+Domain/Event.lua
+Domain/Rank.lua
+Domain/Reminder.lua
+Domain/Ledger.lua
+Application/UseCases.lua
+Adapters/Codec.lua
+Core.lua
