@@ -19,9 +19,9 @@ The ledger is recorded on the **donation-target character** (incoming mail and a
 
 ## Features
 
-- Guild-only fundraiser events (name, mail target, reminder interval)
+- Guild-only fundraiser events (name, mail target, per-event reminder interval)
 - Mailbox reminder until mail is sent to the target
-- Officer admin ranks configurable per event
+- Global min admin rank and default reminder interval under Settings → AddOns → Fundraiser
 - Ledger on the donation target; guild-wide mesh relay; officer/target view
 - Install presence: who is online without the addon (best-effort)
 
@@ -38,7 +38,7 @@ The ledger is recorded on the **donation-target character** (incoming mail and a
 
 ## How to use
 
-1. Officers: `/fundraiser` → set event fields (target = dedicated fundraiser alt) → **Publish event**.
+1. Officers: Settings → AddOns → Fundraiser for default interval and min admin rank, then `/fundraiser` (or **Addon settings** from that window) → set event fields (target = dedicated fundraiser alt; interval overrides the default) → **Publish event**.
 2. Members keep the addon installed; open the mailbox to see reminders when due.
 3. Send mail to the designated target to clear the current reminder window.
 4. On the target alt, receive mail and run AH — any online member with the addon can relay; officers see the ledger when they log in.

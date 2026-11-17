@@ -14,13 +14,13 @@ Officers publish a shared fundraising goal; members see a reminder beside the ma
 ## Features
 
 - Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `REMINDER`, `ADMIN_UI`, `LEDGER`, `DEBUG`
-- Officer-published event (name, mail target, reminder interval, min admin rank)
+- Officer-published event (name, mail target, per-event reminder interval)
 - Mailbox reminder for members (beside the mail window) until mail is sent to the target
 - Ledger writes on the **donation-target** only; all clients store/relay the mesh; officers + target view in UI
 - Logs incoming mailbox money/items and **all** AH sales on that character
 - Target inbox assist (`/fundraiser target`): per-sender stacks, TSM→Auctionator→manual price, vendor vs AH advice, one AH post per stack
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST`) — see [`docs/SYNC.md`](docs/SYNC.md)
-- Options → AddOns → Fundraiser panel
+- Options → AddOns → Fundraiser: status, default reminder interval, global min admin rank; `/fundraiser` has an **Addon settings** button to open that panel
 - Pure Lua unit tests
 
 ## Dedicated donation character
@@ -62,15 +62,27 @@ With `Config.DEBUG = true`:
 
 ## Usage
 
-1. Officers (guild rank ≤ event `minAdminRank`, or `DEFAULT_MIN_ADMIN_RANK` before any event): `/fundraiser` → fill event fields → **Publish event** (target = dedicated fundraiser alt). Members get a chat refusal if they open `/fundraiser`.
-2. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
-3. On the target alt: open mailbox → `/fundraiser target` (or **Target inbox assist**) → Post AH / Vendor per stack; AH sales also hit the ledger. Other characters cannot open the target UI.
+1. Set **Defaults** under Settings → AddOns → Fundraiser (or **Addon settings** in the admin window): default reminder interval and global min admin rank (rank ≤ this may manage).
+2. Officers: `/fundraiser` → fill event fields (per-event interval overrides the default) → **Publish event** (target = dedicated fundraiser alt). Members get a chat refusal if they open `/fundraiser`.
+3. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
+4. On the target alt: open mailbox → `/fundraiser target` (or **Target inbox assist**) → Post AH / Vendor per stack; AH sales also hit the ledger. Other characters cannot open the target UI.
 
 Close windows with the frame X or Escape (`UISpecialFrames`).
 
+### Options (Settings → AddOns → Fundraiser)
+
+| Control | Meaning |
+| --- | --- |
+| Status | Enabled, guild, active event, whether you can open the admin UI |
+| Default reminder interval | Hours; used when publishing without a per-event override / empty interval field |
+| Min admin rank | Global only (0 = GM); not set per event |
+| Open Fundraiser | Shown only when your rank may manage fundraisers |
+
+Defaults are stored in `FundraiserDB.settings` and overlaid onto `Config` at load. Forever may not restore SavedVariables after a cold start — re-apply in Options if needed. `DEBUG` stays in `Config.lua` only.
+
 ## Configuration
 
-Edit [`fundraiser/Config.lua`](fundraiser/Config.lua):
+Edit [`fundraiser/Config.lua`](fundraiser/Config.lua) for feature flags and compile-time defaults (Options can override interval/rank at runtime via SavedVariables):
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -82,14 +94,14 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua):
 | `TARGET_UI` | `true` | Donation-target inbox assist window |
 | `AH_ASSIST` | `true` | AH/vendor actions from target UI |
 | `TSM_PRICE_SOURCE` | `"DBMinBuyout"` | TSM price key for min AH reference |
-| `DEBUG` | `true` | Solo sim: `/fundraiser debug …` |
-| `DEFAULT_REMINDER_INTERVAL` | `86400` | Fallback interval (seconds) |
-| `DEFAULT_MIN_ADMIN_RANK` | `1` | Admin UI gate when no event yet (rank ≤ this) |
+| `DEBUG` | `true` | Solo sim: `/fundraiser debug …` (not in Options) |
+| `DEFAULT_REMINDER_INTERVAL` | `86400` | Default interval seconds (Options overlay) |
+| `DEFAULT_MIN_ADMIN_RANK` | `1` | Global admin gate: rank ≤ this (Options overlay) |
 | `PRESENCE_STALE` | `600` | HELLO freshness for “missing install” |
 | `SLASH_COMMAND` | `"/fundraiser"` | Slash command |
 | `VERSION` | `"0.1.0"` | Options version when TOC placeholder is unpackaged |
 
-After changing config, `/reload`.
+After changing `Config.lua` flags, `/reload`.
 
 ## Docs
 
@@ -103,6 +115,7 @@ After changing config, `/reload`.
 
 ```bash
 lua tests/test_domain.lua
+lua tests/test_options_settings.lua
 lua tests/test_release_meta.lua
 ```
 
