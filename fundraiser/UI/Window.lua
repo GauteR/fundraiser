@@ -518,12 +518,12 @@ end
 
 -- Logo band + left menu (built once; pages are the panels anchored beside the menu).
 local NAV_ITEMS = {
-  { page = "status", key = "NAV_STATUS", needs = "officer" },
-  { page = "ledger", key = "NAV_LEDGER", needs = "ledger" },
+  { page = "status", key = "NAV_STATUS", needs = "officer", tip = "TIP_NAV_STATUS" },
+  { page = "ledger", key = "NAV_LEDGER", needs = "ledger", tip = "TIP_NAV_LEDGER" },
   -- Actions pinned to the menu bottom (not pages): Add donation (opens the form), Set MOTD, Settings.
-  { page = "donation", key = "NAV_DONATION", needs = "donation", action = "donation" },
-  { page = "motd", key = "BTN_SET_MOTD", needs = "motd", action = "motd" },
-  { page = "settings", key = "NAV_SETTINGS", needs = "officer", action = "settings" },
+  { page = "donation", key = "NAV_DONATION", needs = "donation", action = "donation", tip = "TIP_NAV_DONATION" },
+  { page = "motd", key = "BTN_SET_MOTD", needs = "motd", action = "motd", tip = "TIP_SET_MOTD" },
+  { page = "settings", key = "NAV_SETTINGS", needs = "officer", action = "settings", tip = "TIP_NAV_SETTINGS" },
 }
 
 function Window:BuildShell(f)
@@ -580,12 +580,11 @@ function Window:BuildShell(f)
       Window:ShowPage(item.page)
     end)
     b.item = item
-    if item.action == "motd" then
-      b:SetScript("OnEnter", function(self)
-        showTooltip(self, "TIP_SET_MOTD_TITLE", "TIP_SET_MOTD_BODY")
-      end)
-      b:SetScript("OnLeave", hideTooltip)
-    end
+    -- Every menu entry describes what it does: <tip>_TITLE / <tip>_BODY in the locale.
+    b:SetScript("OnEnter", function(self)
+      showTooltip(self, item.tip .. "_TITLE", item.tip .. "_BODY")
+    end)
+    b:SetScript("OnLeave", hideTooltip)
     f.navButtons[#f.navButtons + 1] = b
   end
 
