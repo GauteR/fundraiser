@@ -221,11 +221,19 @@ local function RefreshPanel(panel)
     end
   end
 
-  if panel.cleanupFrame then
+  -- Danger zone + divider: only for admins.
+  if panel.dangerFrame then
     if canOpen then
-      panel.cleanupFrame:Show()
+      panel.dangerFrame:Show()
     else
-      panel.cleanupFrame:Hide()
+      panel.dangerFrame:Hide()
+    end
+  end
+  if panel.dangerDivider then
+    if canOpen then
+      panel.dangerDivider:Show()
+    else
+      panel.dangerDivider:Hide()
     end
   end
 end
@@ -257,7 +265,7 @@ local function AfterLocalDataChange(panel)
   end
   RefreshPanel(panel)
   if DEFAULT_CHAT_FRAME then
-    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_CLEANUP_DONE"))
+    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_DANGER_DONE"))
   end
 end
 
@@ -456,6 +464,7 @@ function Options:Initialize()
   )
   y = y - 8
 
+  -- Safe actions under Defaults: Apply for everyone; Open Fundraiser for admins.
   local applyButton = CreateFrame("Button", "FundraiserOptionsApplyButton", content, "UIPanelButtonTemplate")
   applyButton:SetSize(120, 24)
   applyButton:SetPoint("TOPLEFT", 16, y)
@@ -476,28 +485,40 @@ function Options:Initialize()
       Fundraiser:ToggleWindow()
     end
   end)
-  y = y - 36
+  y = y - 40
 
-  -- Admin-only local cleanup (does not wipe other clients' mesh replicas).
-  local cleanup = CreateFrame("Frame", "FundraiserOptionsCleanup", content)
-  cleanup:SetSize(CONTENT_WIDTH - 32, 150)
-  cleanup:SetPoint("TOPLEFT", 16, y)
-  panel.cleanupFrame = cleanup
+  -- Horizontal rule separates Defaults from admin-only destructive actions.
+  local divider = content:CreateTexture(nil, "ARTWORK")
+  divider:SetColorTexture(0.5, 0.5, 0.5, 0.6)
+  divider:SetHeight(1)
+  divider:SetPoint("TOPLEFT", 16, y)
+  divider:SetPoint("TOPRIGHT", content, "TOPRIGHT", -16, y)
+  panel.dangerDivider = divider
+  y = y - 16
 
-  local cleanupHeader = cleanup:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  cleanupHeader:SetPoint("TOPLEFT", 0, 0)
-  cleanupHeader:SetText(Fundraiser:T("OPTIONS_SECTION_CLEANUP"))
+  -- Admin-only Danger zone (local clears + guild broadcast wipe).
+  local DANGER_BTN_W = 148
+  local DANGER_BTN_H = 24
+  local DANGER_GAP = 8
+  local danger = CreateFrame("Frame", "FundraiserOptionsDanger", content)
+  danger:SetSize(CONTENT_WIDTH - 32, 130)
+  danger:SetPoint("TOPLEFT", 16, y)
+  panel.dangerFrame = danger
 
-  local cleanupHelp = cleanup:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  cleanupHelp:SetPoint("TOPLEFT", 0, -20)
-  cleanupHelp:SetWidth(CONTENT_WIDTH - 40)
-  cleanupHelp:SetJustifyH("LEFT")
-  cleanupHelp:SetWordWrap(true)
-  cleanupHelp:SetText(Fundraiser:T("OPTIONS_CLEANUP_HELP"))
+  local dangerHeader = danger:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  dangerHeader:SetPoint("TOPLEFT", 0, 0)
+  dangerHeader:SetText(Fundraiser:T("OPTIONS_SECTION_DANGER"))
 
-  local resetAll = CreateFrame("Button", "FundraiserOptionsResetAll", cleanup, "UIPanelButtonTemplate")
-  resetAll:SetSize(140, 24)
-  resetAll:SetPoint("TOPLEFT", 0, -52)
+  local dangerHelp = danger:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  dangerHelp:SetPoint("TOPLEFT", 0, -18)
+  dangerHelp:SetWidth(CONTENT_WIDTH - 40)
+  dangerHelp:SetJustifyH("LEFT")
+  dangerHelp:SetWordWrap(true)
+  dangerHelp:SetText(Fundraiser:T("OPTIONS_DANGER_HELP"))
+
+  local resetAll = CreateFrame("Button", "FundraiserOptionsResetAll", danger, "UIPanelButtonTemplate")
+  resetAll:SetSize(DANGER_BTN_W, DANGER_BTN_H)
+  resetAll:SetPoint("TOPLEFT", 0, -48)
   resetAll:SetText(Fundraiser:T("OPTIONS_BTN_RESET_ALL"))
   AttachTooltip(resetAll, "OPTIONS_TIP_RESET_ALL_TITLE", "OPTIONS_TIP_RESET_ALL_BODY")
   resetAll:SetScript("OnClick", function()
@@ -513,9 +534,9 @@ function Options:Initialize()
     end)
   end)
 
-  local clearPresence = CreateFrame("Button", "FundraiserOptionsClearPresence", cleanup, "UIPanelButtonTemplate")
-  clearPresence:SetSize(140, 24)
-  clearPresence:SetPoint("LEFT", resetAll, "RIGHT", 8, 0)
+  local clearPresence = CreateFrame("Button", "FundraiserOptionsClearPresence", danger, "UIPanelButtonTemplate")
+  clearPresence:SetSize(DANGER_BTN_W, DANGER_BTN_H)
+  clearPresence:SetPoint("LEFT", resetAll, "RIGHT", DANGER_GAP, 0)
   clearPresence:SetText(Fundraiser:T("OPTIONS_BTN_CLEAR_PRESENCE"))
   AttachTooltip(clearPresence, "OPTIONS_TIP_CLEAR_PRESENCE_TITLE", "OPTIONS_TIP_CLEAR_PRESENCE_BODY")
   clearPresence:SetScript("OnClick", function()
@@ -531,9 +552,9 @@ function Options:Initialize()
     end)
   end)
 
-  local clearLedger = CreateFrame("Button", "FundraiserOptionsClearLedger", cleanup, "UIPanelButtonTemplate")
-  clearLedger:SetSize(140, 24)
-  clearLedger:SetPoint("TOPLEFT", resetAll, "BOTTOMLEFT", 0, -8)
+  local clearLedger = CreateFrame("Button", "FundraiserOptionsClearLedger", danger, "UIPanelButtonTemplate")
+  clearLedger:SetSize(DANGER_BTN_W, DANGER_BTN_H)
+  clearLedger:SetPoint("LEFT", clearPresence, "RIGHT", DANGER_GAP, 0)
   clearLedger:SetText(Fundraiser:T("OPTIONS_BTN_CLEAR_LEDGER"))
   AttachTooltip(clearLedger, "OPTIONS_TIP_CLEAR_LEDGER_TITLE", "OPTIONS_TIP_CLEAR_LEDGER_BODY")
   clearLedger:SetScript("OnClick", function()
@@ -549,9 +570,9 @@ function Options:Initialize()
     end)
   end)
 
-  local clearEvent = CreateFrame("Button", "FundraiserOptionsClearEvent", cleanup, "UIPanelButtonTemplate")
-  clearEvent:SetSize(140, 24)
-  clearEvent:SetPoint("LEFT", clearLedger, "RIGHT", 8, 0)
+  local clearEvent = CreateFrame("Button", "FundraiserOptionsClearEvent", danger, "UIPanelButtonTemplate")
+  clearEvent:SetSize(DANGER_BTN_W, DANGER_BTN_H)
+  clearEvent:SetPoint("TOPLEFT", resetAll, "BOTTOMLEFT", 0, -DANGER_GAP)
   clearEvent:SetText(Fundraiser:T("OPTIONS_BTN_CLEAR_EVENT"))
   AttachTooltip(clearEvent, "OPTIONS_TIP_CLEAR_EVENT_TITLE", "OPTIONS_TIP_CLEAR_EVENT_BODY")
   clearEvent:SetScript("OnClick", function()
@@ -567,9 +588,9 @@ function Options:Initialize()
     end)
   end)
 
-  local broadcastReset = CreateFrame("Button", "FundraiserOptionsBroadcastReset", cleanup, "UIPanelButtonTemplate")
-  broadcastReset:SetSize(160, 24)
-  broadcastReset:SetPoint("TOPLEFT", clearLedger, "BOTTOMLEFT", 0, -8)
+  local broadcastReset = CreateFrame("Button", "FundraiserOptionsBroadcastReset", danger, "UIPanelButtonTemplate")
+  broadcastReset:SetSize(DANGER_BTN_W * 2 + DANGER_GAP, DANGER_BTN_H)
+  broadcastReset:SetPoint("LEFT", clearEvent, "RIGHT", DANGER_GAP, 0)
   broadcastReset:SetText(Fundraiser:T("OPTIONS_BTN_BROADCAST_RESET"))
   AttachTooltip(broadcastReset, "OPTIONS_TIP_BROADCAST_RESET_TITLE", "OPTIONS_TIP_BROADCAST_RESET_BODY")
   broadcastReset:SetScript("OnClick", function()
@@ -591,7 +612,7 @@ function Options:Initialize()
     end)
   end)
 
-  y = y - 160
+  y = y - 140
   content:SetHeight(math.abs(y) + 24)
 
   local ok, category = pcall(Settings.RegisterCanvasLayoutCategory, panel, panel.name)

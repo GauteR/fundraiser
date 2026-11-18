@@ -126,9 +126,9 @@ L.OPTIONS_TIP_RANK_BODY =
 L.OPTIONS_APPLY = "Apply"
 L.OPTIONS_SAVE_FAILED = "Could not save settings (%s)."
 L.OPTIONS_OPEN = "Open Fundraiser"
-L.OPTIONS_SECTION_CLEANUP = "Cleanup"
-L.OPTIONS_CLEANUP_HELP =
-  "These actions clear data on this character only."
+L.OPTIONS_SECTION_DANGER = "Danger zone"
+L.OPTIONS_DANGER_HELP =
+  "Destructive admin actions. Local clears affect this character only; Broadcast reset also notifies the guild."
 L.OPTIONS_BTN_RESET_ALL = "Reset all data"
 L.OPTIONS_BTN_CLEAR_PRESENCE = "Clear presence"
 L.OPTIONS_BTN_CLEAR_LEDGER = "Clear ledger"
@@ -147,7 +147,7 @@ L.OPTIONS_TIP_CLEAR_LEDGER_TITLE = "Clear ledger"
 L.OPTIONS_TIP_CLEAR_LEDGER_BODY = "Deletes local contribution rows. Peers may re-mesh data if they still hold copies."
 L.OPTIONS_TIP_CLEAR_EVENT_TITLE = "Clear event"
 L.OPTIONS_TIP_CLEAR_EVENT_BODY = "Removes the local event snapshot and reminder dismiss state."
-L.OPTIONS_CLEANUP_DONE = "Local cleanup applied."
+L.OPTIONS_DANGER_DONE = "Local cleanup applied."
 L.OPTIONS_BTN_BROADCAST_RESET = "Broadcast reset"
 L.OPTIONS_CONFIRM_BROADCAST_RESET =
   "Broadcast RESET (all) to the guild? Online peers wipe local data when your rank is allowed. A resetEpoch stops older ledger rows from syncing back afterward."
