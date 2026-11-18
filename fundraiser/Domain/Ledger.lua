@@ -16,7 +16,8 @@ end
 function Ledger.CreateEntry(fields)
   fields = fields or {}
   local kind = trim(fields.kind or "")
-  if kind ~= "mail" and kind ~= "ah" then
+  -- manual = donation entered by hand on the donation target (e.g. gold traded in person).
+  if kind ~= "mail" and kind ~= "ah" and kind ~= "manual" then
     return nil, "bad_kind"
   end
   local eventId = trim(fields.eventId or "")

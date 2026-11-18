@@ -91,6 +91,18 @@ function Roles.CanViewLedger(event, rankIndex, playerName)
   return Roles.CanManageFundraiser(rankIndex, event)
 end
 
+-- Manual donations (entered by hand) may be added by the donation target and by officers.
+-- Mail/AH rows stay target-only (CanWriteLedger); peers already accept ledger rows from officers.
+function Roles.CanAddManualDonation(event, rankIndex, playerName)
+  if not event then
+    return false
+  end
+  if Roles.IsDonationTarget(event, playerName) then
+    return true
+  end
+  return Roles.CanManageFundraiser(rankIndex, event)
+end
+
 function Roles.CanWriteLedger(event, playerName)
   return Roles.IsDonationTarget(event, playerName)
 end

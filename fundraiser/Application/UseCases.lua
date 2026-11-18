@@ -187,18 +187,9 @@ function UC.AcceptRemoteReset(deps, scope, senderRankIndex, resetEpoch)
   return true
 end
 
--- Target-only write of a new ledger row; then replicate to officers.
-function UC.AppendLedgerEntry(deps, fields, actor)
+-- Store a new ledger row for the active event and replicate it (no permission check here).
+local function appendEntry(deps, event, fields)
   local Ledger = Domain().Ledger
-  local Roles = Domain().Roles
-  local event = deps.getEvent and deps.getEvent() or nil
-  if not event then
-    return nil, "no_event"
-  end
-  actor = actor or {}
-  if not Roles.CanWriteLedger(event, actor.name) then
-    return nil, "not_target"
-  end
   fields = fields or {}
   fields.eventId = fields.eventId or event.id
   local entry, err = Ledger.CreateEntry(fields)
@@ -214,6 +205,57 @@ function UC.AppendLedgerEntry(deps, fields, actor)
     deps.broadcastLedgerEntry(entry)
   end
   return entry, changed
+end
+
+-- Target-only write of a new ledger row (mail / AH); then replicate to the mesh.
+function UC.AppendLedgerEntry(deps, fields, actor)
+  local Roles = Domain().Roles
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
+  end
+  actor = actor or {}
+  if not Roles.CanWriteLedger(event, actor.name) then
+    return nil, "not_target"
+  end
+  return appendEntry(deps, event, fields)
+end
+
+local manualSeq = 0
+
+-- Manual donation entered by hand; stored and meshed like mail/AH rows.
+-- Allowed for the donation target and for officers (Roles.CanAddManualDonation).
+-- fields: name (donor), copper (> 0), detail (optional). actor: name, rankIndex, now.
+function UC.AddManualDonation(deps, fields, actor)
+  local Roles = Domain().Roles
+  fields = fields or {}
+  actor = actor or {}
+  local name = Roles.DisplayName(fields.name)
+  if not name then
+    return nil, "bad_name"
+  end
+  local copper = math.floor(tonumber(fields.copper) or 0)
+  if copper <= 0 then
+    return nil, "bad_copper"
+  end
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
+  end
+  if not Roles.CanAddManualDonation(event, actor.rankIndex, actor.name) then
+    return nil, "not_allowed"
+  end
+  local at = tonumber(actor.now) or 0
+  -- Sequence keeps two identical donations in the same second as separate rows.
+  manualSeq = manualSeq + 1
+  return appendEntry(deps, event, {
+    id = string.format("manual:%s:%d:%d:%d", name, copper, at, manualSeq),
+    kind = "manual",
+    name = name,
+    detail = fields.detail or "",
+    copper = copper,
+    at = at,
+  })
 end
 
 -- Mesh merge: every installed client stores the id-union replica.
@@ -313,4 +355,56 @@ function UC.GetLedger(deps, eventId)
   local list = (deps.getContributions and deps.getContributions()) or {}
   local filtered = Ledger.FilterByEvent(list, eventId)
   return filtered, Ledger.TotalCopper(filtered)
+end
+
+local function canViewLedgerNow(deps, event)
+  local Roles = Domain().Roles
+  local me = deps.getPlayerName and deps.getPlayerName() or nil
+  local myRank = deps.getPlayerRankIndex and deps.getPlayerRankIndex() or nil
+  if event then
+    return Roles.CanViewLedger(event, myRank, me)
+  end
+  -- No active event (e.g. after End event): officers may still read archived summaries.
+  return Roles.CanManageFundraiser(myRank, nil)
+end
+
+-- Ledger window model (today's view gate). Returns nil, "no_access" when not allowed.
+function UC.GetLedgerView(deps)
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not canViewLedgerNow(deps, event) then
+    return nil, "no_access"
+  end
+  local rows = (deps.getContributions and deps.getContributions()) or {}
+  local archives = (deps.getArchives and deps.getArchives()) or {}
+  return Domain().LedgerView.Build(event, rows, archives)
+end
+
+-- Text that "Set MOTD" would publish (also used for the confirm dialog).
+function UC.PrepareMotd(deps)
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
+  end
+  if not canViewLedgerNow(deps, event) then
+    return nil, "no_access"
+  end
+  local LV = Domain().LedgerView
+  local view = UC.GetLedgerView(deps)
+  local top = LV.TopContributors(view.active.rows)[1]
+  return LV.MotdText(event, view.active.total, top)
+end
+
+function UC.SetMotd(deps)
+  local text, err = UC.PrepareMotd(deps)
+  if not text then
+    return nil, err
+  end
+  if not (deps.canEditMotd and deps.canEditMotd()) then
+    return nil, "cannot_edit_motd"
+  end
+  -- Adapter returns false when the client API is missing or refuses.
+  if not deps.setMotd or deps.setMotd(text) == false then
+    return nil, "set_failed"
+  end
+  return text
 end
