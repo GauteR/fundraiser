@@ -42,9 +42,6 @@ function Debug:SeedEvent(asMe)
   local revision = current and ((tonumber(current.revision) or 0) + 1) or 1
   -- Default keeps the target off the local player so MAIL_SHOW reminders still appear while solo-testing.
   local target = "Bank Alt"
-  if asMe then
-    target = Fundraiser.Adapters.Roster:GetPlayerName() or target
-  end
   local event, err = Event.Create({
     id = "debug-event",
     name = "Debug Tabard Fund",
@@ -60,6 +57,10 @@ function Debug:SeedEvent(asMe)
   if not event then
     Print(Fundraiser:T("CHAT_DEBUG_FAIL", tostring(err)))
     return nil
+  end
+  if asMe then
+    -- Event.Create requires "First Last"; set the target afterwards so a one-word name works too.
+    event.target = Fundraiser.Adapters.Roster:GetPlayerName() or event.target
   end
   Store:SetEvent(event)
   Print(Fundraiser:T("CHAT_DEBUG_SEEDED", event.name, event.target, tostring(event.intervalSeconds)))
