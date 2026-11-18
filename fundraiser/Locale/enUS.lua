@@ -128,6 +128,7 @@ L.OPTIONS_TIP_RANK_BODY =
 L.OPTIONS_APPLY = "Apply"
 L.OPTIONS_SAVE_FAILED = "Could not save settings (%s)."
 L.OPTIONS_OPEN = "Open Fundraiser"
+L.OPTIONS_OPEN_FAILED = "Could not open the Fundraiser settings page."
 L.OPTIONS_SECTION_DANGER = "Danger zone"
 L.OPTIONS_DANGER_HELP =
   "Destructive admin actions. Local clears affect this character only; Broadcast reset also notifies the guild."

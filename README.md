@@ -21,7 +21,7 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST` / `RESET`) — see [`docs/SYNC.md`](docs/SYNC.md)
 - Publishing a new event archives the previous event + ledger locally and clears the active ledger
 - Options -> AddOns -> Fundraiser: status, online installs (name / status / version), default reminder interval, global min admin rank; admin **Danger zone** (local clears + **Broadcast reset**)
-- `/fundraiser` admin window includes **Addon settings** to open that Options panel
+- `/fundraiser` admin window includes **Addon settings** to open that Options panel (chat warning if the jump fails)
 - Pure Lua unit tests (Given / When / Then scenarios)
 
 ## Dedicated donation character

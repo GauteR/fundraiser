@@ -339,20 +339,83 @@ local function AddEditRow(parent, labelText, tipTitle, tipBody, nameSuffix, y)
   return box, y - 28
 end
 
+local function NotifyOpenFailed()
+  if DEFAULT_CHAT_FRAME then
+    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_OPEN_FAILED"))
+  end
+end
+
+-- Pure helper for tests and Open(): numeric ID first, then name, then category object.
+-- category.ID is often overwritten to panel.name after RegisterCanvasLayoutCategory.
+function Options.CollectOpenCandidates(categoryID, category, panelName)
+  local candidates = {}
+  local function addCandidate(value)
+    if value == nil then
+      return
+    end
+    for i = 1, #candidates do
+      if candidates[i] == value then
+        return
+      end
+    end
+    candidates[#candidates + 1] = value
+  end
+  addCandidate(categoryID)
+  if category then
+    addCandidate(category.ID)
+  end
+  addCandidate(panelName)
+  addCandidate(category)
+  return candidates
+end
+
+-- Settings.OpenToCategory expects a numeric category ID (or, on some clients, the
+-- panel name after category.ID is overwritten). Passing the category object can
+-- pcall-succeed as a no-op, so try IDs first and verify the panel is shown.
 function Options:Open()
   if not self.category then
     self:Initialize()
   end
-  if not self.category or not Settings or not Settings.OpenToCategory then
+  local category = self.category
+  if not category then
+    NotifyOpenFailed()
     return
   end
-  local ok = pcall(Settings.OpenToCategory, self.category)
-  if not ok then
-    local id = self.category.ID or (self.panel and self.panel.name)
-    if id then
-      pcall(Settings.OpenToCategory, id)
+
+  local panelName = self.panel and self.panel.name
+  local candidates = {}
+  if Settings and Settings.OpenToCategory then
+    candidates = Options.CollectOpenCandidates(self.categoryID, category, panelName)
+  end
+
+  local function openedOk()
+    if not (SettingsPanel and SettingsPanel:IsShown()) then
+      return false
+    end
+    if SettingsPanel.GetCurrentCategory then
+      return SettingsPanel:GetCurrentCategory() == category
+    end
+    return true
+  end
+
+  for _, candidate in ipairs(candidates) do
+    if pcall(Settings.OpenToCategory, candidate) and openedOk() then
+      return
     end
   end
+
+  -- Pre-Settings clients: InterfaceOptions API (called twice, a known Blizzard quirk).
+  if InterfaceOptionsFrame_OpenToCategory and self.panel then
+    InterfaceOptionsFrame_OpenToCategory(self.panel)
+    InterfaceOptionsFrame_OpenToCategory(self.panel)
+    return
+  end
+
+  -- Last resort: at least open the Settings window so the user can pick the page.
+  if SettingsPanel and not SettingsPanel:IsShown() and ShowUIPanel then
+    ShowUIPanel(SettingsPanel)
+  end
+  NotifyOpenFailed()
 end
 
 function Options:Initialize()
@@ -619,7 +682,19 @@ function Options:Initialize()
   if not ok or not category then
     return
   end
+
+  -- Capture numeric ID before the name overwrite used by OpenToCategory(name) clients.
+  local categoryID
+  if category.GetID then
+    local okId, id = pcall(category.GetID, category)
+    if okId then
+      categoryID = id
+    end
+  elseif category.ID ~= nil then
+    categoryID = category.ID
+  end
   category.ID = panel.name
+
   local registeredOk = pcall(Settings.RegisterAddOnCategory, category)
   if not registeredOk then
     return
@@ -627,6 +702,7 @@ function Options:Initialize()
 
   self.panel = panel
   self.category = category
+  self.categoryID = categoryID
   self.registered = true
   RefreshPanel(panel)
 end
