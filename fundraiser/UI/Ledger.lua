@@ -180,14 +180,6 @@ function Ledger:Attach(shell)
   f.hint:SetWidth(PANEL_W - 2 * LIST_X)
   f.hint:SetJustifyH("LEFT")
 
-  local refresh = CreateFrame("Button", "FundraiserLedgerRefresh", f, "UIPanelButtonTemplate")
-  refresh:SetSize(90, 22)
-  refresh:SetPoint("TOPRIGHT", -16, -32)
-  refresh:SetText(Fundraiser:T("BTN_REFRESH"))
-  refresh:SetScript("OnClick", function()
-    Ledger:Refresh()
-  end)
-
   -- Column headers.
   local header = CreateFrame("Frame", nil, f)
   header:SetPoint("TOPLEFT", LIST_X, LIST_TOP + 18)

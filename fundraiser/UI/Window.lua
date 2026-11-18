@@ -252,61 +252,17 @@ function Window:Ensure()
   eventCard.title:SetText(Fundraiser:T("CARD_EVENT"))
   f.eventNameFs = eventCard:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   f.eventNameFs:SetPoint("TOPLEFT", 10, -28)
-  f.eventNameFs:SetWidth(cardW - 72)
+  f.eventNameFs:SetWidth(cardW - 20)
   f.eventNameFs:SetJustifyH("LEFT")
   f.eventDetailFs = eventCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   f.eventDetailFs:SetPoint("TOPLEFT", f.eventNameFs, "BOTTOMLEFT", 0, -4)
-  f.eventDetailFs:SetWidth(cardW - 72)
+  f.eventDetailFs:SetWidth(cardW - 20)
   f.eventDetailFs:SetJustifyH("LEFT")
   f.eventNoteFs = eventCard:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
   f.eventNoteFs:SetPoint("TOPLEFT", f.eventDetailFs, "BOTTOMLEFT", 0, -2)
-  f.eventNoteFs:SetWidth(cardW - 72)
+  f.eventNoteFs:SetWidth(cardW - 20)
   f.eventNoteFs:SetJustifyH("LEFT")
-  -- New event: original Blizzard PlusButton (no panel chrome).
-  local newEvent = makeCardIconButton(eventCard, "FundraiserNewEventButton")
-  trySetIcon(
-    newEvent,
-    "Interface\\Buttons\\UI-PlusButton-Up",
-    "Interface\\Buttons\\UI-PlusButton-Down",
-    "Interface\\Buttons\\UI-PlusButton-Hilight"
-  )
-  if not newEvent:GetNormalTexture() then
-    makeTextIconFallback(newEvent, "+")
-  end
-  newEvent:SetScript("OnClick", function()
-    Window:ShowCreate()
-  end)
-  newEvent:SetScript("OnEnter", function(self)
-    showTooltip(self, "TIP_NEW_EVENT_TITLE", "TIP_NEW_EVENT_BODY")
-  end)
-  newEvent:SetScript("OnLeave", hideTooltip)
-  f.newEventBtn = newEvent
-  -- End event: MinusButton left of + (archive + guild campaign wipe).
-  local endEvent = makeCardIconButton(eventCard, "FundraiserEndEventButton")
-  endEvent:ClearAllPoints()
-  endEvent:SetPoint("RIGHT", newEvent, "LEFT", -4, 0)
-  trySetIcon(
-    endEvent,
-    "Interface\\Buttons\\UI-MinusButton-Up",
-    "Interface\\Buttons\\UI-MinusButton-Down",
-    "Interface\\Buttons\\ButtonHilight-Square"
-  )
-  if endEvent.SetDisabledTexture then
-    endEvent:SetDisabledTexture("Interface\\Buttons\\UI-MinusButton-Disabled")
-  end
-  if not endEvent:GetNormalTexture() then
-    makeTextIconFallback(endEvent, "-")
-  end
-  endEvent:SetScript("OnClick", function()
-    Window:ConfirmEndEvent()
-  end)
-  endEvent:SetScript("OnEnter", function(self)
-    showTooltip(self, "TIP_END_EVENT_TITLE", "TIP_END_EVENT_BODY")
-  end)
-  endEvent:SetScript("OnLeave", hideTooltip)
-  endEvent:Hide()
-  f.endEventBtn = endEvent
-  -- Only +/- buttons open create / end; the card body is display-only.
+  -- +/- (new / end event) and refresh live in the top bar; the card body is display-only.
   f.eventCard = eventCard
   y = y - 78 - CARD_GAP
 
@@ -347,30 +303,10 @@ function Window:Ensure()
   ledgerCard.title:SetText(Fundraiser:T("CARD_LEDGER"))
   f.ledgerStatus = ledgerCard:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   f.ledgerStatus:SetPoint("TOPLEFT", 10, -32)
-  f.ledgerStatus:SetWidth(halfW - 56)
+  f.ledgerStatus:SetWidth(halfW - 20)
   f.ledgerStatus:SetJustifyH("LEFT")
   f.ledgerStatus:SetJustifyV("TOP")
-  -- Refresh only; whole ledger card is clickable (dedicated window #15).
-  local refresh = makeCardPanelIconButton(
-    ledgerCard,
-    "FundraiserRefreshButton",
-    "Interface\\Buttons\\UI-RefreshButton"
-  )
-  if refresh.icon then
-    local tex = refresh.icon:GetTexture()
-    if not tex or tex == "" then
-      refresh.icon:SetTexture("Interface\\Buttons\\UI-RotationRight-Button-Up")
-    end
-  end
-  refresh:SetScript("OnClick", function()
-    Window:Refresh()
-  end)
-  refresh:SetScript("OnEnter", function(self)
-    showTooltip(self, "TIP_REFRESH_TITLE", "TIP_REFRESH_BODY")
-  end)
-  refresh:SetScript("OnLeave", hideTooltip)
-  f.refreshBtn = refresh
-
+  -- Whole ledger card is clickable (opens the ledger page); refresh is in the top bar.
   ledgerCard:EnableMouse(true)
   ledgerCard:SetScript("OnMouseUp", function(_, button)
     if button == "LeftButton" then
@@ -581,7 +517,6 @@ end
 -- Logo band + left menu (built once; pages are the panels anchored beside the menu).
 local NAV_ITEMS = {
   { page = "status", key = "NAV_STATUS", needs = "officer" },
-  { page = "create", key = "NAV_CREATE", needs = "officer" },
   { page = "ledger", key = "NAV_LEDGER", needs = "ledger" },
   -- Actions pinned to the menu bottom (not pages): Set MOTD (confirm dialog), then Settings.
   { page = "motd", key = "BTN_SET_MOTD", needs = "motd", action = "motd" },
@@ -646,6 +581,73 @@ function Window:BuildShell(f)
     end
     f.navButtons[#f.navButtons + 1] = b
   end
+
+  -- Top bar actions, right-aligned: [-] end event, [+] new event, [refresh] current page.
+  local refresh = makeCardPanelIconButton(f, "FundraiserRefreshButton", "Interface\\Buttons\\UI-RefreshButton")
+  refresh:ClearAllPoints()
+  refresh:SetPoint("TOPRIGHT", -16, bandTop - 18)
+  if refresh.icon then
+    local tex = refresh.icon:GetTexture()
+    if not tex or tex == "" then
+      refresh.icon:SetTexture("Interface\\Buttons\\UI-RotationRight-Button-Up")
+    end
+  end
+  refresh:SetScript("OnClick", function()
+    Window:RefreshCurrent()
+  end)
+  refresh:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_REFRESH_TITLE", "TIP_REFRESH_BODY")
+  end)
+  refresh:SetScript("OnLeave", hideTooltip)
+  f.refreshBtn = refresh
+
+  -- New event: original Blizzard PlusButton (no panel chrome).
+  local newEvent = makeCardIconButton(f, "FundraiserNewEventButton")
+  newEvent:ClearAllPoints()
+  newEvent:SetPoint("RIGHT", refresh, "LEFT", -6, 0)
+  trySetIcon(
+    newEvent,
+    "Interface\\Buttons\\UI-PlusButton-Up",
+    "Interface\\Buttons\\UI-PlusButton-Down",
+    "Interface\\Buttons\\UI-PlusButton-Hilight"
+  )
+  if not newEvent:GetNormalTexture() then
+    makeTextIconFallback(newEvent, "+")
+  end
+  newEvent:SetScript("OnClick", function()
+    Window:ShowCreate()
+  end)
+  newEvent:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_NEW_EVENT_TITLE", "TIP_NEW_EVENT_BODY")
+  end)
+  newEvent:SetScript("OnLeave", hideTooltip)
+  f.newEventBtn = newEvent
+
+  -- End event: MinusButton left of + (archive + guild campaign wipe).
+  local endEvent = makeCardIconButton(f, "FundraiserEndEventButton")
+  endEvent:ClearAllPoints()
+  endEvent:SetPoint("RIGHT", newEvent, "LEFT", -4, 0)
+  trySetIcon(
+    endEvent,
+    "Interface\\Buttons\\UI-MinusButton-Up",
+    "Interface\\Buttons\\UI-MinusButton-Down",
+    "Interface\\Buttons\\ButtonHilight-Square"
+  )
+  if endEvent.SetDisabledTexture then
+    endEvent:SetDisabledTexture("Interface\\Buttons\\UI-MinusButton-Disabled")
+  end
+  if not endEvent:GetNormalTexture() then
+    makeTextIconFallback(endEvent, "-")
+  end
+  endEvent:SetScript("OnClick", function()
+    Window:ConfirmEndEvent()
+  end)
+  endEvent:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_END_EVENT_TITLE", "TIP_END_EVENT_BODY")
+  end)
+  endEvent:SetScript("OnLeave", hideTooltip)
+  endEvent:Hide()
+  f.endEventBtn = endEvent
 end
 
 local function isOfficer()
@@ -699,6 +701,7 @@ function Window:UpdateNav()
       end
     end
   end
+  self:UpdateHeaderButtons()
 end
 
 local function setShown(frame, shown)
@@ -706,6 +709,33 @@ local function setShown(frame, shown)
     frame:Show()
   else
     frame:Hide()
+  end
+end
+
+-- Top bar buttons: officers get +/-; refresh needs a page that can refresh (not the form).
+function Window:UpdateHeaderButtons()
+  local f = self.frame
+  if not f or not f.refreshBtn then
+    return
+  end
+  local officer = isOfficer()
+  local onForm = self.view == "create"
+  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+  local hasEvent = Store and Store:GetEvent() ~= nil
+  setShown(f.refreshBtn, not onForm and (officer or canSeeLedger()))
+  setShown(f.newEventBtn, officer and not onForm)
+  setShown(
+    f.endEventBtn,
+    officer and not onForm and hasEvent and (Fundraiser.Config and Fundraiser.Config.END_EVENT) and true or false
+  )
+end
+
+-- Refresh whichever page is showing.
+function Window:RefreshCurrent()
+  if self.view == "ledger" then
+    Fundraiser.UI.Ledger:Refresh()
+  else
+    self:Refresh()
   end
 end
 
@@ -991,7 +1021,7 @@ function Window:LayoutGoalWidgets(showGoal)
     f.progressCard:SetSize(halfW, PROGRESS_CARD_H)
     f.ledgerCard:SetPoint("TOPLEFT", MARGIN + halfW + CARD_GAP, midY)
     f.ledgerCard:SetSize(halfW, PROGRESS_CARD_H)
-    f.ledgerStatus:SetWidth(halfW - 56)
+    f.ledgerStatus:SetWidth(halfW - 20)
     f.chartCard:ClearAllPoints()
     f.chartCard:SetPoint("TOPLEFT", MARGIN, midY - PROGRESS_CARD_H - CARD_GAP)
     footerY = midY - PROGRESS_CARD_H - CARD_GAP - CHART_CARD_H - FOOTER_GAP
@@ -1000,7 +1030,7 @@ function Window:LayoutGoalWidgets(showGoal)
     f.chartCard:Hide()
     f.ledgerCard:SetPoint("TOPLEFT", MARGIN, midY)
     f.ledgerCard:SetSize(cardW, PROGRESS_CARD_H)
-    f.ledgerStatus:SetWidth(cardW - 56)
+    f.ledgerStatus:SetWidth(cardW - 20)
     footerY = midY - PROGRESS_CARD_H - FOOTER_GAP
   end
 
@@ -1221,13 +1251,7 @@ function Window:Refresh()
     f.eventDetailFs:SetText(Fundraiser:T("STATUS_NO_EVENT"))
     f.eventNoteFs:SetText("")
   end
-  if f.endEventBtn then
-    if Fundraiser.Config and Fundraiser.Config.END_EVENT and status.hasEvent then
-      f.endEventBtn:Show()
-    else
-      f.endEventBtn:Hide()
-    end
-  end
+  self:UpdateHeaderButtons()
 
   local rows, total = {}, 0
   local canLedger = Fundraiser.Config.LEDGER

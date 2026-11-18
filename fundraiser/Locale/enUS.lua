@@ -122,7 +122,7 @@ L.TIP_OPEN_LEDGER_TITLE = "Ledger window"
 L.TIP_OPEN_LEDGER_BODY =
   "Opens the dedicated ledger with every donation row and previous campaigns."
 L.CHAT_LEDGER_NO_ACCESS = "The ledger is only available to admins and the donation-target character."
-L.NAV_STATUS = "Status"
+L.NAV_STATUS = "Home"
 L.NAV_CREATE = "New event"
 L.NAV_LEDGER = "Ledger"
 L.NAV_SETTINGS = "Settings"
