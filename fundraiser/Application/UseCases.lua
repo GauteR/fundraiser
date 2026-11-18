@@ -360,8 +360,9 @@ function UC.SetMotd(deps)
   if not (deps.canEditMotd and deps.canEditMotd()) then
     return nil, "cannot_edit_motd"
   end
-  if deps.setMotd then
-    deps.setMotd(text)
+  -- Adapter returns false when the client API is missing or refuses.
+  if not deps.setMotd or deps.setMotd(text) == false then
+    return nil, "set_failed"
   end
   return text
 end

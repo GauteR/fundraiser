@@ -203,6 +203,7 @@ local function deps(opts)
     end,
     setMotd = function(text)
       opts.motd = text
+      return opts.setResult
     end,
   }
 end
@@ -268,6 +269,11 @@ do
   assert_eq(r, nil, "motd uc: no edit right")
   assert_eq(err, "cannot_edit_motd", "motd uc: no edit right reason")
   assert_eq(o.motd, nil, "motd uc: not set without right")
+
+  local fo = { event = event, rows = rows, rank = 1, setResult = false }
+  local fr, ferr = UC.SetMotd(deps(fo))
+  assert_eq(fr, nil, "motd uc: adapter refusal is an error")
+  assert_eq(ferr, "set_failed", "motd uc: adapter refusal reason")
 
   local m, merr = UC.SetMotd(deps({ event = event, rows = rows, rank = 9 }))
   assert_eq(m, nil, "motd uc: member denied")
