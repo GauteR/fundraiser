@@ -520,8 +520,8 @@ end
 local NAV_ITEMS = {
   { page = "status", key = "NAV_STATUS", needs = "officer" },
   { page = "ledger", key = "NAV_LEDGER", needs = "ledger" },
-  { page = "donation", key = "NAV_DONATION", needs = "donation" },
-  -- Actions pinned to the menu bottom (not pages): Set MOTD (confirm dialog), then Settings.
+  -- Actions pinned to the menu bottom (not pages): Add donation (opens the form), Set MOTD, Settings.
+  { page = "donation", key = "NAV_DONATION", needs = "donation", action = "donation" },
   { page = "motd", key = "BTN_SET_MOTD", needs = "motd", action = "motd" },
   { page = "settings", key = "NAV_SETTINGS", needs = "officer", action = "settings" },
 }
@@ -563,6 +563,10 @@ function Window:BuildShell(f)
     b:SetSize(NAV_W - 20, 26)
     b:SetText(Fundraiser:T(item.key))
     b:SetScript("OnClick", function()
+      if item.action == "donation" then
+        Window:ShowPage("donation")
+        return
+      end
       if item.action == "motd" then
         Fundraiser.UI.Ledger:ConfirmSetMotd()
         return
@@ -585,7 +589,7 @@ function Window:BuildShell(f)
     f.navButtons[#f.navButtons + 1] = b
   end
 
-  -- Top bar actions, right-aligned: [-] end event, [+] new event, [refresh] current page.
+  -- Top bar actions, right-aligned, left to right: [refresh] current page, [-] end event, [+] new event.
   local refresh = makeCardPanelIconButton(f, "FundraiserRefreshButton", "Interface\\Buttons\\UI-RefreshButton")
   refresh:ClearAllPoints()
   refresh:SetPoint("TOPRIGHT", -16, bandTop - 18)
@@ -626,7 +630,7 @@ function Window:BuildShell(f)
   newEvent:SetScript("OnLeave", hideTooltip)
   f.newEventBtn = newEvent
 
-  -- End event: MinusButton left of + (archive + guild campaign wipe).
+  -- End event: MinusButton (archive + guild campaign wipe).
   local endEvent = makeCardIconButton(f, "FundraiserEndEventButton")
   endEvent:ClearAllPoints()
   endEvent:SetPoint("RIGHT", newEvent, "LEFT", -4, 0)
@@ -651,6 +655,13 @@ function Window:BuildShell(f)
   endEvent:SetScript("OnLeave", hideTooltip)
   endEvent:Hide()
   f.endEventBtn = endEvent
+
+  newEvent:ClearAllPoints()
+  newEvent:SetPoint("TOPRIGHT", -16, bandTop - 18)
+  endEvent:ClearAllPoints()
+  endEvent:SetPoint("RIGHT", newEvent, "LEFT", -4, 0)
+  refresh:ClearAllPoints()
+  refresh:SetPoint("RIGHT", endEvent, "LEFT", -6, 0)
 end
 
 local function isOfficer()
@@ -676,21 +687,26 @@ function Window:UpdateNav()
   for i = #f.navButtons, 1, -1 do
     local b = f.navButtons[i]
     if b.item.action then
-      local allowed = (b.item.needs == "officer" and officer) or (b.item.needs == "motd" and motd)
+      local allowed = (b.item.needs == "officer" and officer)
+        or (b.item.needs == "motd" and motd)
+        or (b.item.needs == "donation" and donation)
       if allowed then
         b:ClearAllPoints()
         b:SetPoint("BOTTOMLEFT", 10, bottomY)
         bottomY = bottomY + 30
         b:Show()
+        if b.item.page == self.view then
+          b:LockHighlight()
+        else
+          b:UnlockHighlight()
+        end
       else
         b:Hide()
       end
     end
   end
   for _, b in ipairs(f.navButtons) do
-    local allowed = (b.item.needs == "officer" and officer)
-      or (b.item.needs == "ledger" and ledger)
-      or (b.item.needs == "donation" and donation)
+    local allowed = (b.item.needs == "officer" and officer) or (b.item.needs == "ledger" and ledger)
     if not b.item.action then
       if allowed then
         b:ClearAllPoints()

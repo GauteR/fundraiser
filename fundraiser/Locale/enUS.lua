@@ -78,9 +78,9 @@ L.TIP_NEW_EVENT_BODY =
   "Open the publish form. If an event is already active, publishing archives it and clears the active ledger."
 L.TIP_END_EVENT_TITLE = "End event"
 L.TIP_END_EVENT_BODY =
-  "Archive the active campaign and ledger, clear them locally, and broadcast a campaign wipe to the guild. Does not publish a replacement event."
+  "Archive the active campaign and ledger, clear them locally, and broadcast a campaign wipe to the guild."
 L.CONFIRM_END_EVENT =
-  "End the active fundraiser? It will be archived, then cleared for the guild. No new event is created."
+  "End the active fundraiser? It will be archived, then cleared for the guild."
 L.CHAT_END_EVENT_OK = "Active event ended and archived; guild wipe broadcast."
 L.CHAT_END_EVENT_LOCAL_ONLY =
   "Active event ended and archived locally. Guild wipe was not sent - peers may still show the old event until they receive a RESET."
