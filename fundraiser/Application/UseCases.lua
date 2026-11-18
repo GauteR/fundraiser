@@ -187,18 +187,9 @@ function UC.AcceptRemoteReset(deps, scope, senderRankIndex, resetEpoch)
   return true
 end
 
--- Target-only write of a new ledger row; then replicate to officers.
-function UC.AppendLedgerEntry(deps, fields, actor)
+-- Store a new ledger row for the active event and replicate it (no permission check here).
+local function appendEntry(deps, event, fields)
   local Ledger = Domain().Ledger
-  local Roles = Domain().Roles
-  local event = deps.getEvent and deps.getEvent() or nil
-  if not event then
-    return nil, "no_event"
-  end
-  actor = actor or {}
-  if not Roles.CanWriteLedger(event, actor.name) then
-    return nil, "not_target"
-  end
   fields = fields or {}
   fields.eventId = fields.eventId or event.id
   local entry, err = Ledger.CreateEntry(fields)
@@ -216,10 +207,25 @@ function UC.AppendLedgerEntry(deps, fields, actor)
   return entry, changed
 end
 
+-- Target-only write of a new ledger row (mail / AH); then replicate to the mesh.
+function UC.AppendLedgerEntry(deps, fields, actor)
+  local Roles = Domain().Roles
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
+  end
+  actor = actor or {}
+  if not Roles.CanWriteLedger(event, actor.name) then
+    return nil, "not_target"
+  end
+  return appendEntry(deps, event, fields)
+end
+
 local manualSeq = 0
 
--- Manual donation entered on the donation target; stored and meshed like mail/AH rows.
--- fields: name (donor), copper (> 0), detail (optional). actor: name, now.
+-- Manual donation entered by hand; stored and meshed like mail/AH rows.
+-- Allowed for the donation target and for officers (Roles.CanAddManualDonation).
+-- fields: name (donor), copper (> 0), detail (optional). actor: name, rankIndex, now.
 function UC.AddManualDonation(deps, fields, actor)
   local Roles = Domain().Roles
   fields = fields or {}
@@ -232,17 +238,24 @@ function UC.AddManualDonation(deps, fields, actor)
   if copper <= 0 then
     return nil, "bad_copper"
   end
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
+  end
+  if not Roles.CanAddManualDonation(event, actor.rankIndex, actor.name) then
+    return nil, "not_allowed"
+  end
   local at = tonumber(actor.now) or 0
   -- Sequence keeps two identical donations in the same second as separate rows.
   manualSeq = manualSeq + 1
-  return UC.AppendLedgerEntry(deps, {
+  return appendEntry(deps, event, {
     id = string.format("manual:%s:%d:%d:%d", name, copper, at, manualSeq),
     kind = "manual",
     name = name,
     detail = fields.detail or "",
     copper = copper,
     at = at,
-  }, actor)
+  })
 end
 
 -- Mesh merge: every installed client stores the id-union replica.
