@@ -125,6 +125,7 @@ L.CHAT_LEDGER_NO_ACCESS = "The ledger is only available to admins and the donati
 L.NAV_STATUS = "Home"
 L.NAV_CREATE = "New event"
 L.NAV_LEDGER = "Ledger"
+L.CARD_DONATIONS = "Donations"
 L.NAV_DONATION = "Add donation"
 L.SECTION_DONATION = "Add donation"
 L.DONATION_HELP = "Record a donation received outside mail and the auction house (for example gold traded in person). It is added to the ledger and shared with the guild like other rows."

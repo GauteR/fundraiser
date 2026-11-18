@@ -9,16 +9,25 @@ Fundraiser.UI.Ledger = Ledger
 
 -- Ledger is a page inside the shell window (UI/Window.lua): a panel under the logo band, right of the menu.
 local PANEL_W = 620
--- Rows that fit the fixed shell height (see SHELL_H in UI/Window.lua).
-local ROWS = 20
+-- Same outer margin, card gap and inner padding as the Home page (UI/Window.lua).
+local MARGIN = 16
+local CARD_GAP = 10
+local CARD_PAD = 10
+local CARD_W = PANEL_W - 2 * MARGIN
+local SUMMARY_H = 96
+-- Rows that fit the table card inside the fixed shell height (see SHELL_H in UI/Window.lua).
+local ROWS = 15
 local ROW_H = 18
-local LIST_TOP = -112
-local LIST_X = 16
-local COL_TIME_X, COL_TIME_W = 4, 144
-local COL_NAME_X, COL_NAME_W = 148, 140
-local COL_DETAIL_X, COL_DETAIL_W = 292, 140
+local HEADER_Y = -28
+local LIST_TOP = -46
+local LIST_X = CARD_PAD
+local TABLE_CARD_H = -LIST_TOP + ROWS * ROW_H + 12
+local COL_TIME_X, COL_TIME_W = 4, 134
+local COL_NAME_X, COL_NAME_W = 138, 128
+local COL_DETAIL_X, COL_DETAIL_W = 270, 124
 local COL_AMOUNT_W = 130
-local TABLE_W = PANEL_W - 50
+-- Leaves room for the scroll bar inside the card.
+local TABLE_W = CARD_W - CARD_PAD - 34
 -- Grid lines sit at the left edge of each column (and the table edges).
 local GRID_X = { 0, COL_NAME_X - 4, COL_DETAIL_X - 4, TABLE_W - COL_AMOUNT_W - 8, TABLE_W - 1 }
 local GRID_COLOR = { 0.55, 0.50, 0.35, 0.55 }
@@ -37,7 +46,7 @@ local function formatDate(at)
   if at <= 0 then
     return "-"
   end
-  return date("%Y-%m-%d %H:%M", at)
+  return date("%y-%m-%d %H:%M", at)
 end
 
 local function kindLabel(kind)
@@ -178,29 +187,40 @@ local function addGrid(frame, withBottom)
 end
 
 -- Builds the ledger panel inside the shell window (called once from Window:Ensure).
+-- Same margins/padding as the Home page: cards at MARGIN, CARD_GAP between them, CARD_PAD inside.
 function Ledger:Attach(shell)
   if self.frame then
     return self.frame
   end
+  local Window = Fundraiser.UI.Window
   local f = CreateFrame("Frame", "FundraiserLedgerPanel", shell)
-  f:SetPoint("TOPLEFT", shell, "TOPLEFT", Fundraiser.UI.Window.NAV_W, -Fundraiser.UI.Window.HEADER_H)
+  f:SetPoint("TOPLEFT", shell, "TOPLEFT", Window.NAV_W, -Window.HEADER_H)
   f:SetPoint("BOTTOMRIGHT", 0, 0)
   f:Hide()
 
-  f.total = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
-  f.total:SetPoint("TOPLEFT", LIST_X, -34)
+  -- Summary card: total (prominent), event + count, empty-state hint.
+  local summary = Window.MakeCard(f, "FundraiserLedgerSummaryCard", CARD_W, SUMMARY_H)
+  summary:SetPoint("TOPLEFT", MARGIN, -34)
+  summary.title:SetText(Fundraiser:T("CARD_LEDGER"))
 
-  f.summary = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  f.summary:SetPoint("TOPLEFT", LIST_X, -58)
+  f.total = summary:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
+  f.total:SetPoint("TOPLEFT", CARD_PAD, -26)
 
-  f.hint = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  f.hint:SetPoint("TOPLEFT", LIST_X, -78)
-  f.hint:SetWidth(PANEL_W - 2 * LIST_X)
+  f.summary = summary:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  f.summary:SetPoint("TOPLEFT", CARD_PAD, -50)
+
+  f.hint = summary:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  f.hint:SetPoint("TOPLEFT", CARD_PAD, -68)
+  f.hint:SetWidth(CARD_W - 2 * CARD_PAD)
   f.hint:SetJustifyH("LEFT")
 
-  -- Column headers.
-  local header = CreateFrame("Frame", nil, f)
-  header:SetPoint("TOPLEFT", LIST_X, LIST_TOP + 18)
+  -- Table card: column headers + scrolling rows.
+  local card = Window.MakeCard(f, "FundraiserLedgerTableCard", CARD_W, TABLE_CARD_H)
+  card:SetPoint("TOPLEFT", MARGIN, -(34 + SUMMARY_H + CARD_GAP))
+  card.title:SetText(Fundraiser:T("CARD_DONATIONS"))
+
+  local header = CreateFrame("Frame", nil, card)
+  header:SetPoint("TOPLEFT", LIST_X, HEADER_Y)
   header:SetSize(TABLE_W, ROW_H)
   addGrid(header, true)
   header.bg:SetColorTexture(1, 0.82, 0, 0.18)
@@ -219,9 +239,9 @@ function Ledger:Attach(shell)
   amountHead:SetText(Fundraiser:T("LEDGER_COL_AMOUNT"))
   f.header = header
 
-  local scroll = CreateFrame("ScrollFrame", "FundraiserLedgerScroll", f, "FauxScrollFrameTemplate")
+  local scroll = CreateFrame("ScrollFrame", "FundraiserLedgerScroll", card, "FauxScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", LIST_X, LIST_TOP)
-  scroll:SetPoint("BOTTOMRIGHT", -34, 14)
+  scroll:SetPoint("BOTTOMRIGHT", -34, 12)
   scroll:SetScript("OnVerticalScroll", function(self, offset)
     FauxScrollFrame_OnVerticalScroll(self, offset, ROW_H, function()
       Ledger:UpdateRows()
@@ -231,7 +251,7 @@ function Ledger:Attach(shell)
 
   f.rows = {}
   for i = 1, ROWS do
-    local r = CreateFrame("Frame", nil, f)
+    local r = CreateFrame("Frame", nil, card)
     r:SetSize(TABLE_W, ROW_H)
     addGrid(r, true)
     r:SetPoint("TOPLEFT", LIST_X, LIST_TOP - (i - 1) * ROW_H)
@@ -259,17 +279,17 @@ function Ledger:AttachDonation(shell)
 
   local y = -34
   local title = p:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  title:SetPoint("TOPLEFT", LIST_X, y)
+  title:SetPoint("TOPLEFT", MARGIN, y)
   title:SetText(Fundraiser:T("SECTION_DONATION"))
   local line = p:CreateTexture(nil, "ARTWORK")
   line:SetColorTexture(1, 1, 1, 0.15)
-  line:SetSize(PANEL_W - 2 * LIST_X, 1)
-  line:SetPoint("TOPLEFT", LIST_X, y - 18)
+  line:SetSize(PANEL_W - 2 * MARGIN, 1)
+  line:SetPoint("TOPLEFT", MARGIN, y - 18)
   y = y - 28
 
   local help = p:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  help:SetPoint("TOPLEFT", LIST_X, y)
-  help:SetWidth(PANEL_W - 2 * LIST_X)
+  help:SetPoint("TOPLEFT", MARGIN, y)
+  help:SetWidth(PANEL_W - 2 * MARGIN)
   help:SetJustifyH("LEFT")
   help:SetWordWrap(true)
   help:SetText(Fundraiser:T("DONATION_HELP"))
@@ -277,7 +297,7 @@ function Ledger:AttachDonation(shell)
 
   local function field(labelKey, name, width)
     local fs = p:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    fs:SetPoint("TOPLEFT", LIST_X, y - 3)
+    fs:SetPoint("TOPLEFT", MARGIN, y - 3)
     fs:SetWidth(190)
     fs:SetJustifyH("LEFT")
     fs:SetText(Fundraiser:T(labelKey))
@@ -292,7 +312,7 @@ function Ledger:AttachDonation(shell)
   p.donor = field("LABEL_DONOR", "FundraiserDonationDonor", 240)
   -- Amount: gold / silver / copper boxes on one row.
   local amountLabel = p:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  amountLabel:SetPoint("TOPLEFT", LIST_X, y - 3)
+  amountLabel:SetPoint("TOPLEFT", MARGIN, y - 3)
   amountLabel:SetWidth(190)
   amountLabel:SetJustifyH("LEFT")
   amountLabel:SetText(Fundraiser:T("LABEL_DONATION_AMOUNT"))
@@ -324,7 +344,7 @@ function Ledger:AttachDonation(shell)
 
   local add = CreateFrame("Button", "FundraiserDonationAddButton", p, "UIPanelButtonTemplate")
   add:SetSize(140, 24)
-  add:SetPoint("TOPLEFT", LIST_X, y - 4)
+  add:SetPoint("TOPLEFT", MARGIN, y - 4)
   add:SetText(Fundraiser:T("BTN_ADD_DONATION"))
   add:SetScript("OnClick", function()
     Ledger:SubmitDonation()

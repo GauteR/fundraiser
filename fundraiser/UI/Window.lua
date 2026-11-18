@@ -121,6 +121,9 @@ local function makeCard(parent, name, width, height)
   return card
 end
 
+-- Shared with the ledger page so every page uses the same cards.
+Window.MakeCard = makeCard
+
 -- Shared size so + (PlusButton art) and panel icon buttons match visually.
 local CARD_ACTION_BTN_SIZE = 22
 
