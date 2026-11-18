@@ -8,3 +8,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Initial repository scaffold in progress.
+- Redesigned the `/fundraiser` admin window: status header, event form, ledger summary card, Settings and Target shortcuts; install presence now lives only in Settings.

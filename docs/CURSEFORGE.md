@@ -19,6 +19,7 @@ Use a character dedicated only to that role — do not mix personal AH there.
 
 ## Features
 
+- Admin window: event status, event form with Publish, ledger summary, shortcuts to Settings and Target assist
 - Publish a fundraiser event (name, Forever First Last mail target, goal note, reminder interval)
 - Mailbox reminder until mail is sent to the donation target
 - Ledger on the donation target (mail intake + all AH sales); guild-wide mesh relay; officer/target view
