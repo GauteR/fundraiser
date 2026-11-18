@@ -140,6 +140,19 @@ local function addGrid(frame, withBottom)
   end
 end
 
+-- Dock beside the admin window (title bars level). Without it, use the admin window's default top spot.
+function Ledger:Place()
+  local f = self:Ensure()
+  f:ClearAllPoints()
+  local admin = Fundraiser.UI.Window and Fundraiser.UI.Window.frame
+  if admin and admin:IsShown() then
+    f:SetPoint("TOPLEFT", admin, "TOPRIGHT", 4, 0)
+    return
+  end
+  local screenH = (GetScreenHeight and GetScreenHeight()) or 768
+  f:SetPoint("TOP", UIParent, "TOP", 0, -math.floor(screenH * 0.12))
+end
+
 function Ledger:Ensure()
   if self.frame then
     return self.frame
@@ -147,7 +160,7 @@ function Ledger:Ensure()
 
   local f = CreateFrame("Frame", "FundraiserLedgerFrame", UIParent, "BasicFrameTemplateWithInset")
   f:SetSize(FRAME_W, FRAME_H)
-  f:SetPoint("CENTER", 20, 0)
+  f:SetClampedToScreen(true)
   -- Same strata as the admin window (DIALOG); OnShow raises it so it opens on top.
   f:SetFrameStrata("DIALOG")
   f:SetToplevel(true)
@@ -242,6 +255,7 @@ function Ledger:Ensure()
   end
 
   f:SetScript("OnShow", function(self)
+    Ledger:Place()
     self:Raise()
     Ledger:Refresh()
   end)
