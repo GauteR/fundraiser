@@ -250,7 +250,7 @@ function Ledger:Attach(shell)
   return f
 end
 
--- "Add donation" page: donor, amount in gold, optional note. Only reachable on the donation target.
+-- "Add donation" page: donor, amount in gold/silver/copper, optional note. Only reachable on the donation target.
 function Ledger:AttachDonation(shell)
   local p = CreateFrame("Frame", "FundraiserDonationPanel", shell)
   p:SetPoint("TOPLEFT", shell, "TOPLEFT", Fundraiser.UI.Window.NAV_W, -Fundraiser.UI.Window.HEADER_H)
@@ -290,7 +290,36 @@ function Ledger:AttachDonation(shell)
   end
 
   p.donor = field("LABEL_DONOR", "FundraiserDonationDonor", 240)
-  p.amount = field("LABEL_DONATION_GOLD", "FundraiserDonationGold", 100)
+  -- Amount: gold / silver / copper boxes on one row.
+  local amountLabel = p:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  amountLabel:SetPoint("TOPLEFT", LIST_X, y - 3)
+  amountLabel:SetWidth(190)
+  amountLabel:SetJustifyH("LEFT")
+  amountLabel:SetText(Fundraiser:T("LABEL_DONATION_AMOUNT"))
+  local prev
+  local function unitBox(name, width, unitKey)
+    local eb = CreateFrame("EditBox", name, p, "InputBoxTemplate")
+    eb:SetSize(width, 20)
+    if prev then
+      eb:SetPoint("LEFT", prev, "RIGHT", 22, 0)
+    else
+      eb:SetPoint("TOPLEFT", 214, y)
+    end
+    eb:SetAutoFocus(false)
+    eb:SetNumeric(true)
+    eb:SetMaxLetters(7)
+    local unit = p:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    unit:SetPoint("LEFT", eb, "RIGHT", 6, 0)
+    unit:SetText(Fundraiser:T(unitKey))
+    prev = eb
+    return eb
+  end
+  p.gold = unitBox("FundraiserDonationGold", 70, "UNIT_GOLD")
+  p.silver = unitBox("FundraiserDonationSilver", 40, "UNIT_SILVER")
+  p.copper = unitBox("FundraiserDonationCopper", 40, "UNIT_COPPER")
+  p.silver:SetMaxLetters(2)
+  p.copper:SetMaxLetters(2)
+  y = y - 30
   p.note = field("LABEL_DONATION_NOTE", "FundraiserDonationNote", 240)
 
   local add = CreateFrame("Button", "FundraiserDonationAddButton", p, "UIPanelButtonTemplate")
@@ -318,7 +347,9 @@ function Ledger:ResetDonationForm()
     return
   end
   p.donor:SetText("")
-  p.amount:SetText("")
+  p.gold:SetText("")
+  p.silver:SetText("")
+  p.copper:SetText("")
   p.note:SetText("")
 end
 
@@ -332,8 +363,9 @@ function Ledger:SubmitDonation()
   local p = self.donationFrame
   local UC = Fundraiser.Application.UseCases
   local Roster = Fundraiser.Adapters.Roster
-  local gold = tonumber((p.amount:GetText() or ""):gsub(",", "."):match("^%s*(.-)%s*$"))
-  local copper = gold and math.floor(gold * 10000 + 0.5) or 0
+  local copper = (tonumber(p.gold:GetText()) or 0) * 10000
+    + (tonumber(p.silver:GetText()) or 0) * 100
+    + (tonumber(p.copper:GetText()) or 0)
   local donor = p.donor:GetText()
   local actor = { name = Roster:GetPlayerName(), now = (GetServerTime and GetServerTime()) or time() }
   local entry, err = UC.AddManualDonation(self:Deps(), { name = donor, copper = copper, detail = p.note:GetText() }, actor)
