@@ -8,7 +8,7 @@
   fundraiser folder itself. Overrides env FUNDRAISER_FOREVER_ADDONS.
 
 .PARAMETER SkipTests
-  Skip lua tests/test_domain.lua.
+  Skip lua tests (test_domain, test_options_settings, test_release_meta).
 
 .PARAMETER WhatIf
   Show what would be copied without writing files.
@@ -117,9 +117,16 @@ if (-not $SkipTests) {
     Write-Error "lua not found on PATH. Install a Lua interpreter or pass -SkipTests."
   }
   Write-Host "==> Running tests"
-  & lua (Join-Path $RepoRoot "tests\test_domain.lua")
-  if ($LASTEXITCODE -ne 0) {
-    Write-Error "Tests failed (exit $LASTEXITCODE)."
+  $tests = @(
+    "test_domain.lua",
+    "test_options_settings.lua",
+    "test_release_meta.lua"
+  )
+  foreach ($test in $tests) {
+    & lua (Join-Path $RepoRoot "tests\$test")
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "Tests failed: $test (exit $LASTEXITCODE)."
+    }
   }
 }
 
