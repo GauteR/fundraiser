@@ -125,7 +125,7 @@ function Ledger:UpdateMenu()
   end
 end
 
--- Manual donations are written on the donation target only (same rule as mail/AH rows).
+-- Manual donations: the donation target and officers (mail/AH rows stay target-only).
 function Ledger:CanAddDonation()
   if not (Fundraiser.Config and Fundraiser.Config.LEDGER) then
     return false
@@ -133,7 +133,8 @@ function Ledger:CanAddDonation()
   local Store = Fundraiser.Adapters.Store
   local Roster = Fundraiser.Adapters.Roster
   local event = Store:GetEvent()
-  return event ~= nil and Fundraiser.Domain.Roles.CanWriteLedger(event, Roster:GetPlayerName())
+  return event ~= nil
+    and Fundraiser.Domain.Roles.CanAddManualDonation(event, Roster:GetPlayerRankIndex(), Roster:GetPlayerName())
 end
 
 function Ledger:CanView()
@@ -270,7 +271,7 @@ function Ledger:Attach(shell)
   return f
 end
 
--- "Add donation" page: donor, amount in gold/silver/copper, optional note. Only reachable on the donation target.
+-- "Add donation" page: donor, amount in gold/silver/copper, optional note. Reachable for officers and the donation target.
 function Ledger:AttachDonation(shell)
   local p = CreateFrame("Frame", "FundraiserDonationPanel", shell)
   p:SetPoint("TOPLEFT", shell, "TOPLEFT", Fundraiser.UI.Window.NAV_W, -Fundraiser.UI.Window.HEADER_H)
@@ -387,11 +388,15 @@ function Ledger:SubmitDonation()
     + (tonumber(p.silver:GetText()) or 0) * 100
     + (tonumber(p.copper:GetText()) or 0)
   local donor = p.donor:GetText()
-  local actor = { name = Roster:GetPlayerName(), now = (GetServerTime and GetServerTime()) or time() }
+  local actor = {
+    name = Roster:GetPlayerName(),
+    rankIndex = Roster:GetPlayerRankIndex(),
+    now = (GetServerTime and GetServerTime()) or time(),
+  }
   local entry, err = UC.AddManualDonation(self:Deps(), { name = donor, copper = copper, detail = p.note:GetText() }, actor)
   if not entry then
     local keys = {
-      not_target = "CHAT_DONATION_NOT_TARGET",
+      not_allowed = "CHAT_DONATION_NOT_ALLOWED",
       bad_name = "CHAT_DONATION_BAD_NAME",
       bad_copper = "CHAT_DONATION_BAD_AMOUNT",
       no_event = "STATUS_NO_EVENT",

@@ -41,7 +41,7 @@ Replicas merge by **entry id** (union). Same id → newer `at` wins (then higher
 - `EVENT` requires sender guild rank `<=` local global min admin rank (Options/Config); `event.minAdminRank` on the wire is stamped for older clients but ignored for local gates.
 - `RESET` (when `Config.RESET_SYNC`) requires the same admin rank gate on the **sender**. **Every** receiving client that accepts applies the wipe (members included). A `resetEpoch` is bumped and carried on `HELLO` / `DIGEST` / `LEDGER` / `RESET` so late peers adopt the wipe and **stale ledger rows from older epochs are rejected** (stops mesh refill after a wipe).
 - `LEDGER` rows are accepted from any guild peer for mesh storage (so relays work). A malicious member can forge rows — treat the ledger as guild-trusted, not secret.
-- Only the donation target **writes** new rows from mail/AH; members only dismiss reminders when they send mail.
+- Only the donation target **writes** new rows from mail/AH; manual donations (`manual`) may also be added by officers (the mesh does not check the sender, see the trust note); members only dismiss reminders when they send mail.
 - Viewing remains `Roles.CanViewLedger` (target or rank ≤ global min admin rank).
 
 ## Solo debug
