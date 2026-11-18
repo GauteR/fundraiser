@@ -314,3 +314,54 @@ function UC.GetLedger(deps, eventId)
   local filtered = Ledger.FilterByEvent(list, eventId)
   return filtered, Ledger.TotalCopper(filtered)
 end
+
+local function canViewLedgerNow(deps, event)
+  local Roles = Domain().Roles
+  local me = deps.getPlayerName and deps.getPlayerName() or nil
+  local myRank = deps.getPlayerRankIndex and deps.getPlayerRankIndex() or nil
+  if event then
+    return Roles.CanViewLedger(event, myRank, me)
+  end
+  -- No active event (e.g. after End event): officers may still read archived summaries.
+  return Roles.CanManageFundraiser(myRank, nil)
+end
+
+-- Ledger window model (today's view gate). Returns nil, "no_access" when not allowed.
+function UC.GetLedgerView(deps)
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not canViewLedgerNow(deps, event) then
+    return nil, "no_access"
+  end
+  local rows = (deps.getContributions and deps.getContributions()) or {}
+  local archives = (deps.getArchives and deps.getArchives()) or {}
+  return Domain().LedgerView.Build(event, rows, archives)
+end
+
+-- Text that "Set MOTD" would publish (also used for the confirm dialog).
+function UC.PrepareMotd(deps)
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
+  end
+  if not canViewLedgerNow(deps, event) then
+    return nil, "no_access"
+  end
+  local LV = Domain().LedgerView
+  local view = UC.GetLedgerView(deps)
+  local top = LV.TopContributors(view.active.rows)[1]
+  return LV.MotdText(event, view.active.total, top)
+end
+
+function UC.SetMotd(deps)
+  local text, err = UC.PrepareMotd(deps)
+  if not text then
+    return nil, err
+  end
+  if not (deps.canEditMotd and deps.canEditMotd()) then
+    return nil, "cannot_edit_motd"
+  end
+  if deps.setMotd then
+    deps.setMotd(text)
+  end
+  return text
+end
