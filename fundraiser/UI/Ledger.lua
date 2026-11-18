@@ -148,8 +148,8 @@ function Ledger:Ensure()
   local f = CreateFrame("Frame", "FundraiserLedgerFrame", UIParent, "BasicFrameTemplateWithInset")
   f:SetSize(FRAME_W, FRAME_H)
   f:SetPoint("CENTER", 20, 0)
-  -- Above the admin window (MEDIUM) so it never opens behind it; still under popups (DIALOG).
-  f:SetFrameStrata("HIGH")
+  -- Same strata as the admin window (DIALOG); OnShow raises it so it opens on top.
+  f:SetFrameStrata("DIALOG")
   f:SetToplevel(true)
   f:SetMovable(true)
   f:EnableMouse(true)
@@ -241,7 +241,8 @@ function Ledger:Ensure()
     f.rows[i] = r
   end
 
-  f:SetScript("OnShow", function()
+  f:SetScript("OnShow", function(self)
+    self:Raise()
     Ledger:Refresh()
   end)
 
