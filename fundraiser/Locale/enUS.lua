@@ -34,7 +34,7 @@ L.CHAT_DEBUG_PRESENCE = "Presence entries: %s"
 L.CHAT_DEBUG_PRESENCE_EMPTY = "Presence table is empty."
 L.CHAT_DEBUG_UNKNOWN = "Unknown debug command: %s"
 L.CHAT_DEBUG_HELP =
-  "debug: help | seed | hello [Name] [guid] | event [rank] | ledger [mail|ah] [Name] [copper] [detail] | digest | reminder | dismiss | presence | asrank <n|clear> | member | officer | access"
+  "debug: help | seed [me] | hello [Name] [guid] | event [rank] | ledger [mail|ah] [Name] [copper] [detail] | digest | reminder | dismiss | presence | asrank <n|clear> | member | officer | access"
 
 L.REMINDER_FMT = "%s needs your aid for %s, please donate to the fundraiser by sending whatever you can spare to \"%s\". Thank you. :-)"
 

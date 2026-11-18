@@ -49,6 +49,7 @@ With `Config.DEBUG = true`:
 ```
 /fundraiser debug help
 /fundraiser debug seed
+/fundraiser debug seed me   (you become the donation target: try Add donation)
 /fundraiser debug hello DebugMember
 /fundraiser debug event 0
 /fundraiser debug ledger mail DebugDonor 50000 gift
