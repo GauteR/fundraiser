@@ -465,36 +465,14 @@ function Window:Ensure()
   f.chartLegend = legend
   f.chartCard = chartCard
 
-  -- Footer: Settings (cog + label) and optional Target assist.
+  -- Footer: optional Target assist (Settings lives in the shell menu).
   -- Extra FOOTER_GAP keeps the row clear of the chart and the frame bottom inset.
   local footerY = y - PROGRESS_CARD_H - CARD_GAP - CHART_CARD_H - FOOTER_GAP
   f.dashboardFooterY = footerY
 
-  local settingsBtn = CreateFrame("Button", "FundraiserAddonSettingsButton", status, "UIPanelButtonTemplate")
-  settingsBtn:SetSize(110, FOOTER_BTN_H)
-  settingsBtn:SetPoint("TOPLEFT", MARGIN, footerY)
-  settingsBtn:SetText(Fundraiser:T("BTN_SETTINGS"))
-  local cog = settingsBtn:CreateTexture(nil, "ARTWORK")
-  cog:SetSize(14, 14)
-  cog:SetPoint("LEFT", 8, 0)
-  cog:SetTexture("Interface\\Buttons\\UI-OptionsButton")
-  -- Pad label so it clears the cog icon.
-  if settingsBtn.ButtonText then
-    settingsBtn.ButtonText:ClearAllPoints()
-    settingsBtn.ButtonText:SetPoint("LEFT", cog, "RIGHT", 4, 0)
-    settingsBtn.ButtonText:SetPoint("RIGHT", -8, 0)
-    settingsBtn.ButtonText:SetJustifyH("LEFT")
-  end
-  settingsBtn:SetScript("OnClick", function()
-    if Fundraiser.Options and Fundraiser.Options.Open then
-      Fundraiser.Options:Open()
-    end
-  end)
-  f.settingsBtn = settingsBtn
-
   local targetBtn = CreateFrame("Button", "FundraiserTargetOpenButton", status, "UIPanelButtonTemplate")
   targetBtn:SetSize(160, FOOTER_BTN_H)
-  targetBtn:SetPoint("LEFT", settingsBtn, "RIGHT", 8, 0)
+  targetBtn:SetPoint("TOPLEFT", MARGIN, footerY)
   targetBtn:SetText(Fundraiser:T("BTN_TARGET_UI"))
   targetBtn:SetScript("OnClick", function()
     if Fundraiser.UI.Target then
@@ -605,6 +583,8 @@ local NAV_ITEMS = {
   { page = "status", key = "NAV_STATUS", needs = "officer" },
   { page = "create", key = "NAV_CREATE", needs = "officer" },
   { page = "ledger", key = "NAV_LEDGER", needs = "ledger" },
+  -- Opens the Blizzard Settings page (not a page of this window); pinned to the menu bottom.
+  { page = "settings", key = "NAV_SETTINGS", needs = "officer", action = "settings" },
 }
 
 function Window:BuildShell(f)
@@ -644,6 +624,12 @@ function Window:BuildShell(f)
     b:SetSize(NAV_W - 20, 26)
     b:SetText(Fundraiser:T(item.key))
     b:SetScript("OnClick", function()
+      if item.action == "settings" then
+        if Fundraiser.Options and Fundraiser.Options.Open then
+          Fundraiser.Options:Open()
+        end
+        return
+      end
       Window:ShowPage(item.page)
     end)
     b.item = item
@@ -671,8 +657,12 @@ function Window:UpdateNav()
     local allowed = (b.item.needs == "officer" and officer) or (b.item.needs == "ledger" and ledger)
     if allowed then
       b:ClearAllPoints()
-      b:SetPoint("TOPLEFT", 10, y)
-      y = y - 30
+      if b.item.action then
+        b:SetPoint("BOTTOMLEFT", 10, 14)
+      else
+        b:SetPoint("TOPLEFT", 10, y)
+        y = y - 30
+      end
       b:Show()
       if b.item.page == self.view then
         b:LockHighlight()
@@ -996,9 +986,9 @@ function Window:LayoutGoalWidgets(showGoal)
   end
   f:SetSize(SHELL_W, neededH + HEADER_H)
 
-  if f.settingsBtn then
-    f.settingsBtn:ClearAllPoints()
-    f.settingsBtn:SetPoint("TOPLEFT", MARGIN, footerY)
+  if f.targetBtn then
+    f.targetBtn:ClearAllPoints()
+    f.targetBtn:SetPoint("TOPLEFT", MARGIN, footerY)
   end
 end
 
