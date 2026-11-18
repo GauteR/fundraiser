@@ -10,6 +10,8 @@ Fundraiser.Config = {
   -- Reminder popup while the mailbox is open (not bags).
   REMINDER = true,
   ADMIN_UI = true,
+  -- Admin window: end active campaign (archive + guild wipe) without publishing a new event.
+  END_EVENT = true,
   LEDGER = true,
   TARGET_UI = true,
   AH_ASSIST = true,

@@ -224,13 +224,16 @@ function Store:ClearEvent()
   return true
 end
 
--- scope: all | event | ledger | presence
--- forcedEpoch: set ledger epoch when wiping ledger/all (remote RESET).
+-- scope: all | event | ledger | presence | campaign (event + ledger)
+-- forcedEpoch: set ledger epoch when wiping ledger/all/campaign (remote RESET).
 function Store:ApplyResetScope(scope, forcedEpoch)
   scope = tostring(scope or "all")
-  local bumpEpoch = scope == "all" or scope == "ledger"
+  local bumpEpoch = scope == "all" or scope == "ledger" or scope == "campaign"
   if scope == "all" then
     self:ResetAll()
+  elseif scope == "campaign" then
+    self:ClearEvent()
+    self:ClearLedger()
   elseif scope == "event" then
     self:ClearEvent()
   elseif scope == "ledger" then

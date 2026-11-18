@@ -58,6 +58,9 @@ local function storeDeps()
     getResetEpoch = function()
       return Store:GetResetEpoch()
     end,
+    getArchives = function()
+      return Store:GetArchives()
+    end,
     archiveEvent = function(event, contributions, archivedAt)
       Store:ArchiveEvent(event, contributions, archivedAt)
     end,
@@ -106,6 +109,19 @@ function Sync:BroadcastEvent(event)
   return self:Send(Codec.EncodeEvent(event))
 end
 
+-- Archive active campaign before wiping event/ledger (local end + remote campaign RESET).
+local function archiveActiveCampaignIfNeeded(scope)
+  if scope ~= "campaign" then
+    return
+  end
+  local Store = Fundraiser.Adapters.Store
+  local event = Store:GetEvent()
+  if not event then
+    return
+  end
+  Store:ArchiveEvent(event, Store:GetContributions() or {}, now())
+end
+
 -- Officer broadcast: apply local wipe, bump epoch, peers apply when sender rank is admin.
 function Sync:BroadcastReset(scope)
   if not cfg().RESET_SYNC then
@@ -118,11 +134,13 @@ function Sync:BroadcastReset(scope)
   local Codec = Fundraiser.Adapters.Codec
   local Roster = Fundraiser.Adapters.Roster
   local publisher = Roster and Roster.GetPlayerName and Roster:GetPlayerName() or ""
-  local ok, epoch = Store:ApplyResetScope(scope or "all")
+  scope = scope or "all"
+  archiveActiveCampaignIfNeeded(scope)
+  local ok, epoch = Store:ApplyResetScope(scope)
   if not ok then
     return false
   end
-  return self:Send(Codec.EncodeReset(scope or "all", now(), publisher, epoch))
+  return self:Send(Codec.EncodeReset(scope, now(), publisher, epoch))
 end
 
 -- Originating write or mesh rebroadcast of a stored row (any holder may send).
@@ -219,6 +237,7 @@ function Sync:OnAddonMessage(prefix, message, channel, sender)
     local rank = Roster:RankIndexOfName(sender)
     local ok = UC.AcceptRemoteReset({
       applyReset = function(scope, epoch)
+        archiveActiveCampaignIfNeeded(scope)
         return Store:ApplyResetScope(scope, epoch)
       end,
     }, msg.scope, rank, msg.resetEpoch)
