@@ -10,6 +10,7 @@ dofile(repo .. "/fundraiser/Domain/Roles.lua")
 dofile(repo .. "/fundraiser/Domain/Ledger.lua")
 dofile(repo .. "/fundraiser/Domain/LedgerView.lua")
 dofile(repo .. "/fundraiser/Application/UseCases.lua")
+dofile(repo .. "/fundraiser/Adapters/Codec.lua")
 
 local failed = 0
 
@@ -282,6 +283,51 @@ do
   local n, nerr = UC.SetMotd(deps({ event = nil, rank = 0 }))
   assert_eq(n, nil, "motd uc: no event")
   assert_eq(nerr, "no_event", "motd uc: no event reason")
+end
+
+-- Scenario: manual donation on the donation target
+do
+  local store = {}
+  local sent = {}
+  local d = {
+    getEvent = function()
+      return event
+    end,
+    getContributions = function()
+      return store
+    end,
+    setContributions = function(list)
+      store = list
+    end,
+    broadcastLedgerEntry = function(entry)
+      sent[#sent + 1] = entry
+    end,
+  }
+  local target = { name = "Bank Alt", now = 500 }
+  local e, err = UC.AddManualDonation(d, { name = "Donor One", copper = 12 * G, detail = "traded in person" }, target)
+  assert_true(e ~= nil, "manual: target may add " .. tostring(err))
+  assert_eq(e.kind, "manual", "manual: kind")
+  assert_eq(e.eventId, "e1", "manual: stamped with active event")
+  assert_eq(e.at, 500, "manual: timestamp from actor")
+  assert_eq(#store, 1, "manual: stored")
+  assert_eq(#sent, 1, "manual: broadcast to the mesh")
+  assert_eq(UC.GetLedger(deps({ event = event, rows = store, rank = 1 }), "e1")[1].name, "Donor One", "manual: visible in ledger")
+
+  UC.AddManualDonation(d, { name = "Donor One", copper = 12 * G, detail = "traded in person" }, target)
+  assert_eq(#store, 2, "manual: identical donation in the same second stays a separate row")
+
+  local wire = Fundraiser.Adapters.Codec.EncodeLedgerEntry(e, 0)
+  local back = Fundraiser.Adapters.Codec.DecodeLedgerEntry(wire)
+  assert_true(back ~= nil and back.kind == "manual", "manual: survives the LEDGER wire format")
+
+  local x, xerr = UC.AddManualDonation(d, { name = "Donor", copper = 5 }, { name = "Officer Only", now = 1 })
+  assert_eq(x, nil, "manual: only the donation target writes")
+  assert_eq(xerr, "not_target", "manual: not target reason")
+  assert_eq(select(2, UC.AddManualDonation(d, { name = "", copper = 5 }, target)), "bad_name", "manual: name required")
+  assert_eq(select(2, UC.AddManualDonation(d, { name = "A B", copper = 0 }, target)), "bad_copper", "manual: amount required")
+  assert_eq(select(2, UC.AddManualDonation(d, { name = "A B", copper = -3 }, target)), "bad_copper", "manual: negative amount")
+  local none = { getEvent = function() return nil end }
+  assert_eq(select(2, UC.AddManualDonation(none, { name = "A B", copper = 5 }, target)), "no_event", "manual: needs an active event")
 end
 
 if failed > 0 then

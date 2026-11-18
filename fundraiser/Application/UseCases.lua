@@ -216,6 +216,35 @@ function UC.AppendLedgerEntry(deps, fields, actor)
   return entry, changed
 end
 
+local manualSeq = 0
+
+-- Manual donation entered on the donation target; stored and meshed like mail/AH rows.
+-- fields: name (donor), copper (> 0), detail (optional). actor: name, now.
+function UC.AddManualDonation(deps, fields, actor)
+  local Roles = Domain().Roles
+  fields = fields or {}
+  actor = actor or {}
+  local name = Roles.DisplayName(fields.name)
+  if not name then
+    return nil, "bad_name"
+  end
+  local copper = math.floor(tonumber(fields.copper) or 0)
+  if copper <= 0 then
+    return nil, "bad_copper"
+  end
+  local at = tonumber(actor.now) or 0
+  -- Sequence keeps two identical donations in the same second as separate rows.
+  manualSeq = manualSeq + 1
+  return UC.AppendLedgerEntry(deps, {
+    id = string.format("manual:%s:%d:%d:%d", name, copper, at, manualSeq),
+    kind = "manual",
+    name = name,
+    detail = fields.detail or "",
+    copper = copper,
+    at = at,
+  }, actor)
+end
+
 -- Mesh merge: every installed client stores the id-union replica.
 -- UI still gates view via Roles.CanViewLedger. Addon messages are not signed;
 -- a malicious peer can forge rows (documented in SYNC.md).
