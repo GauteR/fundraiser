@@ -42,11 +42,64 @@ do
   ev = Fundraiser.Domain.Event.Create({
     name = "Tabard",
     target = "Bank Alt",
+    goalCopper = 100000,
     intervalSeconds = 3600,
     minAdminRank = 1,
   })
-  -- Then creation succeeds
+  -- Then creation succeeds with numeric goal
   assert_true(ev, "create event")
+  assert_eq(ev.goalCopper, 100000, "create event goalCopper")
+end
+
+-- Scenario: Publish requires goalCopper > 0; Create allows 0 for legacy wire
+do
+  local zeroOk, zeroErr = Fundraiser.Domain.Event.Create({
+    name = "Legacy",
+    target = "Bank Alt",
+    goalCopper = 0,
+    intervalSeconds = 3600,
+    minAdminRank = 1,
+  })
+  assert_true(zeroOk, "create allows goalCopper 0")
+  assert_eq(zeroOk.goalCopper, 0, "legacy goalCopper 0")
+
+  local pub, pubErr = UC.PublishEvent({
+    getEvent = function()
+      return nil
+    end,
+    setEvent = function() end,
+  }, {
+    name = "NoGoal",
+    target = "Bank Alt",
+    intervalSeconds = 3600,
+  }, { rankIndex = 0, name = "GM", now = 1 })
+  assert_eq(pub, nil, "publish rejects missing goal")
+  assert_eq(pubErr, "bad_goal", "publish bad_goal")
+end
+
+-- Scenario: Codec EVENT field 11 goalCopper roundtrip and legacy omit
+do
+  local encoded = Codec.EncodeEvent(ev)
+  local decoded = Codec.DecodeEvent(encoded)
+  assert_true(decoded, "decode event")
+  assert_eq(decoded.goalCopper, 100000, "decode goalCopper")
+
+  -- Legacy payload without field 11
+  local legacy = table.concat({
+    "EVENT",
+    "id1",
+    "Name",
+    "Bank Alt",
+    "note",
+    "3600",
+    "1",
+    "1",
+    "10",
+    "GM",
+  }, "|")
+  local legacyEv = Codec.DecodeEvent(legacy)
+  assert_true(legacyEv, "decode legacy event")
+  assert_eq(legacyEv.goalCopper, 0, "legacy missing goalCopper -> 0")
 end
 
 -- Scenario: Role gates for target / officers / members
@@ -234,6 +287,9 @@ do
   -- Given RESET fields including epoch
   -- When encoding/decoding
   local resetMsg = Codec.Decode(Codec.EncodeReset("ledger", 123, "Officer One", 7))
+  local campaignMsg = Codec.Decode(Codec.EncodeReset("campaign", 124, "Officer One", 8))
+  assert_true(campaignMsg, "campaign reset decodes")
+  assert_eq(campaignMsg.scope, "campaign", "campaign scope")
   -- Then scope/epoch survive the wire format
   assert_eq(resetMsg.kind, "RESET", "reset kind")
   assert_eq(resetMsg.scope, "ledger", "reset scope")
@@ -295,6 +351,7 @@ do
   local oldEv = Fundraiser.Domain.Event.Create({
     name = "Old",
     target = "Bank Alt",
+    goalCopper = 50000,
     intervalSeconds = 3600,
     minAdminRank = 1,
   })
@@ -332,6 +389,7 @@ do
   }, {
     name = "New",
     target = "Bank Alt",
+    goalCopper = 200000,
     intervalSeconds = 7200,
   }, { rankIndex = 0, name = "GM", now = 50 })
   -- Then new id is active, ledger cleared, and old campaign is archived
@@ -341,6 +399,172 @@ do
   assert_eq(#Store:GetArchives(), 1, "archived previous")
   assert_eq(Store:GetArchives()[1].event.name, "Old", "archive name")
   assert_eq(#Store:GetArchives()[1].contributions, 1, "archive ledger rows")
+end
+
+-- Scenario: EndActiveEvent archives campaign and clears without a new event
+do
+  -- Given Store with an active event and one contribution
+  dofile(repo .. "/fundraiser/Adapters/Store.lua")
+  _G.FundraiserDB = nil
+  local Store = Fundraiser.Adapters.Store
+  Store.db = nil
+  Store:Load()
+  Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK = 1
+  local oldEv = Fundraiser.Domain.Event.Create({
+    name = "Solo Run",
+    target = "Bank Alt",
+    goalCopper = 10000,
+    intervalSeconds = 3600,
+    minAdminRank = 1,
+  })
+  Store:SetEvent(oldEv)
+  Store:SetContributions({
+    Ledger.CreateEntry({
+      kind = "mail",
+      name = "Donor",
+      copper = 100,
+      eventId = oldEv.id,
+      at = 1,
+      detail = "x",
+    }),
+  })
+  local broadcastScope = nil
+  local beforeEpoch = Store:GetResetEpoch()
+  -- When an officer ends the campaign (local fallback path)
+  local ended, endMode = UC.EndActiveEvent({
+    getEvent = function()
+      return Store:GetEvent()
+    end,
+    getContributions = function()
+      return Store:GetContributions()
+    end,
+    getArchives = function()
+      return Store:GetArchives()
+    end,
+    archiveEvent = function(event, contributions, archivedAt)
+      Store:ArchiveEvent(event, contributions, archivedAt)
+    end,
+    applyResetScope = function(scope)
+      return Store:ApplyResetScope(scope)
+    end,
+  }, { rankIndex = 0, name = "GM", now = 99 })
+  -- Then no active event, ledger empty, archive kept, epoch bumped, local_only mode
+  assert_true(ended, "end ok")
+  assert_eq(endMode, "local_only", "local_only mode")
+  assert_eq(Store:GetEvent(), nil, "event cleared")
+  assert_eq(#Store:GetContributions(), 0, "ledger cleared")
+  assert_eq(#Store:GetArchives(), 1, "archived")
+  assert_eq(Store:GetArchives()[1].event.name, "Solo Run", "archive name")
+  assert_true(Store:GetResetEpoch() > beforeEpoch, "epoch bumped on local end")
+
+  -- When AcceptRemoteEvent tries to revive the archived id
+  local revived, reviveErr = UC.AcceptRemoteEvent({
+    getEvent = function()
+      return Store:GetEvent()
+    end,
+    getArchives = function()
+      return Store:GetArchives()
+    end,
+    setEvent = function(e)
+      Store:SetEvent(e)
+    end,
+  }, oldEv, 0)
+  assert_eq(revived, nil, "archived event rejected")
+  assert_eq(reviveErr, "archived", "archived err")
+
+  -- When broadcastReset is provided and clears via campaign scope
+  local fresh = Fundraiser.Domain.Event.Create({
+    name = "Fresh",
+    target = "Bank Alt",
+    goalCopper = 20000,
+    intervalSeconds = 3600,
+    minAdminRank = 1,
+  })
+  Store:SetEvent(fresh)
+  Store:SetContributions({
+    Ledger.CreateEntry({
+      kind = "mail",
+      name = "Donor",
+      copper = 50,
+      eventId = fresh.id,
+      at = 2,
+      detail = "y",
+    }),
+  })
+  ended, endMode = UC.EndActiveEvent({
+    getEvent = function()
+      return Store:GetEvent()
+    end,
+    getContributions = function()
+      return Store:GetContributions()
+    end,
+    getArchives = function()
+      return Store:GetArchives()
+    end,
+    archiveEvent = function(event, contributions, archivedAt)
+      Store:ArchiveEvent(event, contributions, archivedAt)
+    end,
+    applyResetScope = function(scope)
+      return Store:ApplyResetScope(scope)
+    end,
+    broadcastReset = function(scope)
+      broadcastScope = scope
+      local ev = Store:GetEvent()
+      if ev then
+        Store:ArchiveEvent(ev, Store:GetContributions() or {}, 100)
+      end
+      Store:ApplyResetScope(scope)
+      return true
+    end,
+  }, { rankIndex = 0, name = "GM", now = 100 })
+  assert_true(ended, "end via broadcast ok")
+  assert_eq(endMode, "guild", "guild mode")
+  assert_eq(broadcastScope, "campaign", "broadcast campaign scope")
+  assert_eq(Store:GetEvent(), nil, "event cleared after broadcast path")
+  assert_eq(#Store:GetContributions(), 0, "ledger cleared after broadcast path")
+
+  -- When not admin
+  Store:SetEvent(fresh)
+  ended, endMode = UC.EndActiveEvent({
+    getEvent = function()
+      return Store:GetEvent()
+    end,
+  }, { rankIndex = 5, name = "Member", now = 1 })
+  assert_eq(ended, nil, "member end rejected")
+  assert_eq(endMode, "not_admin", "member end err")
+end
+
+-- Scenario: ApplyResetScope campaign clears event and ledger
+do
+  dofile(repo .. "/fundraiser/Adapters/Store.lua")
+  _G.FundraiserDB = nil
+  local Store = Fundraiser.Adapters.Store
+  Store.db = nil
+  Store:Load()
+  local ev = Fundraiser.Domain.Event.Create({
+    name = "C",
+    target = "Bank Alt",
+    goalCopper = 1,
+    intervalSeconds = 60,
+    minAdminRank = 0,
+  })
+  Store:SetEvent(ev)
+  Store:SetContributions({
+    Ledger.CreateEntry({
+      kind = "mail",
+      name = "A",
+      copper = 1,
+      eventId = ev.id,
+      at = 1,
+      detail = "z",
+    }),
+  })
+  local beforeEpoch = Store:GetResetEpoch()
+  local ok = Store:ApplyResetScope("campaign")
+  assert_true(ok, "campaign reset ok")
+  assert_eq(Store:GetEvent(), nil, "campaign cleared event")
+  assert_eq(#Store:GetContributions(), 0, "campaign cleared ledger")
+  assert_true(Store:GetResetEpoch() > beforeEpoch, "campaign bumps epoch")
 end
 
 -- Scenario: Forever names require First Last
@@ -354,6 +578,7 @@ do
   local badTarget = Fundraiser.Domain.Event.Create({
     name = "X",
     target = "OnlyFirst",
+    goalCopper = 1000,
     intervalSeconds = 3600,
     minAdminRank = 0,
   })
@@ -368,6 +593,30 @@ do
   assert_eq(Fundraiser.Domain.SaleAdvice.Recommend(100, 100, 1, 0.05), "vendor", "vendor wins vs cut AH")
   assert_eq(Fundraiser.Domain.SaleAdvice.Recommend(10, 100, 1, 0.05), "ah", "ah wins")
   assert_eq(Fundraiser.Domain.SaleAdvice.Recommend(nil, nil, 1, 0.05), "manual", "manual when no prices")
+end
+
+-- Scenario: FormatCopper embeds MoneyIcons (fallback when GetCoinTextureString is absent)
+do
+  -- Given a stub CreateFrame so Core.lua can load under pure Lua
+  if not CreateFrame then
+    function CreateFrame()
+      return {
+        RegisterEvent = function() end,
+        SetScript = function() end,
+      }
+    end
+  end
+  dofile(repo .. "/fundraiser/Core.lua")
+  -- When formatting exact gold and mixed amounts
+  local goldOnly = Fundraiser.FormatCopper(220000)
+  local mixed = Fundraiser.FormatCopper(12345)
+  local zero = Fundraiser.FormatCopper(0)
+  -- Then strings use inline coin textures, not ascii g/s/c suffixes
+  assert_true(goldOnly:find("UI%-MoneyIcons", 1, false), "gold uses MoneyIcons")
+  assert_true(goldOnly:find("^22|T"), "gold amount prefix")
+  assert_true(not goldOnly:find("%dg"), "no ascii g")
+  assert_true(mixed:find("UI%-MoneyIcons", 1, false), "mixed uses MoneyIcons")
+  assert_true(zero:find("UI%-MoneyIcons", 1, false), "zero uses copper icon")
 end
 
 if failed > 0 then

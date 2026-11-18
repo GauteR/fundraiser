@@ -339,20 +339,148 @@ local function AddEditRow(parent, labelText, tipTitle, tipBody, nameSuffix, y)
   return box, y - 28
 end
 
+local function NotifyOpenFailed()
+  if DEFAULT_CHAT_FRAME then
+    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_OPEN_FAILED"))
+  end
+end
+
+-- Pure helper for tests and Open(). Forever often resolves by panel name; also try
+-- numeric ID and the category object. Do not rely on overwriting category.ID.
+function Options.CollectOpenCandidates(categoryID, category, panelName)
+  local candidates = {}
+  local function addCandidate(value)
+    if value == nil then
+      return
+    end
+    for i = 1, #candidates do
+      if candidates[i] == value then
+        return
+      end
+    end
+    candidates[#candidates + 1] = value
+  end
+  -- Name first: matches Settings after RegisterCanvasLayoutCategory(panel, name).
+  addCandidate(panelName)
+  if category then
+    addCandidate(category.ID)
+  end
+  addCandidate(categoryID)
+  addCandidate(category)
+  return candidates
+end
+
+local function categoryLooksLikeOurs(current, category, categoryID, panelName)
+  if current == nil or category == nil then
+    return false
+  end
+  if current == category then
+    return true
+  end
+  local curId
+  if current.GetID then
+    local ok, id = pcall(current.GetID, current)
+    if ok then
+      curId = id
+    end
+  end
+  if curId == nil then
+    curId = current.ID
+  end
+  local ours = { categoryID, category.ID, panelName }
+  for i = 1, #ours do
+    local id = ours[i]
+    if id ~= nil and curId ~= nil and tostring(id) == tostring(curId) then
+      return true
+    end
+  end
+  if panelName and (current.name == panelName or current.Name == panelName) then
+    return true
+  end
+  return false
+end
+
+-- Open Settings to the Fundraiser AddOns page. Forever's OpenToCategory accept
+-- name and/or numeric ID; GetCurrentCategory identity checks are unreliable, so
+-- treat a shown SettingsPanel after a successful call as a soft success.
 function Options:Open()
   if not self.category then
     self:Initialize()
   end
-  if not self.category or not Settings or not Settings.OpenToCategory then
+  local category = self.category
+  if not category then
+    NotifyOpenFailed()
     return
   end
-  local ok = pcall(Settings.OpenToCategory, self.category)
-  if not ok then
-    local id = self.category.ID or (self.panel and self.panel.name)
-    if id then
-      pcall(Settings.OpenToCategory, id)
+
+  local panelName = self.categoryName or (self.panel and self.panel.name)
+  local categoryID = self.categoryID
+  local softOk = false
+
+  local function panelShown()
+    return SettingsPanel and SettingsPanel:IsShown()
+  end
+
+  local function openedHard()
+    if not panelShown() then
+      return false
+    end
+    if not SettingsPanel.GetCurrentCategory then
+      return true
+    end
+    local current = SettingsPanel:GetCurrentCategory()
+    if current == nil then
+      return true
+    end
+    return categoryLooksLikeOurs(current, category, categoryID, panelName)
+  end
+
+  local function tryOpen(candidate)
+    if candidate == nil or not Settings or not Settings.OpenToCategory then
+      return false
+    end
+    -- Some clients need two calls (same quirk as InterfaceOptionsFrame_OpenToCategory).
+    local ok1 = pcall(Settings.OpenToCategory, candidate)
+    pcall(Settings.OpenToCategory, candidate)
+    if not ok1 then
+      return false
+    end
+    if openedHard() then
+      return true
+    end
+    if panelShown() then
+      softOk = true
+    end
+    return false
+  end
+
+  if Settings and Settings.OpenToCategory then
+    local candidates = Options.CollectOpenCandidates(categoryID, category, panelName)
+    for _, candidate in ipairs(candidates) do
+      if tryOpen(candidate) then
+        return
+      end
     end
   end
+
+  -- Pre-Settings / hybrid clients.
+  if InterfaceOptionsFrame_OpenToCategory and self.panel then
+    InterfaceOptionsFrame_OpenToCategory(self.panel)
+    InterfaceOptionsFrame_OpenToCategory(self.panel)
+    if panelShown() or (InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown()) then
+      return
+    end
+  end
+
+  if softOk then
+    -- Settings is open; category match could not be verified on this client.
+    return
+  end
+
+  if SettingsPanel and not SettingsPanel:IsShown() and ShowUIPanel then
+    ShowUIPanel(SettingsPanel)
+  end
+  NotifyOpenFailed()
 end
 
 function Options:Initialize()
@@ -619,7 +747,20 @@ function Options:Initialize()
   if not ok or not category then
     return
   end
-  category.ID = panel.name
+
+  -- Keep the system ID intact. Overwriting category.ID with panel.name breaks
+  -- OpenToCategory on clients that key by numeric ID (Forever).
+  local categoryID
+  if category.GetID then
+    local okId, id = pcall(category.GetID, category)
+    if okId then
+      categoryID = id
+    end
+  end
+  if categoryID == nil and category.ID ~= nil then
+    categoryID = category.ID
+  end
+
   local registeredOk = pcall(Settings.RegisterAddOnCategory, category)
   if not registeredOk then
     return
@@ -627,6 +768,8 @@ function Options:Initialize()
 
   self.panel = panel
   self.category = category
+  self.categoryID = categoryID
+  self.categoryName = panel.name
   self.registered = true
   RefreshPanel(panel)
 end

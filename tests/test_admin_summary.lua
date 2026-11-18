@@ -25,117 +25,83 @@ local AdminSummary = Fundraiser.Domain.AdminSummary
 
 -- Scenario: no event published yet
 do
-  -- Given no event
-  -- When building the event status
   local s = AdminSummary.EventStatus(nil)
-  -- Then it reports no active event
   assert_eq(s.hasEvent, false, "no event: hasEvent false")
-  assert_eq(s.name, "", "no event: empty name")
-  assert_eq(s.target, "", "no event: empty target")
-  assert_eq(s.revision, 0, "no event: revision 0")
+  assert_eq(s.goalCopper, 0, "no event: goalCopper 0")
+  assert_eq(s.goalNote, "", "no event: empty note")
 end
 
--- Scenario: active event is summarised
+-- Scenario: active event includes goal fields
 do
-  -- Given a published event
   local ev = {
     name = "Raid Fund",
     target = "Bank Alt",
     intervalSeconds = 7200,
     revision = 3,
     publisher = "Officer One",
+    goalCopper = 500000,
+    goal = "Tabards",
   }
-  -- When building the event status
   local s = AdminSummary.EventStatus(ev)
-  -- Then the fields are copied and interval is expressed in hours
   assert_eq(s.hasEvent, true, "event: hasEvent")
   assert_eq(s.name, "Raid Fund", "event: name")
-  assert_eq(s.target, "Bank Alt", "event: target")
   assert_eq(s.intervalHours, 2, "event: interval hours")
-  assert_eq(s.revision, 3, "event: revision")
-  assert_eq(s.publisher, "Officer One", "event: publisher")
+  assert_eq(s.goalCopper, 500000, "event: goalCopper")
+  assert_eq(s.goalNote, "Tabards", "event: goalNote")
 end
 
--- Scenario: fractional interval is kept
+-- Scenario: empty ledger status
 do
-  -- Given an interval of 90 minutes
-  local s = AdminSummary.EventStatus({ name = "X", target = "A B", intervalSeconds = 5400, revision = 1 })
-  -- Then hours are fractional
-  assert_eq(s.intervalHours, 1.5, "event: fractional hours")
-end
-
--- Scenario: empty ledger
-do
-  -- Given no rows
-  -- When summarising
   local s = AdminSummary.Ledger({}, 0)
-  -- Then count and total are zero and there are no recent rows
   assert_eq(s.count, 0, "ledger empty: count")
   assert_eq(s.total, 0, "ledger empty: total")
-  assert_eq(#s.recent, 0, "ledger empty: recent")
+  assert_eq(s.recent, nil, "ledger empty: no recent list")
 end
 
--- Scenario: nil rows are tolerated
+-- Scenario: Progress percent and cap
 do
-  local s = AdminSummary.Ledger(nil, nil)
-  assert_eq(s.count, 0, "ledger nil: count")
-  assert_eq(s.total, 0, "ledger nil: total")
-  assert_eq(#s.recent, 0, "ledger nil: recent")
+  local p = AdminSummary.Progress(25000, 100000)
+  assert_eq(p.total, 25000, "progress: total")
+  assert_eq(p.goal, 100000, "progress: goal")
+  assert_eq(p.percent, 25, "progress: 25%")
+  assert_eq(p.cappedPercent, 25, "progress: capped 25")
+  assert_true(p.hasGoal, "progress: hasGoal")
+
+  p = AdminSummary.Progress(150000, 100000)
+  assert_eq(p.percent, 150, "progress: over 100%")
+  assert_eq(p.cappedPercent, 100, "progress: capped at 100")
+
+  p = AdminSummary.Progress(50, 0)
+  assert_eq(p.percent, 0, "progress: no goal percent 0")
+  assert_true(not p.hasGoal, "progress: no goal")
 end
 
--- Scenario: fewer rows than the recent limit
+-- Scenario: DailySeries buckets and cumulative
 do
-  -- Given two rows
+  local day = 86400
   local rows = {
-    { id = "a", kind = "mail", name = "Alpha One", copper = 100, at = 10 },
-    { id = "b", kind = "ah", name = "Beta Two", copper = 250, at = 20 },
+    { copper = 100, at = day * 2 + 10 },
+    { copper = 50, at = day * 1 + 5 },
+    { copper = 25, at = day * 1 + 100 },
+    { copper = 200, at = day * 3 + 1 },
   }
-  -- When summarising
-  local s = AdminSummary.Ledger(rows, 350)
-  -- Then all rows are recent, newest first
-  assert_eq(s.count, 2, "ledger two: count")
-  assert_eq(s.total, 350, "ledger two: total")
-  assert_eq(#s.recent, 2, "ledger two: recent size")
-  assert_eq(s.recent[1].id, "b", "ledger two: newest first")
-  assert_eq(s.recent[2].id, "a", "ledger two: oldest last")
+  local s = AdminSummary.DailySeries(rows, 500, day)
+  assert_eq(#s.points, 3, "series: three days")
+  assert_eq(s.points[1].day, day, "series: day1")
+  assert_eq(s.points[1].copper, 75, "series: day1 copper")
+  assert_eq(s.points[1].cumulative, 75, "series: day1 cum")
+  assert_eq(s.points[2].copper, 100, "series: day2 copper")
+  assert_eq(s.points[2].cumulative, 175, "series: day2 cum")
+  assert_eq(s.points[3].cumulative, 375, "series: day3 cum")
+  assert_eq(s.goalCopper, 500, "series: goal")
+  assert_eq(s.maxY, 500, "series: maxY uses goal when higher")
 end
 
--- Scenario: more rows than the default recent limit
+-- Scenario: DailySeries maxY follows cumulative when above goal
 do
-  -- Given five rows in arbitrary order
-  local rows = {
-    { id = "r3", copper = 3, at = 30 },
-    { id = "r1", copper = 1, at = 10 },
-    { id = "r5", copper = 5, at = 50 },
-    { id = "r2", copper = 2, at = 20 },
-    { id = "r4", copper = 4, at = 40 },
-  }
-  -- When summarising
-  local s = AdminSummary.Ledger(rows, 15)
-  -- Then only the three newest rows remain, newest first
-  assert_eq(s.count, 5, "ledger five: count")
-  assert_eq(#s.recent, 3, "ledger five: recent size")
-  assert_eq(s.recent[1].id, "r5", "ledger five: first")
-  assert_eq(s.recent[2].id, "r4", "ledger five: second")
-  assert_eq(s.recent[3].id, "r3", "ledger five: third")
-  -- And the input list is not reordered
-  assert_eq(rows[1].id, "r3", "ledger five: input untouched")
-end
-
--- Scenario: custom recent limit and equal timestamps
-do
-  -- Given rows with the same timestamp
-  local rows = {
-    { id = "x", copper = 1, at = 5 },
-    { id = "y", copper = 1, at = 5 },
-    { id = "z", copper = 1, at = 5 },
-  }
-  -- When limiting to 2
-  local s = AdminSummary.Ledger(rows, 3, 2)
-  -- Then the limit is honoured with a stable id order
-  assert_eq(#s.recent, 2, "ledger limit: size")
-  assert_eq(s.recent[1].id, "x", "ledger limit: stable first")
-  assert_eq(s.recent[2].id, "y", "ledger limit: stable second")
+  local s = AdminSummary.DailySeries({ { copper = 900, at = 10 } }, 100, 86400)
+  assert_eq(s.maxY, 900, "series: maxY from cumulative")
+  assert_eq(#AdminSummary.DailySeries({}, 0).points, 0, "series: empty")
 end
 
 if failed > 0 then

@@ -46,6 +46,7 @@ function Debug:SeedEvent()
     name = "Debug Tabard Fund",
     target = target,
     goal = "Solo debug seed",
+    goalCopper = 100000,
     intervalSeconds = 60,
     minAdminRank = 1,
     revision = revision,

@@ -1,9 +1,38 @@
--- Admin / member overview window.
+-- Admin window: status dashboard (event / progress / daily chart) by default.
+-- "New event" reveals the publish form (Publish archives the current campaign).
+-- Ledger row details belong in the dedicated ledger window (#15).
+-- Summary data comes from Domain/AdminSummary.lua so the rendering here stays thin.
 Fundraiser = Fundraiser or {}
 Fundraiser.UI = Fundraiser.UI or {}
 
 local Window = {}
 Fundraiser.UI.Window = Window
+
+local FRAME_WIDTH = 560
+-- Tall enough for event + progress/ledger + chart + Settings row above the inset edge.
+local FRAME_HEIGHT_STATUS = 490
+local FRAME_HEIGHT_STATUS_COMPACT = 340
+local FRAME_HEIGHT_CREATE = 460
+local MARGIN = 16
+local CONTENT_WIDTH = FRAME_WIDTH - 2 * MARGIN
+local LABEL_WIDTH = 190
+local FIELD_X = 214
+local ROW_HEIGHT = 30
+local CARD_GAP = 10
+local FOOTER_GAP = 16
+local FOOTER_BTN_H = 24
+local FOOTER_BOTTOM_PAD = 22
+local CHART_MAX_POINTS = 14
+local CHART_MAX_SEGMENTS = 13
+local CHART_LEGEND_W = 100
+local CHART_Y_LABEL_W = 56
+local CHART_X_LABEL_H = 20
+local CHART_CARD_H = 168
+local PROGRESS_CARD_H = 96
+local COPPER_PER_GOLD = 10000
+-- Raised line (blue) vs goal line (amber).
+local COLOR_RAISED = { 0.30, 0.65, 1.00, 1 }
+local COLOR_GOAL = { 0.95, 0.55, 0.15, 1 }
 
 local function money(copper)
   if Fundraiser.FormatCopper then
@@ -12,84 +41,447 @@ local function money(copper)
   return tostring(copper or 0) .. "c"
 end
 
+local function showTooltip(owner, titleKey, bodyKey)
+  if not GameTooltip then
+    return
+  end
+  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+  GameTooltip:SetText(Fundraiser:T(titleKey), 1, 1, 1)
+  GameTooltip:AddLine(Fundraiser:T(bodyKey), 1, 0.82, 0, true)
+  GameTooltip:Show()
+end
+
+local function hideTooltip()
+  if GameTooltip then
+    GameTooltip:Hide()
+  end
+end
+
+local function confirmAction(dialogKey, textKey, onAccept)
+  if StaticPopupDialogs and StaticPopup_Show then
+    StaticPopupDialogs[dialogKey] = {
+      text = Fundraiser:T(textKey),
+      button1 = YES or ACCEPT or "Yes",
+      button2 = NO or CANCEL or "No",
+      OnAccept = onAccept,
+      timeout = 0,
+      whileDead = 1,
+      hideOnEscape = 1,
+      preferredIndex = 3,
+    }
+    StaticPopup_Show(dialogKey)
+    return
+  end
+  onAccept()
+end
+
+local function defaultIntervalHours()
+  local defaultSeconds = (Fundraiser.Config and tonumber(Fundraiser.Config.DEFAULT_REMINDER_INTERVAL)) or 86400
+  return tostring(defaultSeconds / 3600)
+end
+
+local function applyCardBackdrop(frame)
+  if frame.SetBackdrop then
+    frame:SetBackdrop({
+      bgFile = "Interface\\Buttons\\WHITE8x8",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      tile = true,
+      tileSize = 8,
+      edgeSize = 12,
+      insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    frame:SetBackdropColor(0.08, 0.08, 0.1, 0.85)
+    frame:SetBackdropBorderColor(0.4, 0.4, 0.45, 0.9)
+  else
+    local bg = frame:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.08, 0.08, 0.1, 0.85)
+  end
+end
+
+local function makeCard(parent, name, width, height)
+  local template = BackdropTemplateMixin and "BackdropTemplate" or nil
+  local card = CreateFrame("Frame", name, parent, template)
+  card:SetSize(width, height)
+  applyCardBackdrop(card)
+  local title = card:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  title:SetPoint("TOPLEFT", 10, -8)
+  title:SetJustifyH("LEFT")
+  card.title = title
+  return card
+end
+
+-- Shared size so + (PlusButton art) and panel icon buttons match visually.
+local CARD_ACTION_BTN_SIZE = 22
+
+-- Bare icon button — used for Blizzard UI-PlusButton art only.
+local function makeCardIconButton(parent, name, size)
+  size = size or CARD_ACTION_BTN_SIZE
+  local btn = CreateFrame("Button", name, parent)
+  btn:SetSize(size, size)
+  btn:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -8, 8)
+  btn:SetFrameLevel((parent:GetFrameLevel() or 1) + 5)
+  btn:EnableMouse(true)
+  return btn
+end
+
+local function trySetIcon(btn, normal, pushed, highlight)
+  if normal and btn.SetNormalTexture then
+    btn:SetNormalTexture(normal)
+  end
+  if pushed and btn.SetPushedTexture then
+    btn:SetPushedTexture(pushed)
+  end
+  if highlight and btn.SetHighlightTexture then
+    btn:SetHighlightTexture(highlight)
+    -- Existence check must use `.` — `btn:GetHighlightTexture and` is a parse error.
+    local ht = btn.GetHighlightTexture and btn:GetHighlightTexture()
+    if ht and ht.SetBlendMode then
+      ht:SetBlendMode("ADD")
+    end
+  end
+end
+
+local function makeTextIconFallback(btn, glyph)
+  local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  fs:SetAllPoints()
+  fs:SetJustifyH("CENTER")
+  fs:SetJustifyV("MIDDLE")
+  fs:SetText(glyph)
+  btn.label = fs
+end
+
+-- Panel chrome + overlay icon (refresh / play). Same outer size as PlusButton.
+local function makeCardPanelIconButton(parent, name, iconPath)
+  local size = CARD_ACTION_BTN_SIZE
+  local btn = CreateFrame("Button", name, parent, "UIPanelButtonTemplate")
+  btn:SetSize(size, size)
+  btn:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -8, 8)
+  btn:SetFrameLevel((parent:GetFrameLevel() or 1) + 5)
+  btn:SetText("")
+  if btn.ButtonText then
+    btn.ButtonText:SetText("")
+  end
+  local icon = btn:CreateTexture(nil, "OVERLAY")
+  icon:SetSize(math.max(12, size - 8), math.max(12, size - 8))
+  icon:SetPoint("CENTER", 0, 0)
+  if iconPath then
+    icon:SetTexture(iconPath)
+  end
+  btn.icon = icon
+  return btn
+end
+
+-- Default placement: top edge ~1/8 down the screen, above action bars / unit frames.
+function Window:PlaceDefault(frame)
+  frame = frame or self.frame
+  if not frame then
+    return
+  end
+  local screenH = 768
+  if GetScreenHeight then
+    screenH = GetScreenHeight() or screenH
+  elseif UIParent and UIParent.GetHeight then
+    screenH = UIParent:GetHeight() or screenH
+  end
+  frame:ClearAllPoints()
+  frame:SetPoint("TOP", UIParent, "TOP", 0, -math.floor(screenH * 0.12))
+  frame:SetFrameStrata("DIALOG")
+  if frame.SetToplevel then
+    frame:SetToplevel(true)
+  end
+  if frame.Raise then
+    frame:Raise()
+  end
+end
+
 function Window:Ensure()
   if self.frame then
     return self.frame
   end
 
   local f = CreateFrame("Frame", "FundraiserFrame", UIParent, "BasicFrameTemplateWithInset")
-  f:SetSize(520, 480)
-  f:SetPoint("CENTER")
+  f:SetSize(FRAME_WIDTH, FRAME_HEIGHT_STATUS)
+  f:SetFrameStrata("DIALOG")
+  if f.SetToplevel then
+    f:SetToplevel(true)
+  end
+  self:PlaceDefault(f)
   f:SetMovable(true)
   f:EnableMouse(true)
   f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  f:SetScript("OnDragStart", function(self)
+    self:StartMoving()
+  end)
+  f:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    Window.userMoved = true
+  end)
   f:Hide()
   if f.TitleText then
     f.TitleText:SetText(Fundraiser:T("WINDOW_TITLE"))
   end
   tinsert(UISpecialFrames, "FundraiserFrame")
 
-  local y = -36
+  -- Status dashboard (default).
+  local status = CreateFrame("Frame", "FundraiserStatusPanel", f)
+  status:SetPoint("TOPLEFT", 0, 0)
+  status:SetPoint("BOTTOMRIGHT", 0, 0)
+  f.statusPanel = status
 
-  local function label(text, dy)
-    local fs = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    fs:SetPoint("TOPLEFT", 16, y)
-    fs:SetText(text)
-    y = y - (dy or 18)
-    return fs
+  local y = -34
+  local cardW = CONTENT_WIDTH
+  local halfW = math.floor((CONTENT_WIDTH - CARD_GAP) / 2)
+
+  -- Event card (full width).
+  local eventCard = makeCard(status, "FundraiserEventCard", cardW, 78)
+  eventCard:SetPoint("TOPLEFT", MARGIN, y)
+  eventCard.title:SetText(Fundraiser:T("CARD_EVENT"))
+  f.eventNameFs = eventCard:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  f.eventNameFs:SetPoint("TOPLEFT", 10, -28)
+  f.eventNameFs:SetWidth(cardW - 72)
+  f.eventNameFs:SetJustifyH("LEFT")
+  f.eventDetailFs = eventCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  f.eventDetailFs:SetPoint("TOPLEFT", f.eventNameFs, "BOTTOMLEFT", 0, -4)
+  f.eventDetailFs:SetWidth(cardW - 72)
+  f.eventDetailFs:SetJustifyH("LEFT")
+  f.eventNoteFs = eventCard:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  f.eventNoteFs:SetPoint("TOPLEFT", f.eventDetailFs, "BOTTOMLEFT", 0, -2)
+  f.eventNoteFs:SetWidth(cardW - 72)
+  f.eventNoteFs:SetJustifyH("LEFT")
+  -- New event: original Blizzard PlusButton (no panel chrome).
+  local newEvent = makeCardIconButton(eventCard, "FundraiserNewEventButton")
+  trySetIcon(
+    newEvent,
+    "Interface\\Buttons\\UI-PlusButton-Up",
+    "Interface\\Buttons\\UI-PlusButton-Down",
+    "Interface\\Buttons\\UI-PlusButton-Hilight"
+  )
+  if not newEvent:GetNormalTexture() then
+    makeTextIconFallback(newEvent, "+")
   end
-
-  label(Fundraiser:T("SECTION_EVENT"), 20)
-
-  local function editBox(name, width)
-    local eb = CreateFrame("EditBox", name, f, "InputBoxTemplate")
-    eb:SetSize(width or 280, 20)
-    eb:SetPoint("TOPLEFT", 16, y)
-    eb:SetAutoFocus(false)
-    y = y - 28
-    return eb
-  end
-
-  label(Fundraiser:T("LABEL_EVENT_NAME"))
-  f.eventName = editBox("FundraiserEventName")
-  label(Fundraiser:T("LABEL_TARGET"))
-  f.target = editBox("FundraiserTarget")
-  label(Fundraiser:T("LABEL_INTERVAL"))
-  f.interval = editBox("FundraiserInterval", 80)
-  label(Fundraiser:T("LABEL_GOAL"))
-  f.goal = editBox("FundraiserGoal", 400)
-
-  local publish = CreateFrame("Button", "FundraiserPublishButton", f, "UIPanelButtonTemplate")
-  publish:SetSize(140, 24)
-  publish:SetPoint("TOPLEFT", 16, y)
-  publish:SetText(Fundraiser:T("BTN_PUBLISH"))
-  publish:SetScript("OnClick", function()
-    Window:Publish()
+  newEvent:SetScript("OnClick", function()
+    Window:ShowCreate()
   end)
+  newEvent:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_NEW_EVENT_TITLE", "TIP_NEW_EVENT_BODY")
+  end)
+  newEvent:SetScript("OnLeave", hideTooltip)
+  f.newEventBtn = newEvent
+  -- End event: MinusButton left of + (archive + guild campaign wipe).
+  local endEvent = makeCardIconButton(eventCard, "FundraiserEndEventButton")
+  endEvent:ClearAllPoints()
+  endEvent:SetPoint("RIGHT", newEvent, "LEFT", -4, 0)
+  trySetIcon(
+    endEvent,
+    "Interface\\Buttons\\UI-MinusButton-Up",
+    "Interface\\Buttons\\UI-MinusButton-Down",
+    "Interface\\Buttons\\ButtonHilight-Square"
+  )
+  if endEvent.SetDisabledTexture then
+    endEvent:SetDisabledTexture("Interface\\Buttons\\UI-MinusButton-Disabled")
+  end
+  if not endEvent:GetNormalTexture() then
+    makeTextIconFallback(endEvent, "-")
+  end
+  endEvent:SetScript("OnClick", function()
+    Window:ConfirmEndEvent()
+  end)
+  endEvent:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_END_EVENT_TITLE", "TIP_END_EVENT_BODY")
+  end)
+  endEvent:SetScript("OnLeave", hideTooltip)
+  endEvent:Hide()
+  f.endEventBtn = endEvent
+  -- Only +/- buttons open create / end; the card body is display-only.
+  f.eventCard = eventCard
+  y = y - 78 - CARD_GAP
 
-  local refresh = CreateFrame("Button", "FundraiserRefreshButton", f, "UIPanelButtonTemplate")
-  refresh:SetSize(100, 24)
-  refresh:SetPoint("LEFT", publish, "RIGHT", 8, 0)
-  refresh:SetText(Fundraiser:T("BTN_REFRESH"))
+  -- Row Y for progress/ledger; chart and actions are re-anchored in Refresh.
+  f.dashboardMidY = y
+
+  -- Progress card (left) - only shown when the event has a numeric goal.
+  local progressCard = makeCard(status, "FundraiserProgressCard", halfW, PROGRESS_CARD_H)
+  progressCard:SetPoint("TOPLEFT", MARGIN, y)
+  progressCard.title:SetText(Fundraiser:T("CARD_PROGRESS"))
+  f.progressText = progressCard:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  f.progressText:SetPoint("TOPLEFT", 10, -28)
+  f.progressText:SetWidth(halfW - 20)
+  f.progressText:SetJustifyH("LEFT")
+  f.progressPct = progressCard:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  f.progressPct:SetPoint("TOPLEFT", 10, -46)
+  f.progressPct:SetJustifyH("LEFT")
+  local bar = CreateFrame("StatusBar", "FundraiserProgressBar", progressCard)
+  bar:SetSize(halfW - 20, 14)
+  bar:SetPoint("BOTTOMLEFT", 10, 14)
+  bar:SetMinMaxValues(0, 100)
+  bar:SetValue(0)
+  if bar.SetStatusBarTexture then
+    bar:SetStatusBarTexture("Interface\\TARGETINGFRAME\\UI-StatusBar")
+  end
+  if bar.SetStatusBarColor then
+    bar:SetStatusBarColor(0.2, 0.7, 0.3, 1)
+  end
+  local barBg = bar:CreateTexture(nil, "BACKGROUND")
+  barBg:SetAllPoints()
+  barBg:SetColorTexture(0.15, 0.15, 0.15, 0.9)
+  f.progressBar = bar
+  f.progressCard = progressCard
+
+  -- Ledger card (beside progress when goal exists; full width otherwise).
+  local ledgerCard = makeCard(status, "FundraiserLedgerCard", halfW, PROGRESS_CARD_H)
+  ledgerCard:SetPoint("TOPLEFT", MARGIN + halfW + CARD_GAP, y)
+  ledgerCard.title:SetText(Fundraiser:T("CARD_LEDGER"))
+  f.ledgerStatus = ledgerCard:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  f.ledgerStatus:SetPoint("TOPLEFT", 10, -32)
+  f.ledgerStatus:SetWidth(halfW - 56)
+  f.ledgerStatus:SetJustifyH("LEFT")
+  f.ledgerStatus:SetJustifyV("TOP")
+  -- Refresh only; whole ledger card is clickable (dedicated window #15).
+  local refresh = makeCardPanelIconButton(
+    ledgerCard,
+    "FundraiserRefreshButton",
+    "Interface\\Buttons\\UI-RefreshButton"
+  )
+  if refresh.icon then
+    local tex = refresh.icon:GetTexture()
+    if not tex or tex == "" then
+      refresh.icon:SetTexture("Interface\\Buttons\\UI-RotationRight-Button-Up")
+    end
+  end
   refresh:SetScript("OnClick", function()
     Window:Refresh()
   end)
+  refresh:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_REFRESH_TITLE", "TIP_REFRESH_BODY")
+  end)
+  refresh:SetScript("OnLeave", hideTooltip)
+  f.refreshBtn = refresh
 
-  local settingsBtn = CreateFrame("Button", "FundraiserAddonSettingsButton", f, "UIPanelButtonTemplate")
-  settingsBtn:SetSize(120, 24)
-  settingsBtn:SetPoint("LEFT", refresh, "RIGHT", 8, 0)
-  settingsBtn:SetText(Fundraiser:T("BTN_ADDON_SETTINGS"))
+  ledgerCard:EnableMouse(true)
+  ledgerCard:SetScript("OnMouseUp", function(_, button)
+    if button == "LeftButton" then
+      -- Dedicated ledger window (#15) hooks here when enabled.
+    end
+  end)
+  ledgerCard:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_OPEN_LEDGER_TITLE", "TIP_OPEN_LEDGER_BODY")
+  end)
+  ledgerCard:SetScript("OnLeave", hideTooltip)
+  f.ledgerCard = ledgerCard
+
+  -- Chart card: line plot + axes + legend (only when numeric goal exists).
+  local chartCard = makeCard(status, "FundraiserChartCard", cardW, CHART_CARD_H)
+  chartCard:SetPoint("TOPLEFT", MARGIN, y - PROGRESS_CARD_H - CARD_GAP)
+  chartCard.title:SetText(Fundraiser:T("CARD_CHART"))
+  f.chartEmpty = chartCard:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  f.chartEmpty:SetPoint("CENTER", -CHART_LEGEND_W / 2, -6)
+  f.chartEmpty:SetText(Fundraiser:T("CHART_EMPTY"))
+
+  local plot = CreateFrame("Frame", "FundraiserChartPlot", chartCard)
+  -- Leave room for Y labels (left), legend (right), and X labels (below).
+  plot:SetPoint("TOPLEFT", 12 + CHART_Y_LABEL_W, -28)
+  plot:SetPoint("BOTTOMRIGHT", -12 - CHART_LEGEND_W, 12 + CHART_X_LABEL_H)
+  f.chartPlot = plot
+
+  local plotBg = plot:CreateTexture(nil, "BACKGROUND")
+  plotBg:SetAllPoints()
+  plotBg:SetColorTexture(0.05, 0.05, 0.06, 0.6)
+
+  f.chartSegments = {}
+  f.chartDots = {}
+  for i = 1, CHART_MAX_SEGMENTS do
+    local tex = plot:CreateTexture(nil, "ARTWORK")
+    tex:SetColorTexture(COLOR_RAISED[1], COLOR_RAISED[2], COLOR_RAISED[3], COLOR_RAISED[4])
+    tex:Hide()
+    f.chartSegments[i] = tex
+  end
+  for i = 1, CHART_MAX_POINTS do
+    local dot = plot:CreateTexture(nil, "OVERLAY")
+    dot:SetColorTexture(COLOR_RAISED[1], COLOR_RAISED[2], COLOR_RAISED[3], COLOR_RAISED[4])
+    dot:SetSize(5, 5)
+    dot:Hide()
+    f.chartDots[i] = dot
+  end
+
+  local goalLine = plot:CreateTexture(nil, "ARTWORK")
+  goalLine:SetColorTexture(COLOR_GOAL[1], COLOR_GOAL[2], COLOR_GOAL[3], COLOR_GOAL[4])
+  goalLine:SetHeight(2)
+  goalLine:Hide()
+  f.chartGoalLine = goalLine
+
+  f.chartYLabels = {}
+  for i = 1, 3 do
+    local fs = chartCard:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    fs:SetWidth(CHART_Y_LABEL_W - 4)
+    fs:SetJustifyH("RIGHT")
+    f.chartYLabels[i] = fs
+  end
+  -- Dedicated goal amount label (amber), left of the goal line.
+  local goalYLabel = chartCard:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+  goalYLabel:SetWidth(CHART_Y_LABEL_W - 4)
+  goalYLabel:SetJustifyH("RIGHT")
+  goalYLabel:SetTextColor(COLOR_GOAL[1], COLOR_GOAL[2], COLOR_GOAL[3], 1)
+  goalYLabel:Hide()
+  f.chartGoalYLabel = goalYLabel
+  f.chartXLabels = {}
+  for i = 1, CHART_MAX_POINTS do
+    local fs = chartCard:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    fs:SetJustifyH("CENTER")
+    f.chartXLabels[i] = fs
+  end
+
+  -- Legend (right of plot), outside the plot box.
+  local legend = CreateFrame("Frame", "FundraiserChartLegend", chartCard)
+  legend:SetSize(CHART_LEGEND_W - 8, 52)
+  legend:SetPoint("TOPRIGHT", -10, -36)
+  local raisedSwatch = legend:CreateTexture(nil, "ARTWORK")
+  raisedSwatch:SetSize(16, 3)
+  raisedSwatch:SetPoint("TOPLEFT", 0, -2)
+  raisedSwatch:SetColorTexture(COLOR_RAISED[1], COLOR_RAISED[2], COLOR_RAISED[3], COLOR_RAISED[4])
+  local raisedLbl = legend:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  raisedLbl:SetPoint("LEFT", raisedSwatch, "RIGHT", 8, 0)
+  raisedLbl:SetText(Fundraiser:T("CHART_LEGEND_RAISED"))
+  local goalSwatch = legend:CreateTexture(nil, "ARTWORK")
+  goalSwatch:SetSize(16, 3)
+  goalSwatch:SetPoint("TOPLEFT", 0, -26)
+  goalSwatch:SetColorTexture(COLOR_GOAL[1], COLOR_GOAL[2], COLOR_GOAL[3], COLOR_GOAL[4])
+  local goalLbl = legend:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  goalLbl:SetPoint("LEFT", goalSwatch, "RIGHT", 8, 0)
+  goalLbl:SetText(Fundraiser:T("CHART_LEGEND_GOAL"))
+  f.chartLegend = legend
+  f.chartCard = chartCard
+
+  -- Footer: Settings (cog + label) and optional Target assist.
+  -- Extra FOOTER_GAP keeps the row clear of the chart and the frame bottom inset.
+  local footerY = y - PROGRESS_CARD_H - CARD_GAP - CHART_CARD_H - FOOTER_GAP
+  f.dashboardFooterY = footerY
+
+  local settingsBtn = CreateFrame("Button", "FundraiserAddonSettingsButton", status, "UIPanelButtonTemplate")
+  settingsBtn:SetSize(110, FOOTER_BTN_H)
+  settingsBtn:SetPoint("TOPLEFT", MARGIN, footerY)
+  settingsBtn:SetText(Fundraiser:T("BTN_SETTINGS"))
+  local cog = settingsBtn:CreateTexture(nil, "ARTWORK")
+  cog:SetSize(14, 14)
+  cog:SetPoint("LEFT", 8, 0)
+  cog:SetTexture("Interface\\Buttons\\UI-OptionsButton")
+  -- Pad label so it clears the cog icon.
+  if settingsBtn.ButtonText then
+    settingsBtn.ButtonText:ClearAllPoints()
+    settingsBtn.ButtonText:SetPoint("LEFT", cog, "RIGHT", 4, 0)
+    settingsBtn.ButtonText:SetPoint("RIGHT", -8, 0)
+    settingsBtn.ButtonText:SetJustifyH("LEFT")
+  end
   settingsBtn:SetScript("OnClick", function()
     if Fundraiser.Options and Fundraiser.Options.Open then
       Fundraiser.Options:Open()
     end
   end)
+  f.settingsBtn = settingsBtn
 
-  local targetBtn = CreateFrame("Button", "FundraiserTargetOpenButton", f, "UIPanelButtonTemplate")
-  targetBtn:SetSize(140, 24)
-  targetBtn:SetPoint("TOPLEFT", 16, y - 28)
+  local targetBtn = CreateFrame("Button", "FundraiserTargetOpenButton", status, "UIPanelButtonTemplate")
+  targetBtn:SetSize(160, FOOTER_BTN_H)
+  targetBtn:SetPoint("LEFT", settingsBtn, "RIGHT", 8, 0)
   targetBtn:SetText(Fundraiser:T("BTN_TARGET_UI"))
   targetBtn:SetScript("OnClick", function()
     if Fundraiser.UI.Target then
@@ -97,32 +489,201 @@ function Window:Ensure()
     end
   end)
   f.targetBtn = targetBtn
-  y = y - 64
+  f.halfW = halfW
+  f.cardW = cardW
 
-  label(Fundraiser:T("SECTION_LEDGER"), 20)
-  f.ledgerTotal = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  f.ledgerTotal:SetPoint("TOPLEFT", 16, y)
-  y = y - 18
-  f.ledgerBody = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  f.ledgerBody:SetPoint("TOPLEFT", 16, y)
-  f.ledgerBody:SetWidth(480)
-  f.ledgerBody:SetJustifyH("LEFT")
-  f.ledgerBody:SetJustifyV("TOP")
-  y = y - 100
+  -- Create / publish view (hidden by default).
+  local create = CreateFrame("Frame", "FundraiserCreatePanel", f)
+  create:SetPoint("TOPLEFT", 0, 0)
+  create:SetPoint("BOTTOMRIGHT", 0, 0)
+  create:Hide()
+  f.createPanel = create
 
-  label(Fundraiser:T("SECTION_PRESENCE"), 20)
-  f.presenceBody = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  f.presenceBody:SetPoint("TOPLEFT", 16, y)
-  f.presenceBody:SetWidth(480)
-  f.presenceBody:SetJustifyH("LEFT")
-  f.presenceBody:SetJustifyV("TOP")
+  local function divider(parent, at)
+    local line = parent:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(1, 1, 1, 0.15)
+    line:SetSize(CONTENT_WIDTH, 1)
+    line:SetPoint("TOPLEFT", MARGIN, at)
+    return line
+  end
+
+  local cy = -34
+  local formTitle = create:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  formTitle:SetPoint("TOPLEFT", MARGIN, cy)
+  formTitle:SetText(Fundraiser:T("SECTION_EVENT_FORM"))
+  divider(create, cy - 18)
+  cy = cy - 28
+
+  f.createWarn = create:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  f.createWarn:SetPoint("TOPLEFT", MARGIN, cy)
+  f.createWarn:SetWidth(CONTENT_WIDTH)
+  f.createWarn:SetJustifyH("LEFT")
+  f.createWarn:SetWordWrap(true)
+  f.createWarn:SetText(Fundraiser:T("CREATE_ARCHIVE_WARN"))
+  cy = cy - 32
+
+  local function field(labelKey, name, width)
+    local fs = create:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    fs:SetPoint("TOPLEFT", MARGIN, cy - 3)
+    fs:SetWidth(LABEL_WIDTH)
+    fs:SetJustifyH("LEFT")
+    fs:SetText(Fundraiser:T(labelKey))
+    local eb = CreateFrame("EditBox", name, create, "InputBoxTemplate")
+    eb:SetSize(width, 20)
+    eb:SetPoint("TOPLEFT", FIELD_X, cy)
+    eb:SetAutoFocus(false)
+    cy = cy - ROW_HEIGHT
+    return eb
+  end
+
+  f.eventName = field("LABEL_EVENT_NAME", "FundraiserEventName", 240)
+  f.target = field("LABEL_TARGET", "FundraiserTarget", 240)
+  f.interval = field("LABEL_INTERVAL", "FundraiserInterval", 60)
+  local hint = create:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  hint:SetPoint("LEFT", f.interval, "RIGHT", 10, 0)
+  hint:SetWidth(FRAME_WIDTH - FIELD_X - 60 - 10 - MARGIN)
+  hint:SetJustifyH("LEFT")
+  hint:SetText(Fundraiser:T("LABEL_INTERVAL_HINT"))
+  f.goalGold = field("LABEL_GOAL_GOLD", "FundraiserGoalGold", 80)
+  f.goal = field("LABEL_GOAL_NOTE", "FundraiserGoalNote", 240)
+
+  local publish = CreateFrame("Button", "FundraiserPublishButton", create, "UIPanelButtonTemplate")
+  publish:SetSize(140, 24)
+  publish:SetPoint("TOPLEFT", MARGIN, cy - 4)
+  publish:SetText(Fundraiser:T("BTN_PUBLISH"))
+  publish:SetScript("OnClick", function()
+    Window:Publish()
+  end)
+
+  local cancel = CreateFrame("Button", "FundraiserCreateCancelButton", create, "UIPanelButtonTemplate")
+  cancel:SetSize(100, 24)
+  cancel:SetPoint("LEFT", publish, "RIGHT", 8, 0)
+  cancel:SetText(Fundraiser:T("BTN_CANCEL"))
+  cancel:SetScript("OnClick", function()
+    Window:ShowStatus()
+  end)
 
   f:SetScript("OnShow", function()
+    if not Window.userMoved then
+      Window:PlaceDefault(f)
+    else
+      f:SetFrameStrata("DIALOG")
+      if f.Raise then
+        f:Raise()
+      end
+    end
+    Window:ShowStatus()
     Window:Refresh()
   end)
 
+  self.view = "status"
+  self.userMoved = false
   self.frame = f
   return f
+end
+
+function Window:ShowStatus()
+  local f = self:Ensure()
+  self.view = "status"
+  f.createPanel:Hide()
+  f.statusPanel:Show()
+  self:Refresh()
+end
+
+function Window:ShowCreate()
+  local f = self:Ensure()
+  self.view = "create"
+  f:SetSize(FRAME_WIDTH, FRAME_HEIGHT_CREATE)
+  f.statusPanel:Hide()
+  f.createPanel:Show()
+
+  f.eventName:SetText("")
+  f.target:SetText("")
+  f.goal:SetText("")
+  f.goalGold:SetText("")
+  f.interval:SetText(defaultIntervalHours())
+
+  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+  local hasEvent = Store and Store.GetEvent and Store:GetEvent() ~= nil
+  if hasEvent then
+    f.createWarn:SetText(Fundraiser:T("CREATE_ARCHIVE_WARN"))
+  else
+    f.createWarn:SetText(Fundraiser:T("CREATE_HELP"))
+  end
+  f.createWarn:Show()
+end
+
+function Window:ConfirmEndEvent()
+  if not (Fundraiser.Config and Fundraiser.Config.END_EVENT) then
+    return
+  end
+  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+  if not (Store and Store.GetEvent and Store:GetEvent()) then
+    return
+  end
+  confirmAction("FUNDRAISER_END_EVENT", "CONFIRM_END_EVENT", function()
+    Window:EndEvent()
+  end)
+end
+
+function Window:EndEvent()
+  local Store = Fundraiser.Adapters.Store
+  local Roster = Fundraiser.Adapters.Roster
+  local UC = Fundraiser.Application.UseCases
+  local Sync = Fundraiser.Adapters.ThinGuildSync
+  local now = (GetServerTime and GetServerTime()) or (time and time()) or 0
+  local ok, mode = UC.EndActiveEvent({
+    getEvent = function()
+      return Store:GetEvent()
+    end,
+    getContributions = function()
+      return Store:GetContributions()
+    end,
+    getArchives = function()
+      return Store:GetArchives()
+    end,
+    archiveEvent = function(event, contributions, archivedAt)
+      Store:ArchiveEvent(event, contributions, archivedAt)
+    end,
+    applyResetScope = function(scope)
+      return Store:ApplyResetScope(scope)
+    end,
+    clearContributions = function()
+      Store:ClearLedger()
+    end,
+    clearReminder = function()
+      Store:SetReminderState({})
+    end,
+    clearEvent = function()
+      Store:ClearEvent()
+    end,
+    bumpResetEpoch = function()
+      return Store:BumpResetEpoch()
+    end,
+    broadcastReset = function(scope)
+      return Sync and Sync.BroadcastReset and Sync:BroadcastReset(scope)
+    end,
+  }, {
+    rankIndex = Roster:GetPlayerRankIndex(),
+    name = Roster:GetPlayerName(),
+    now = now,
+  })
+  if not ok then
+    if DEFAULT_CHAT_FRAME then
+      DEFAULT_CHAT_FRAME:AddMessage(
+        Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("CHAT_END_EVENT_FAILED", tostring(mode or "?"))
+      )
+    end
+    return
+  end
+  if DEFAULT_CHAT_FRAME then
+    if mode == "guild" then
+      DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("CHAT_END_EVENT_OK"))
+    else
+      DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("CHAT_END_EVENT_LOCAL_ONLY"))
+    end
+  end
+  self:ShowStatus()
 end
 
 function Window:Publish()
@@ -137,10 +698,16 @@ function Window:Publish()
   else
     intervalSeconds = (Fundraiser.Config and tonumber(Fundraiser.Config.DEFAULT_REMINDER_INTERVAL)) or 86400
   end
+  local gold = tonumber(f.goalGold:GetText())
+  local goalCopper = 0
+  if gold and gold > 0 then
+    goalCopper = math.floor(gold * COPPER_PER_GOLD)
+  end
   local fields = {
     name = f.eventName:GetText(),
     target = f.target:GetText(),
     goal = f.goal:GetText(),
+    goalCopper = goalCopper,
     intervalSeconds = intervalSeconds,
   }
   local deps = {
@@ -176,6 +743,7 @@ function Window:Publish()
     if DEFAULT_CHAT_FRAME then
       local msg = err == "not_admin" and Fundraiser:T("CHAT_NOT_ADMIN")
         or err == "target_need_full_name" and Fundraiser:T("CHAT_TARGET_NEED_FULL_NAME")
+        or err == "bad_goal" and Fundraiser:T("CHAT_BAD_GOAL")
         or tostring(err)
       DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. msg)
     end
@@ -184,32 +752,308 @@ function Window:Publish()
   if DEFAULT_CHAT_FRAME then
     DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("CHAT_EVENT_PUBLISHED", event.name))
   end
-  self:Refresh()
+  self:ShowStatus()
+end
+
+local function formatAxisGold(copper)
+  local g = math.floor((tonumber(copper) or 0) / COPPER_PER_GOLD)
+  -- Gold-only axis tick with coin icon (compact chart label).
+  if Fundraiser.FormatCopper then
+    return Fundraiser.FormatCopper(g * COPPER_PER_GOLD, 10)
+  end
+  return g .. "g"
+end
+
+local function formatAxisDay(day)
+  day = tonumber(day) or 0
+  if date then
+    return date("%d/%m", day)
+  end
+  return tostring(day)
+end
+
+-- Place a line segment texture between two plot-local points (bottom-left origin).
+local function placeSegment(tex, x1, y1, x2, y2)
+  local dx = x2 - x1
+  local dy = y2 - y1
+  local len = math.sqrt(dx * dx + dy * dy)
+  if len < 1 then
+    tex:Hide()
+    return
+  end
+  tex:ClearAllPoints()
+  tex:SetSize(len, 2)
+  tex:SetPoint("CENTER", tex:GetParent(), "BOTTOMLEFT", (x1 + x2) / 2, (y1 + y2) / 2)
+  if tex.SetRotation then
+    tex:SetRotation(math.atan2(dy, dx))
+  end
+  tex:Show()
+end
+
+-- Show/hide progress + chart; ledger goes full width when goal widgets are hidden.
+function Window:LayoutGoalWidgets(showGoal)
+  local f = self.frame
+  if not f then
+    return
+  end
+  local midY = f.dashboardMidY
+  local halfW = f.halfW
+  local cardW = f.cardW
+  local footerY
+
+  f.ledgerCard:ClearAllPoints()
+  if showGoal then
+    f.progressCard:Show()
+    f.chartCard:Show()
+    f.progressCard:ClearAllPoints()
+    f.progressCard:SetPoint("TOPLEFT", MARGIN, midY)
+    f.progressCard:SetSize(halfW, PROGRESS_CARD_H)
+    f.ledgerCard:SetPoint("TOPLEFT", MARGIN + halfW + CARD_GAP, midY)
+    f.ledgerCard:SetSize(halfW, PROGRESS_CARD_H)
+    f.ledgerStatus:SetWidth(halfW - 56)
+    f.chartCard:ClearAllPoints()
+    f.chartCard:SetPoint("TOPLEFT", MARGIN, midY - PROGRESS_CARD_H - CARD_GAP)
+    footerY = midY - PROGRESS_CARD_H - CARD_GAP - CHART_CARD_H - FOOTER_GAP
+  else
+    f.progressCard:Hide()
+    f.chartCard:Hide()
+    f.ledgerCard:SetPoint("TOPLEFT", MARGIN, midY)
+    f.ledgerCard:SetSize(cardW, PROGRESS_CARD_H)
+    f.ledgerStatus:SetWidth(cardW - 56)
+    footerY = midY - PROGRESS_CARD_H - FOOTER_GAP
+  end
+
+  -- Frame height = content down to footer + button + pad above the bottom border.
+  local neededH = math.abs(footerY) + FOOTER_BTN_H + FOOTER_BOTTOM_PAD
+  local minH = showGoal and FRAME_HEIGHT_STATUS or FRAME_HEIGHT_STATUS_COMPACT
+  if neededH < minH then
+    neededH = minH
+  end
+  f:SetSize(FRAME_WIDTH, neededH)
+
+  if f.settingsBtn then
+    f.settingsBtn:ClearAllPoints()
+    f.settingsBtn:SetPoint("TOPLEFT", MARGIN, footerY)
+  end
+end
+
+function Window:UpdateChart(series)
+  local f = self.frame
+  if not f or not f.chartSegments or not f.chartCard:IsShown() then
+    return
+  end
+  local points = series and series.points or {}
+  local maxY = (series and series.maxY) or 1
+  local goalCopper = (series and series.goalCopper) or 0
+  local plot = f.chartPlot
+  local width = plot:GetWidth()
+  local height = plot:GetHeight()
+  if not width or width < 1 then
+    width = CONTENT_WIDTH - CHART_Y_LABEL_W - CHART_LEGEND_W - 24
+  end
+  if not height or height < 1 then
+    height = CHART_CARD_H - 26 - 8 - CHART_X_LABEL_H
+  end
+  if maxY < 1 then
+    maxY = 1
+  end
+
+  for i = 1, CHART_MAX_SEGMENTS do
+    f.chartSegments[i]:Hide()
+  end
+  for i = 1, CHART_MAX_POINTS do
+    f.chartDots[i]:Hide()
+    f.chartXLabels[i]:Hide()
+  end
+
+  -- Inner padding so dots/labels are not clipped on the plot edges.
+  local padX = 8
+  local padY = 6
+  local innerW = math.max(1, width - padX * 2)
+  local innerH = math.max(1, height - padY * 2)
+
+  local goalFrac = nil
+  local gy = nil
+  if goalCopper > 0 then
+    goalFrac = goalCopper / maxY
+    gy = padY + goalFrac * innerH
+    if gy < 1 then
+      gy = 1
+    end
+    if gy > height - 1 then
+      gy = height - 1
+    end
+  end
+
+  local function drawGoalAxis()
+    if goalCopper > 0 and gy then
+      f.chartGoalLine:ClearAllPoints()
+      f.chartGoalLine:SetPoint("BOTTOMLEFT", plot, "BOTTOMLEFT", padX, gy)
+      f.chartGoalLine:SetPoint("BOTTOMRIGHT", plot, "BOTTOMRIGHT", -padX, gy)
+      f.chartGoalLine:Show()
+      if f.chartGoalYLabel then
+        f.chartGoalYLabel:ClearAllPoints()
+        f.chartGoalYLabel:SetPoint("RIGHT", plot, "BOTTOMLEFT", -8, gy)
+        f.chartGoalYLabel:SetText(formatAxisGold(goalCopper))
+        f.chartGoalYLabel:Show()
+      end
+    else
+      f.chartGoalLine:Hide()
+      if f.chartGoalYLabel then
+        f.chartGoalYLabel:Hide()
+      end
+    end
+  end
+
+  local function drawScaleTicks()
+    -- max / mid / 0. Hide mid near goal; hide max when goal is at the top.
+    local yVals = { maxY, maxY / 2, 0 }
+    local yFracs = { 1, 0.5, 0 }
+    local hideMid = goalFrac and math.abs(goalFrac - 0.5) < 0.12
+    local hideMax = goalFrac and goalFrac > 0.88
+    for i = 1, 3 do
+      local fs = f.chartYLabels[i]
+      if (i == 1 and hideMax) or (i == 2 and hideMid) then
+        fs:Hide()
+      else
+        local yy = padY + yFracs[i] * innerH
+        fs:ClearAllPoints()
+        fs:SetPoint("RIGHT", plot, "BOTTOMLEFT", -8, yy)
+        fs:SetText(formatAxisGold(yVals[i]))
+        fs:Show()
+      end
+    end
+  end
+
+  if #points == 0 then
+    f.chartEmpty:Show()
+    for i = 1, CHART_MAX_POINTS do
+      f.chartXLabels[i]:Hide()
+    end
+    -- Still show goal line/label + scale when a numeric goal exists.
+    if goalCopper > 0 then
+      drawScaleTicks()
+      drawGoalAxis()
+    else
+      f.chartGoalLine:Hide()
+      if f.chartGoalYLabel then
+        f.chartGoalYLabel:Hide()
+      end
+      for i = 1, 3 do
+        f.chartYLabels[i]:Hide()
+      end
+    end
+    return
+  end
+  f.chartEmpty:Hide()
+
+  local start = 1
+  if #points > CHART_MAX_POINTS then
+    start = #points - CHART_MAX_POINTS + 1
+  end
+  local n = #points - start + 1
+  local coords = {}
+  for i = 1, n do
+    local pt = points[start + i - 1]
+    local x
+    if n == 1 then
+      x = padX + innerW / 2
+    else
+      x = padX + ((i - 1) / (n - 1)) * innerW
+    end
+    local y = padY + (pt.cumulative / maxY) * innerH
+    coords[i] = { x = x, y = y, day = pt.day }
+  end
+
+  for i = 1, n - 1 do
+    placeSegment(f.chartSegments[i], coords[i].x, coords[i].y, coords[i + 1].x, coords[i + 1].y)
+  end
+  for i = 1, n do
+    local dot = f.chartDots[i]
+    dot:ClearAllPoints()
+    dot:SetPoint("CENTER", plot, "BOTTOMLEFT", coords[i].x, coords[i].y)
+    dot:Show()
+  end
+
+  drawScaleTicks()
+  drawGoalAxis()
+
+  -- X-axis: first / mid / last below the plot, with corner clearance on the first label.
+  local xIdx = { 1 }
+  if n >= 3 then
+    xIdx[#xIdx + 1] = math.floor((n + 1) / 2)
+  end
+  if n >= 2 then
+    xIdx[#xIdx + 1] = n
+  end
+  local used = {}
+  for _, idx in ipairs(xIdx) do
+    if not used[idx] then
+      used[idx] = true
+      local fs = f.chartXLabels[idx]
+      local xx = coords[idx].x
+      if idx == 1 then
+        xx = math.max(xx, 16)
+      elseif idx == n then
+        xx = math.min(xx, width - 16)
+      end
+      fs:ClearAllPoints()
+      fs:SetPoint("TOP", plot, "BOTTOMLEFT", xx, -6)
+      fs:SetText(formatAxisDay(coords[idx].day))
+      fs:Show()
+    end
+  end
 end
 
 function Window:Refresh()
   local f = self:Ensure()
+  if self.view ~= "status" then
+    return
+  end
+
   local Store = Fundraiser.Adapters.Store
   local Roster = Fundraiser.Adapters.Roster
   local UC = Fundraiser.Application.UseCases
+  local Summary = Fundraiser.Domain.AdminSummary
+  local Roles = Fundraiser.Domain.Roles
   local event = Store:GetEvent()
 
-  if event then
-    f.eventName:SetText(event.name or "")
-    f.target:SetText(event.target or "")
-    f.interval:SetText(tostring((event.intervalSeconds or 0) / 3600))
-    f.goal:SetText(event.goal or "")
+  local status = Summary.EventStatus(event)
+  if status.hasEvent then
+    f.eventNameFs:SetText(status.name)
+    local hoursStr
+    if status.intervalHours > 0 and status.intervalHours < 1 then
+      hoursStr = string.format("%.2f", status.intervalHours)
+    else
+      hoursStr = string.format("%g", status.intervalHours)
+    end
+    f.eventDetailFs:SetText(
+      Fundraiser:T("STATUS_EVENT_DETAIL_FMT", status.target, hoursStr, status.revision)
+    )
+    if status.goalNote ~= "" then
+      f.eventNoteFs:SetText(Fundraiser:T("STATUS_GOAL_NOTE_FMT", status.goalNote))
+    else
+      f.eventNoteFs:SetText("")
+    end
   else
-    local defaultSeconds = (Fundraiser.Config and tonumber(Fundraiser.Config.DEFAULT_REMINDER_INTERVAL)) or 86400
-    f.interval:SetText(tostring(defaultSeconds / 3600))
+    f.eventNameFs:SetText(Fundraiser:T("SECTION_EVENT"))
+    f.eventDetailFs:SetText(Fundraiser:T("STATUS_NO_EVENT"))
+    f.eventNoteFs:SetText("")
+  end
+  if f.endEventBtn then
+    if Fundraiser.Config and Fundraiser.Config.END_EVENT and status.hasEvent then
+      f.endEventBtn:Show()
+    else
+      f.endEventBtn:Hide()
+    end
   end
 
-  local Roles = Fundraiser.Domain.Roles
+  local rows, total = {}, 0
   local canLedger = Fundraiser.Config.LEDGER
     and event
     and Roles.CanViewLedger(event, Roster:GetPlayerRankIndex(), Roster:GetPlayerName())
   if canLedger then
-    local rows, total = UC.GetLedger({
+    rows, total = UC.GetLedger({
       getEvent = function()
         return Store:GetEvent()
       end,
@@ -223,52 +1067,46 @@ function Window:Refresh()
         return Roster:GetPlayerRankIndex()
       end,
     }, event.id)
-    f.ledgerTotal:SetText(Fundraiser:T("LEDGER_TOTAL_FMT", money(total)))
-    if #rows == 0 then
-      f.ledgerBody:SetText(Fundraiser:T("LEDGER_EMPTY") .. "\n" .. Fundraiser:T("LEDGER_DEDICATED_HINT"))
+    local ledger = Summary.Ledger(rows, total)
+    if ledger.count == 0 then
+      f.ledgerStatus:SetText(Fundraiser:T("LEDGER_EMPTY"))
     else
-      local lines = { Fundraiser:T("LEDGER_DEDICATED_HINT") }
-      for _, row in ipairs(rows) do
-        lines[#lines + 1] = string.format("[%s] %s %s - %s", row.kind or "?", row.name or "?", row.detail or "", money(row.copper))
-      end
-      f.ledgerBody:SetText(table.concat(lines, "\n"))
+      f.ledgerStatus:SetText(
+        Fundraiser:T("LEDGER_TOTAL_FMT", money(ledger.total))
+          .. "\n"
+          .. Fundraiser:T("LEDGER_COUNT_FMT", ledger.count)
+      )
     end
   else
-    f.ledgerTotal:SetText("")
-    f.ledgerBody:SetText(Fundraiser:T("LEDGER_OFFICER_ONLY"))
+    f.ledgerStatus:SetText(Fundraiser:T("LEDGER_OFFICER_ONLY"))
   end
 
-  if f.targetBtn then
-    local showTarget = Fundraiser.Config.TARGET_UI
-      and event
-      and Roles.IsDonationTarget(event, Roster:GetPlayerName())
-    if showTarget then
-      f.targetBtn:Show()
+  local goalCopper = status.goalCopper or 0
+  local progress = Summary.Progress(canLedger and total or 0, goalCopper)
+  -- Progress + chart only when the active event has a numeric goal.
+  local showGoalWidgets = status.hasEvent and progress.hasGoal
+  self:LayoutGoalWidgets(showGoalWidgets)
+  if showGoalWidgets then
+    if canLedger then
+      f.progressText:SetText(Fundraiser:T("PROGRESS_FMT", money(progress.total), money(progress.goal)))
+      f.progressPct:SetText(Fundraiser:T("PROGRESS_PCT_FMT", string.format("%.0f", progress.percent)))
+      f.progressBar:SetValue(progress.cappedPercent)
+      self:UpdateChart(Summary.DailySeries(rows, goalCopper))
     else
-      f.targetBtn:Hide()
+      f.progressText:SetText(Fundraiser:T("LEDGER_OFFICER_ONLY"))
+      f.progressPct:SetText("")
+      f.progressBar:SetValue(0)
+      self:UpdateChart({ points = {}, goalCopper = goalCopper, maxY = math.max(goalCopper, 1) })
     end
   end
 
-  local now = (GetServerTime and GetServerTime()) or (time and time()) or 0
-  Roster:Request()
-  local missing = UC.ListMissingInstalls({
-    getRoster = function()
-      return Roster:GetMembers()
-    end,
-    getPresence = function()
-      return Store:GetPresence()
-    end,
-    presenceStale = Fundraiser.Config.PRESENCE_STALE,
-  }, now)
-  if #missing == 0 then
-    f.presenceBody:SetText(Fundraiser:T("PRESENCE_EMPTY"))
+  local showTarget = Fundraiser.Config.TARGET_UI
+    and event
+    and Roles.IsDonationTarget(event, Roster:GetPlayerName())
+  if showTarget then
+    f.targetBtn:Show()
   else
-    local lines = {}
-    for _, m in ipairs(missing) do
-      local status = m.status == "missing" and Fundraiser:T("STATUS_MISSING") or Fundraiser:T("STATUS_UNKNOWN")
-      lines[#lines + 1] = string.format("%s - %s", m.name, status)
-    end
-    f.presenceBody:SetText(table.concat(lines, "\n"))
+    f.targetBtn:Hide()
   end
 end
 

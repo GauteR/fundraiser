@@ -19,7 +19,8 @@ Use a character dedicated only to that role — do not mix personal AH there.
 
 ## Features
 
-- Publish a fundraiser event (name, Forever First Last mail target, goal note, reminder interval)
+- Admin window status dashboard: event card, progress toward goal, ledger status, raised-over-time chart; New event (+) and End event (-) on the event card; Settings / Target shortcuts
+- Publish a fundraiser event (name, Forever First Last mail target, required goal in gold, optional note, reminder interval); end an active campaign (archive + guild wipe) without publishing a replacement
 - Mailbox reminder until mail is sent to the donation target
 - Ledger on the donation target (mail intake + all AH sales); guild-wide mesh relay; officer/target view
 - Target inbox assist: per-sender stacks, TSM -> Auctionator -> manual price, vendor vs AH advice
@@ -39,7 +40,7 @@ Use a character dedicated only to that role — do not mix personal AH there.
 
 ## How to use
 
-1. Officers: Settings -> AddOns -> Fundraiser for default interval and min admin rank, then `/fundraiser` (or **Open Fundraiser** / **Addon settings**) -> set event fields (target = dedicated fundraiser alt; interval overrides the default) -> **Publish event**.
+1. Officers: Settings -> AddOns -> Fundraiser for default interval and min admin rank, then `/fundraiser` -> **New event** -> set fields (target = dedicated fundraiser alt; **Goal (gold)** required; interval overrides the default) -> **Publish event**. Use **End event** to archive and clear the active campaign for the guild without creating a new one.
 2. Members keep the addon installed; open the mailbox to see reminders when due.
 3. Send mail to the designated target to clear the current reminder window.
 4. On the target alt: open the mailbox, use `/fundraiser target` (or **Target inbox assist**) to post AH or vendor stacks. Officers see the ledger when they log in; any online member with the addon can help relay mesh data.

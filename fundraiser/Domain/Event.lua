@@ -18,6 +18,8 @@ function Event.Create(fields)
   local name = trim(fields.name)
   local target = trim(fields.target)
   local goal = trim(fields.goal or "")
+  -- goalCopper is copper units. 0 allowed for legacy EVENT wire; publish requires > 0.
+  local goalCopper = math.floor(tonumber(fields.goalCopper) or 0)
   local interval = tonumber(fields.intervalSeconds)
   local minAdminRank = tonumber(fields.minAdminRank)
   local revision = tonumber(fields.revision) or 1
@@ -35,6 +37,9 @@ function Event.Create(fields)
   if not Roles or not Roles.IsFullCharacterName(target) then
     return nil, "target_need_full_name"
   end
+  if goalCopper < 0 then
+    return nil, "bad_goal"
+  end
   if not interval or interval < 60 then
     return nil, "bad_interval"
   end
@@ -50,6 +55,7 @@ function Event.Create(fields)
     name = name,
     target = target,
     goal = goal,
+    goalCopper = goalCopper,
     intervalSeconds = interval,
     minAdminRank = minAdminRank,
     revision = revision,

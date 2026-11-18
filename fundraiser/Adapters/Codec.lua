@@ -1,7 +1,7 @@
 -- Encode/decode thin guild sync payloads (pipe-separated, ASCII-safe).
 -- Wire shapes (fields after kind):
 --   HELLO|version|guid|resetEpoch
---   EVENT|id|name|target|goal|interval|minAdmin|rev|publishedAt|publisher
+--   EVENT|id|name|target|goal|interval|minAdmin|rev|publishedAt|publisher|goalCopper
 --   LEDGER|id|kind|name|detail|eventId|copper|at|resetEpoch
 --   DIGEST|eventRev|ledgerCount|ledgerSum|ledgerMaxAt|resetEpoch
 --   RESET|scope|at|publisher|resetEpoch
@@ -85,6 +85,8 @@ function Codec.EncodeEvent(event)
     tostring(event.revision or 0),
     tostring(event.publishedAt or 0),
     esc(event.publisher),
+    -- Field 11: numeric goal in copper (absent on older peers → Decode uses 0).
+    tostring(math.floor(tonumber(event.goalCopper) or 0)),
   }, SEP)
 end
 
@@ -107,6 +109,7 @@ function Codec.DecodeEvent(payload)
     revision = tonumber(p[8]),
     publishedAt = tonumber(p[9]),
     publisher = p[10],
+    goalCopper = tonumber(p[11]) or 0,
   })
   if not event then
     return nil, err
@@ -156,7 +159,7 @@ function Codec.DecodeLedgerEntry(payload)
   return entry
 end
 
--- scope: all | event | ledger | presence
+-- scope: all | event | ledger | presence | campaign (event+ledger)
 function Codec.EncodeReset(scope, at, publisher, resetEpoch)
   return table.concat({
     "RESET",
@@ -173,7 +176,12 @@ function Codec.DecodeReset(payload)
     return nil
   end
   local scope = p[2] or "all"
-  if scope ~= "all" and scope ~= "event" and scope ~= "ledger" and scope ~= "presence" then
+  if scope ~= "all"
+    and scope ~= "event"
+    and scope ~= "ledger"
+    and scope ~= "presence"
+    and scope ~= "campaign"
+  then
     return nil, "bad_scope"
   end
   return {

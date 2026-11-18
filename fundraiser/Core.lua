@@ -11,19 +11,47 @@ function Fundraiser:IsEnabled()
   return self.Config and self.Config.ENABLED == true
 end
 
-function Fundraiser.FormatCopper(copper)
-  copper = tonumber(copper) or 0
+-- Money string with coin icons when the client supports it (Forever GetCoinTextureString).
+-- fontHeight is optional (default 14); used by inline |T textures.
+function Fundraiser.FormatCopper(copper, fontHeight)
+  copper = math.max(0, math.floor(tonumber(copper) or 0))
+  local height = tonumber(fontHeight) or 14
+  if C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString then
+    return C_CurrencyInfo.GetCoinTextureString(copper, height)
+  end
+  if GetCoinTextureString then
+    return GetCoinTextureString(copper, height)
+  end
+  -- Vanilla Forever MoneyIcons sheet (gold/silver/copper cells) when API is missing.
   local g = math.floor(copper / 10000)
   local s = math.floor((copper % 10000) / 100)
   local c = copper % 100
+  local sheet = "Interface\\MoneyFrame\\UI-MoneyIcons"
+  local function coin(amount, left, right)
+    return string.format(
+      "%d|T%s:%d:%d:2:0:4:1:%d:%d:0:1|t",
+      amount,
+      sheet,
+      height,
+      height,
+      left,
+      right
+    )
+  end
+  -- Match GetCoinTextureString: only non-zero denominations (0 -> "0" copper).
+  if copper == 0 then
+    return coin(0, 2, 3)
+  end
   local parts = {}
   if g > 0 then
-    parts[#parts + 1] = g .. "g"
+    parts[#parts + 1] = coin(g, 0, 1)
   end
-  if s > 0 or g > 0 then
-    parts[#parts + 1] = s .. "s"
+  if s > 0 then
+    parts[#parts + 1] = coin(s, 1, 2)
   end
-  parts[#parts + 1] = c .. "c"
+  if c > 0 then
+    parts[#parts + 1] = coin(c, 2, 3)
+  end
   return table.concat(parts, " ")
 end
 

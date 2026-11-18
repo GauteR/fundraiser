@@ -21,6 +21,12 @@ function UC.PublishEvent(deps, fields, actor)
   end
   local current = deps.getEvent and deps.getEvent() or nil
   fields = fields or {}
+  -- Numeric fundraising goal is required at publish (legacy wire may still carry 0).
+  local goalCopper = math.floor(tonumber(fields.goalCopper) or 0)
+  if goalCopper <= 0 then
+    return nil, "bad_goal"
+  end
+  fields.goalCopper = goalCopper
   -- Publishing replaces the active fundraiser: archive old event+ledger, start a new id.
   if current then
     if deps.archiveEvent then
@@ -51,6 +57,20 @@ function UC.PublishEvent(deps, fields, actor)
   return event
 end
 
+local function isArchivedEventId(deps, eventId)
+  if not eventId or not deps.getArchives then
+    return false
+  end
+  local archives = deps.getArchives() or {}
+  for i = 1, #archives do
+    local archived = archives[i]
+    if archived and archived.event and archived.event.id == eventId then
+      return true
+    end
+  end
+  return false
+end
+
 function UC.AcceptRemoteEvent(deps, event, senderRankIndex)
   local Event = Domain().Event
   local Rank = Domain().Rank
@@ -61,6 +81,10 @@ function UC.AcceptRemoteEvent(deps, event, senderRankIndex)
   local minRank = (Roles and Roles.GetMinAdminRank and Roles.GetMinAdminRank()) or 0
   if not Rank.IsAdmin(senderRankIndex, minRank) then
     return nil, "not_admin"
+  end
+  -- Reject revival of a campaign that was ended/archived locally.
+  if isArchivedEventId(deps, event.id) then
+    return nil, "archived"
   end
   local current = deps.getEvent and deps.getEvent() or nil
   if current and event.id and current.id and event.id ~= current.id then
@@ -82,6 +106,64 @@ function UC.AcceptRemoteEvent(deps, event, senderRankIndex)
   return event
 end
 
+local function isResetScope(scope)
+  return scope == "all"
+    or scope == "event"
+    or scope == "ledger"
+    or scope == "presence"
+    or scope == "campaign"
+end
+
+-- Officer ends the active campaign without publishing a replacement.
+-- Always archives + ApplyResetScope(campaign) locally (bumps resetEpoch).
+-- Returns true, "guild" when RESET was sent; true, "local_only" when only local wipe ran.
+function UC.EndActiveEvent(deps, actor)
+  local Rank = Domain().Rank
+  local Roles = Domain().Roles
+  actor = actor or {}
+  local minRank = (Roles and Roles.GetMinAdminRank and Roles.GetMinAdminRank()) or 0
+  if not Rank.IsAdmin(actor.rankIndex, minRank) then
+    return nil, "not_admin"
+  end
+  local current = deps.getEvent and deps.getEvent() or nil
+  if not current then
+    return nil, "no_event"
+  end
+
+  local sent = false
+  if deps.broadcastReset then
+    sent = deps.broadcastReset("campaign") and true or false
+  end
+
+  -- Ensure local campaign wipe + epoch bump even if broadcast was skipped/failed mid-way.
+  if deps.getEvent and deps.getEvent() then
+    if deps.archiveEvent then
+      deps.archiveEvent(current, deps.getContributions and deps.getContributions() or {}, actor.now or 0)
+    end
+    if deps.applyResetScope then
+      deps.applyResetScope("campaign")
+    else
+      if deps.clearContributions then
+        deps.clearContributions()
+      end
+      if deps.clearReminder then
+        deps.clearReminder()
+      end
+      if deps.clearEvent then
+        deps.clearEvent()
+      end
+      if deps.bumpResetEpoch then
+        deps.bumpResetEpoch()
+      end
+    end
+  end
+
+  if sent then
+    return true, "guild"
+  end
+  return true, "local_only"
+end
+
 -- Officer-only remote wipe (guild addon message). Local apply via deps.applyReset(scope, epoch).
 -- All clients that accept apply the wipe (not only officers).
 function UC.AcceptRemoteReset(deps, scope, senderRankIndex, resetEpoch)
@@ -92,7 +174,7 @@ function UC.AcceptRemoteReset(deps, scope, senderRankIndex, resetEpoch)
     return nil, "not_admin"
   end
   scope = tostring(scope or "all")
-  if scope ~= "all" and scope ~= "event" and scope ~= "ledger" and scope ~= "presence" then
+  if not isResetScope(scope) then
     return nil, "bad_scope"
   end
   if not deps.applyReset then
