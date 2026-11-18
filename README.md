@@ -13,15 +13,16 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 
 ## Features
 
-- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `ADMIN_UI`, `LEDGER`, `TARGET_UI`, `AH_ASSIST`, `DEBUG`
-- Officer-published event: name, Forever **First Last** mail target, optional goal note, per-event reminder interval
+- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `ADMIN_UI`, `END_EVENT`, `LEDGER`, `TARGET_UI`, `AH_ASSIST`, `DEBUG`
+- Officer-published event: name, Forever **First Last** mail target, required fundraising goal (gold), optional goal note, per-event reminder interval
 - Mailbox reminder for members (beside the mail window) until mail is sent to the target
 - Ledger writes on the **donation-target** only (incoming mail money/items + **all** AH sales); every client stores/relays the mesh; officers + target view in UI
 - Target inbox assist (`/fundraiser target`): per-sender stacks, TSM -> Auctionator -> manual price, vendor vs AH advice, one AH post per stack
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST` / `RESET`) — see [`docs/SYNC.md`](docs/SYNC.md)
 - Publishing a new event archives the previous event + ledger locally and clears the active ledger
+- Ending an event (`END_EVENT`): Minus on the event card archives the campaign, clears active event+ledger, and broadcasts `RESET campaign` to the guild (no replacement event)
 - Options -> AddOns -> Fundraiser: status, online installs (name / status / version), default reminder interval, global min admin rank; admin **Danger zone** (local clears + **Broadcast reset**)
-- `/fundraiser` admin window includes **Addon settings** to open that Options panel (chat warning if the jump fails)
+- `/fundraiser` admin window: status dashboard (event, progress %, ledger, daily raised chart); **New event** / **End event**; **Addon settings** opens Options (chat warning if the jump fails)
 - Pure Lua unit tests (Given / When / Then scenarios)
 
 ## Dedicated donation character
@@ -64,7 +65,7 @@ With `Config.DEBUG = true`:
 ## Usage
 
 1. Set **Defaults** under Settings -> AddOns -> Fundraiser (or **Addon settings** in the admin window): default reminder interval and global min admin rank (rank index <= this may manage).
-2. Officers: `/fundraiser` opens the admin window (event status, event form, ledger summary; install presence is under Settings -> AddOns -> Fundraiser). Fill event fields (per-event interval overrides the default) -> **Publish event** (target = dedicated fundraiser alt). Publishing a new event **archives** the previous event+ledger locally and clears the active ledger. Members get a chat refusal if they open `/fundraiser`.
+2. Officers: `/fundraiser` opens the admin status dashboard (event, progress toward goal, ledger status, raised chart; install presence is under Settings -> AddOns -> Fundraiser). Press **New event** (+), fill fields including **Goal (gold)** (required; per-event interval overrides the default) -> **Publish event** (target = dedicated fundraiser alt). Publishing a new event **archives** the previous event+ledger locally and clears the active ledger. Press **End event** (-) to archive and clear the active campaign for the guild without creating a replacement. Members get a chat refusal if they open `/fundraiser`.
 3. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
 4. On the target alt: open mailbox -> `/fundraiser target` (or **Target inbox assist**) -> Post AH / Vendor per stack; AH sales also hit the ledger. Other characters cannot open the target UI.
 
