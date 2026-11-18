@@ -253,10 +253,40 @@ local function setColor(row, color)
   row.detail:SetTextColor(color[1], color[2], color[3])
 end
 
+-- FauxScrollFrame_Update hides the bar when everything fits; keep it as a disabled rail instead.
+local function keepScrollBarVisible(scroll, scrollable)
+  local name = scroll:GetName()
+  local bar = name and _G[name .. "ScrollBar"]
+  if not bar then
+    return
+  end
+  bar:Show()
+  local up = _G[name .. "ScrollBarScrollUpButton"]
+  local down = _G[name .. "ScrollBarScrollDownButton"]
+  if up and down then
+    if scrollable then
+      up:Enable()
+      down:Enable()
+    else
+      up:Disable()
+      down:Disable()
+    end
+  end
+  local thumb = bar.GetThumbTexture and bar:GetThumbTexture()
+  if thumb then
+    if scrollable then
+      thumb:Show()
+    else
+      thumb:Hide()
+    end
+  end
+end
+
 function Ledger:UpdateRows()
   local f = self:Ensure()
   local items = self.items or {}
   FauxScrollFrame_Update(f.scroll, #items, ROWS, ROW_H)
+  keepScrollBarVisible(f.scroll, #items > ROWS)
   local offset = FauxScrollFrame_GetOffset(f.scroll)
   for i = 1, ROWS do
     local row = f.rows[i]
