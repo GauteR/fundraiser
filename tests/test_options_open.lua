@@ -17,16 +17,13 @@ end
 
 local Options = Fundraiser.Options
 
--- Scenario: CollectOpenCandidates prefers numeric ID before overwritten name
+-- Scenario: CollectOpenCandidates prefers panel name, then ID, then object
 do
-  -- Given a registered category whose .ID was overwritten to the panel name
-  local category = { ID = "Fundraiser" }
-  -- When collecting open candidates
+  local category = { ID = 42 }
   local candidates = Options.CollectOpenCandidates(42, category, "Fundraiser")
-  -- Then numeric ID is first, name once, then the category object
   assert_eq(#candidates, 3, "candidate count")
-  assert_eq(candidates[1], 42, "numeric id first")
-  assert_eq(candidates[2], "Fundraiser", "panel name second")
+  assert_eq(candidates[1], "Fundraiser", "panel name first")
+  assert_eq(candidates[2], 42, "numeric id second")
   assert_eq(candidates[3], category, "category object last")
 end
 
