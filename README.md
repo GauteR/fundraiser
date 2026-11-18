@@ -1,8 +1,8 @@
 ﻿# Fundraiser
 
-Guild donation reminders for **World of Warcraft: Forever**.
+A fundraiser addon to help you fund your in-game guild and group events on **World of Warcraft: Forever**.
 
-Officers publish a shared fundraising goal; members see a reminder beside the mailbox until they mail the designated recipient. The **ledger** is written on the donation-target character (incoming mail + all AH sales) and **meshed** across every installed client; only officers and the target may view it in the UI (not encrypted).
+Officers publish a shared campaign (name, donation mail target, reminder interval). Guild members see a reminder beside the mailbox asking them to send what they can spare to that character. The **ledger** records incoming mail and auction-house sales on the donation-target alt and meshes across every installed client; only officers and the target can view it in the UI (not encrypted).
 
 | | |
 | --- | --- |
@@ -13,19 +13,20 @@ Officers publish a shared fundraising goal; members see a reminder beside the ma
 
 ## Features
 
-- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `REMINDER`, `ADMIN_UI`, `LEDGER`, `DEBUG`
-- Officer-published event (name, mail target, reminder interval, min admin rank)
+- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `ADMIN_UI`, `LEDGER`, `TARGET_UI`, `AH_ASSIST`, `DEBUG`
+- Officer-published event: name, Forever **First Last** mail target, optional goal note, per-event reminder interval
 - Mailbox reminder for members (beside the mail window) until mail is sent to the target
-- Ledger writes on the **donation-target** only; all clients store/relay the mesh; officers + target view in UI
-- Logs incoming mailbox money/items and **all** AH sales on that character
-- Target inbox assist (`/fundraiser target`): per-sender stacks, TSM→Auctionator→manual price, vendor vs AH advice, one AH post per stack
-- Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST`) — see [`docs/SYNC.md`](docs/SYNC.md)
-- Options → AddOns → Fundraiser panel
-- Pure Lua unit tests
+- Ledger writes on the **donation-target** only (incoming mail money/items + **all** AH sales); every client stores/relays the mesh; officers + target view in UI
+- Target inbox assist (`/fundraiser target`): per-sender stacks, TSM -> Auctionator -> manual price, vendor vs AH advice, one AH post per stack
+- Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST` / `RESET`) — see [`docs/SYNC.md`](docs/SYNC.md)
+- Publishing a new event archives the previous event + ledger locally and clears the active ledger
+- Options -> AddOns -> Fundraiser: status, online installs (name / status / version), default reminder interval, global min admin rank; admin **Danger zone** (local clears + **Broadcast reset**)
+- `/fundraiser` admin window includes **Addon settings** to open that Options panel
+- Pure Lua unit tests (Given / When / Then scenarios)
 
 ## Dedicated donation character
 
-Set `DesignatedDonationTarget` to an alt used **only** for this fundraiser (receive mail + post AH). Forever names are **First Last** — enter both parts (e.g. `Bank Alt`). Do not run personal auctions on that character — every AH sale is recorded as fundraiser income.
+Set the donation mail target to an alt used **only** for this fundraiser (receive mail + post AH). Forever names are **First Last** — enter both parts (e.g. `Bank Alt`). Do not run personal auctions on that character — every AH sale is recorded as fundraiser income.
 
 ## Install
 
@@ -62,34 +63,49 @@ With `Config.DEBUG = true`:
 
 ## Usage
 
-1. Officers (guild rank ≤ event `minAdminRank`, or `DEFAULT_MIN_ADMIN_RANK` before any event): `/fundraiser` → fill event fields → **Publish event** (target = dedicated fundraiser alt). Members get a chat refusal if they open `/fundraiser`.
-2. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
-3. On the target alt: open mailbox → `/fundraiser target` (or **Target inbox assist**) → Post AH / Vendor per stack; AH sales also hit the ledger. Other characters cannot open the target UI.
+1. Set **Defaults** under Settings -> AddOns -> Fundraiser (or **Addon settings** in the admin window): default reminder interval and global min admin rank (rank index <= this may manage).
+2. Officers: `/fundraiser` -> fill event fields (per-event interval overrides the default) -> **Publish event** (target = dedicated fundraiser alt). Publishing a new event **archives** the previous event+ledger locally and clears the active ledger. Members get a chat refusal if they open `/fundraiser`.
+3. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
+4. On the target alt: open mailbox -> `/fundraiser target` (or **Target inbox assist**) -> Post AH / Vendor per stack; AH sales also hit the ledger. Other characters cannot open the target UI.
 
 Close windows with the frame X or Escape (`UISpecialFrames`).
 
+### Options (Settings -> AddOns -> Fundraiser)
+
+| Control | Meaning |
+| --- | --- |
+| Help | Short pitch: fund guild and group events |
+| Status | Settings-style rows: addon enabled, guild, active event, admin access, installed count |
+| Online installs | Scrollable table (name / status / version from HELLO) |
+| Defaults | Default reminder interval (hours) and min admin rank; Apply saves to `FundraiserDB.settings` |
+| Danger zone (admin) | Separated by a rule; local reset/clear actions; **Broadcast reset** sends guild `RESET\|all` (requires `COMM` + `RESET_SYNC`, rank-gated on receive). Hidden without admin access. |
+| Open Fundraiser | Shown only when your rank may manage fundraisers |
+
+Defaults are stored in `FundraiserDB.settings` and overlaid onto `Config` at load. Forever may not restore SavedVariables after a cold start — re-apply in Options if needed. `DEBUG` stays in `Config.lua` only.
+
 ## Configuration
 
-Edit [`fundraiser/Config.lua`](fundraiser/Config.lua):
+Edit [`fundraiser/Config.lua`](fundraiser/Config.lua) for feature flags and compile-time defaults (Options can override interval/rank at runtime via SavedVariables):
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `ENABLED` | `true` | Master feature flag |
 | `COMM` | `true` | Guild addon messages |
+| `RESET_SYNC` | `true` | Accept/send officer `RESET` wipe messages |
 | `REMINDER` | `true` | Mailbox reminder popup + mail dismiss |
 | `ADMIN_UI` | `true` | Main window |
 | `LEDGER` | `true` | Target logging + officer ledger UI |
 | `TARGET_UI` | `true` | Donation-target inbox assist window |
 | `AH_ASSIST` | `true` | AH/vendor actions from target UI |
 | `TSM_PRICE_SOURCE` | `"DBMinBuyout"` | TSM price key for min AH reference |
-| `DEBUG` | `true` | Solo sim: `/fundraiser debug …` |
-| `DEFAULT_REMINDER_INTERVAL` | `86400` | Fallback interval (seconds) |
-| `DEFAULT_MIN_ADMIN_RANK` | `1` | Admin UI gate when no event yet (rank ≤ this) |
-| `PRESENCE_STALE` | `600` | HELLO freshness for “missing install” |
+| `DEBUG` | `true` | Solo sim: `/fundraiser debug …` (not in Options) |
+| `DEFAULT_REMINDER_INTERVAL` | `86400` | Default interval seconds (Options overlay) |
+| `DEFAULT_MIN_ADMIN_RANK` | `1` | Global admin gate: rank <= this (Options overlay) |
+| `PRESENCE_STALE` | `600` | HELLO freshness for install presence |
 | `SLASH_COMMAND` | `"/fundraiser"` | Slash command |
 | `VERSION` | `"0.1.0"` | Options version when TOC placeholder is unpackaged |
 
-After changing config, `/reload`.
+After changing `Config.lua` flags, `/reload`.
 
 ## Docs
 
@@ -101,8 +117,11 @@ After changing config, `/reload`.
 
 ## Tests
 
+Pure Lua scenarios use **Given / When / Then** comments (no WoW client).
+
 ```bash
 lua tests/test_domain.lua
+lua tests/test_options_settings.lua
 lua tests/test_release_meta.lua
 ```
 

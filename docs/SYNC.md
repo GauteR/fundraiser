@@ -8,7 +8,7 @@ Fundraiser uses a **thin** hidden guild channel (`SendAddonMessage` / `CHAT_MSG_
 | --- | --- |
 | All members with the addon | `EVENT`, mailbox reminder, and a **ledger mesh replica** (store + relay) |
 | Donation target character | Writes ledger rows (incoming mail + **all** AH sales), then broadcasts |
-| Officers (`rank <= minAdminRank`) + donation target | May **view** the ledger in UI |
+| Officers (`rank <=` global `DEFAULT_MIN_ADMIN_RANK` from Options/Config) + donation target | May **view** the ledger in UI |
 
 **Important:** The donation-target character should be used **only** for this fundraiser (mail intake + AH). Personal AH on that alt will be logged as fundraiser income.
 
@@ -26,6 +26,8 @@ Every installed client keeps the same id-union replica and will push a snapshot 
 | `EVENT` | Officer event snapshot (revisioned; receive-side rank check) |
 | `LEDGER` | Single ledger row (`mail` or `ah`); all clients merge into local store |
 | `DIGEST` | Event revision + ledger fingerprint (count/sum/maxAt) |
+| `RESET` | Officer wipe (`all` / `event` / `ledger` / `presence`) + `resetEpoch`; sender rank check; all acceptors wipe locally |
+| (epoch) | `HELLO` / `DIGEST` / `LEDGER` include `resetEpoch` (default 0 for older clients) |
 
 ## Ledger merge
 
@@ -34,10 +36,11 @@ Replicas merge by **entry id** (union). Same id → newer `at` wins (then higher
 ## Trust model
 
 - Addon messages are not cryptographically signed.
-- `EVENT` requires sender guild rank `<= minAdminRank`.
+- `EVENT` requires sender guild rank `<=` local global min admin rank (Options/Config); `event.minAdminRank` on the wire is stamped for older clients but ignored for local gates.
+- `RESET` (when `Config.RESET_SYNC`) requires the same admin rank gate on the **sender**. **Every** receiving client that accepts applies the wipe (members included). A `resetEpoch` is bumped and carried on `HELLO` / `DIGEST` / `LEDGER` / `RESET` so late peers adopt the wipe and **stale ledger rows from older epochs are rejected** (stops mesh refill after a wipe).
 - `LEDGER` rows are accepted from any guild peer for mesh storage (so relays work). A malicious member can forge rows — treat the ledger as guild-trusted, not secret.
 - Only the donation target **writes** new rows from mail/AH; members only dismiss reminders when they send mail.
-- Viewing remains `Roles.CanViewLedger` (target or `rank <= minAdminRank`).
+- Viewing remains `Roles.CanViewLedger` (target or rank ≤ global min admin rank).
 
 ## Solo debug
 

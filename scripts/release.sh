@@ -160,6 +160,7 @@ if [[ $SKIP_TESTS -eq 0 ]]; then
   fi
   echo "==> Running tests"
   lua tests/test_domain.lua
+  lua tests/test_options_settings.lua
   lua tests/test_release_meta.lua
 fi
 

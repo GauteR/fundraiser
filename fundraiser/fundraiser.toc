@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Fundraiser
-## Notes: Guild donation reminders and target ledger for Forever.
+## Notes: Help fund guild and group events - mailbox reminders, donation ledger, target inbox assist.
 ## Author: GauteR
 ## Version: @project-version@
 ## DefaultState: enabled
@@ -13,6 +13,7 @@ Locale/enUS.lua
 Domain/Event.lua
 Domain/Rank.lua
 Domain/Roles.lua
+Domain/Settings.lua
 Domain/Reminder.lua
 Domain/Ledger.lua
 Domain/SaleAdvice.lua

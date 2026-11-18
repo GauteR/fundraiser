@@ -1,4 +1,11 @@
 -- Encode/decode thin guild sync payloads (pipe-separated, ASCII-safe).
+-- Wire shapes (fields after kind):
+--   HELLO|version|guid|resetEpoch
+--   EVENT|id|name|target|goal|interval|minAdmin|rev|publishedAt|publisher
+--   LEDGER|id|kind|name|detail|eventId|copper|at|resetEpoch
+--   DIGEST|eventRev|ledgerCount|ledgerSum|ledgerMaxAt|resetEpoch
+--   RESET|scope|at|publisher|resetEpoch
+-- resetEpoch blocks post-wipe mesh refill: receivers drop LEDGER rows with epoch < local.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
 
@@ -53,8 +60,8 @@ local function split(payload)
   return parts
 end
 
-function Codec.EncodeHello(version, guid)
-  return table.concat({ "HELLO", esc(version), esc(guid) }, SEP)
+function Codec.EncodeHello(version, guid, resetEpoch)
+  return table.concat({ "HELLO", esc(version), esc(guid), tostring(resetEpoch or 0) }, SEP)
 end
 
 function Codec.DecodeHello(payload)
@@ -62,7 +69,7 @@ function Codec.DecodeHello(payload)
   if p[1] ~= "HELLO" then
     return nil
   end
-  return { kind = "HELLO", version = p[2], guid = p[3] }
+  return { kind = "HELLO", version = p[2], guid = p[3], resetEpoch = tonumber(p[4]) or 0 }
 end
 
 function Codec.EncodeEvent(event)
@@ -108,7 +115,7 @@ function Codec.DecodeEvent(payload)
   return event
 end
 
-function Codec.EncodeLedgerEntry(entry)
+function Codec.EncodeLedgerEntry(entry, resetEpoch)
   entry = entry or {}
   return table.concat({
     "LEDGER",
@@ -119,6 +126,7 @@ function Codec.EncodeLedgerEntry(entry)
     esc(entry.eventId),
     tostring(entry.copper or 0),
     tostring(entry.at or 0),
+    tostring(resetEpoch or entry.resetEpoch or 0),
   }, SEP)
 end
 
@@ -144,16 +152,47 @@ function Codec.DecodeLedgerEntry(payload)
     return nil
   end
   entry.msgKind = "LEDGER"
+  entry.resetEpoch = tonumber(p[9]) or 0
   return entry
 end
 
-function Codec.EncodeDigest(eventRevision, ledgerCount, ledgerSum, ledgerMaxAt)
+-- scope: all | event | ledger | presence
+function Codec.EncodeReset(scope, at, publisher, resetEpoch)
+  return table.concat({
+    "RESET",
+    esc(scope or "all"),
+    tostring(at or 0),
+    esc(publisher),
+    tostring(resetEpoch or 0),
+  }, SEP)
+end
+
+function Codec.DecodeReset(payload)
+  local p = split(payload)
+  if p[1] ~= "RESET" then
+    return nil
+  end
+  local scope = p[2] or "all"
+  if scope ~= "all" and scope ~= "event" and scope ~= "ledger" and scope ~= "presence" then
+    return nil, "bad_scope"
+  end
+  return {
+    kind = "RESET",
+    scope = scope,
+    at = tonumber(p[3]) or 0,
+    publisher = p[4],
+    resetEpoch = tonumber(p[5]) or 0,
+  }
+end
+
+function Codec.EncodeDigest(eventRevision, ledgerCount, ledgerSum, ledgerMaxAt, resetEpoch)
   return table.concat({
     "DIGEST",
     tostring(eventRevision or 0),
     tostring(ledgerCount or 0),
     tostring(ledgerSum or 0),
     tostring(ledgerMaxAt or 0),
+    tostring(resetEpoch or 0),
   }, SEP)
 end
 
@@ -168,6 +207,7 @@ function Codec.DecodeDigest(payload)
     ledgerCount = tonumber(p[3]) or 0,
     ledgerSum = tonumber(p[4]) or 0,
     ledgerMaxAt = tonumber(p[5]) or 0,
+    resetEpoch = tonumber(p[6]) or 0,
   }
 end
 
@@ -181,6 +221,8 @@ function Codec.Decode(payload)
     return Codec.DecodeLedgerEntry(payload)
   elseif kind == "DIGEST" then
     return Codec.DecodeDigest(payload)
+  elseif kind == "RESET" then
+    return Codec.DecodeReset(payload)
   end
   return nil, "unknown"
 end

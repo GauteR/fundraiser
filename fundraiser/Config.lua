@@ -5,6 +5,8 @@ Fundraiser.Config = {
   -- Master switch: false disables slash, UI, sync, and reminders.
   ENABLED = true,
   COMM = true,
+  -- Allow officers to broadcast RESET over guild addon messages (best-effort wipe).
+  RESET_SYNC = true,
   -- Reminder popup while the mailbox is open (not bags).
   REMINDER = true,
   ADMIN_UI = true,
@@ -38,4 +40,10 @@ Fundraiser.Config = {
 
   -- SavedVariables global name (also listed in TOC).
   SAVED_VARIABLE = "FundraiserDB",
+}
+
+-- Snapshot of file defaults for Options "reset" (Config may be overlaid at runtime).
+Fundraiser.ConfigFileDefaults = {
+  DEFAULT_REMINDER_INTERVAL = Fundraiser.Config.DEFAULT_REMINDER_INTERVAL,
+  DEFAULT_MIN_ADMIN_RANK = Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK,
 }
