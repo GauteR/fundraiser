@@ -583,7 +583,8 @@ local NAV_ITEMS = {
   { page = "status", key = "NAV_STATUS", needs = "officer" },
   { page = "create", key = "NAV_CREATE", needs = "officer" },
   { page = "ledger", key = "NAV_LEDGER", needs = "ledger" },
-  -- Opens the Blizzard Settings page (not a page of this window); pinned to the menu bottom.
+  -- Actions pinned to the menu bottom (not pages): Set MOTD (confirm dialog), then Settings.
+  { page = "motd", key = "BTN_SET_MOTD", needs = "motd", action = "motd" },
   { page = "settings", key = "NAV_SETTINGS", needs = "officer", action = "settings" },
 }
 
@@ -624,6 +625,10 @@ function Window:BuildShell(f)
     b:SetSize(NAV_W - 20, 26)
     b:SetText(Fundraiser:T(item.key))
     b:SetScript("OnClick", function()
+      if item.action == "motd" then
+        Fundraiser.UI.Ledger:ConfirmSetMotd()
+        return
+      end
       if item.action == "settings" then
         if Fundraiser.Options and Fundraiser.Options.Open then
           Fundraiser.Options:Open()
@@ -633,6 +638,12 @@ function Window:BuildShell(f)
       Window:ShowPage(item.page)
     end)
     b.item = item
+    if item.action == "motd" then
+      b:SetScript("OnEnter", function(self)
+        showTooltip(self, "TIP_SET_MOTD_TITLE", "TIP_SET_MOTD_BODY")
+      end)
+      b:SetScript("OnLeave", hideTooltip)
+    end
     f.navButtons[#f.navButtons + 1] = b
   end
 end
@@ -652,25 +663,40 @@ function Window:UpdateNav()
     return
   end
   local officer, ledger = isOfficer(), canSeeLedger()
+  local motd = ledger and Fundraiser.UI.Ledger:CanSetMotd()
   local y = -(TITLE_BAR_H + HEADER_H + 12)
+  local bottomY = 14
+  -- Bottom entries are listed top-to-bottom in NAV_ITEMS, so stack them upward from the end.
+  for i = #f.navButtons, 1, -1 do
+    local b = f.navButtons[i]
+    if b.item.action then
+      local allowed = (b.item.needs == "officer" and officer) or (b.item.needs == "motd" and motd)
+      if allowed then
+        b:ClearAllPoints()
+        b:SetPoint("BOTTOMLEFT", 10, bottomY)
+        bottomY = bottomY + 30
+        b:Show()
+      else
+        b:Hide()
+      end
+    end
+  end
   for _, b in ipairs(f.navButtons) do
     local allowed = (b.item.needs == "officer" and officer) or (b.item.needs == "ledger" and ledger)
-    if allowed then
-      b:ClearAllPoints()
-      if b.item.action then
-        b:SetPoint("BOTTOMLEFT", 10, 14)
-      else
+    if not b.item.action then
+      if allowed then
+        b:ClearAllPoints()
         b:SetPoint("TOPLEFT", 10, y)
         y = y - 30
-      end
-      b:Show()
-      if b.item.page == self.view then
-        b:LockHighlight()
+        b:Show()
+        if b.item.page == self.view then
+          b:LockHighlight()
+        else
+          b:UnlockHighlight()
+        end
       else
-        b:UnlockHighlight()
+        b:Hide()
       end
-    else
-      b:Hide()
     end
   end
 end

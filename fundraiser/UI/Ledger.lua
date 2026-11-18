@@ -1,6 +1,6 @@
 -- Ledger page: scrollable donation rows of the active event, then one summary line per
 -- archived event. Data and gating come from UseCases.GetLedgerView (Domain/LedgerView.lua).
--- "Set MOTD" publishes today's status + top contributor to the guild message (always confirmed).
+-- "Set MOTD" (shell menu) publishes today's status + top contributor to the guild message (always confirmed).
 Fundraiser = Fundraiser or {}
 Fundraiser.UI = Fundraiser.UI or {}
 
@@ -94,6 +94,21 @@ function Ledger:Deps()
   }
 end
 
+-- "Set MOTD" lives in the shell menu: needs ledger access, an active event and MOTD permission.
+function Ledger:CanSetMotd()
+  local Store = Fundraiser.Adapters.Store
+  local Roster = Fundraiser.Adapters.Roster
+  return self:CanView() and Store:GetEvent() ~= nil and Roster:CanEditMotd()
+end
+
+-- Menu entries depend on the data (event, permissions), so refresh them with the page.
+function Ledger:UpdateMenu()
+  local Window = Fundraiser.UI.Window
+  if Window and Window.UpdateNav then
+    Window:UpdateNav()
+  end
+end
+
 function Ledger:CanView()
   local UC = Fundraiser.Application.UseCases
   return UC.GetLedgerView(self:Deps()) ~= nil
@@ -172,19 +187,6 @@ function Ledger:Attach(shell)
   refresh:SetScript("OnClick", function()
     Ledger:Refresh()
   end)
-
-  local motd = CreateFrame("Button", "FundraiserLedgerSetMotd", f, "UIPanelButtonTemplate")
-  motd:SetSize(100, 22)
-  motd:SetPoint("RIGHT", refresh, "LEFT", -6, 0)
-  motd:SetText(Fundraiser:T("BTN_SET_MOTD"))
-  motd:SetScript("OnClick", function()
-    Ledger:ConfirmSetMotd()
-  end)
-  motd:SetScript("OnEnter", function(self)
-    showTooltip(self, "TIP_SET_MOTD_TITLE", "TIP_SET_MOTD_BODY")
-  end)
-  motd:SetScript("OnLeave", hideTooltip)
-  f.motdBtn = motd
 
   -- Column headers.
   local header = CreateFrame("Frame", nil, f)
@@ -298,8 +300,8 @@ function Ledger:ShowEmpty(text)
   f.total:SetText("")
   f.summary:SetText(text)
   f.hint:SetText("")
-  f.motdBtn:Hide()
   self:UpdateRows()
+  self:UpdateMenu()
 end
 
 function Ledger:Refresh()
@@ -326,12 +328,8 @@ function Ledger:Refresh()
     f.hint:SetText("")
   end
 
-  if view.hasEvent and Roster:CanEditMotd() then
-    f.motdBtn:Show()
-  else
-    f.motdBtn:Hide()
-  end
   self:UpdateRows()
+  self:UpdateMenu()
 end
 
 function Ledger:ConfirmSetMotd()
