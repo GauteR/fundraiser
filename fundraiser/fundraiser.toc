@@ -34,5 +34,6 @@ Adapters/Debug.lua
 Core.lua
 UI/Reminder.lua
 UI/Window.lua
+UI/Ledger.lua
 UI/Target.lua
 UI/Options.lua

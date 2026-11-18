@@ -112,3 +112,22 @@ function Roster:RankIndexOfName(senderName)
   end
   return nil
 end
+
+-- Guild message of the day (client API may be missing on some builds: hide the button then).
+function Roster:CanEditMotd()
+  if C_GuildInfo and C_GuildInfo.CanEditMOTD then
+    return C_GuildInfo.CanEditMOTD() and GuildSetMOTD ~= nil
+  end
+  if CanEditMOTD then
+    return CanEditMOTD() and GuildSetMOTD ~= nil
+  end
+  return false
+end
+
+function Roster:SetMotd(text)
+  if not GuildSetMOTD then
+    return false
+  end
+  GuildSetMOTD(text)
+  return true
+end

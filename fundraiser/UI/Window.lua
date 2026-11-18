@@ -1,6 +1,6 @@
 -- Admin window: status dashboard (event / progress / daily chart) by default.
 -- "New event" reveals the publish form (Publish archives the current campaign).
--- Ledger row details belong in the dedicated ledger window (#15).
+-- Ledger row details live in the dedicated ledger window (UI/Ledger.lua).
 -- Summary data comes from Domain/AdminSummary.lua so the rendering here stays thin.
 Fundraiser = Fundraiser or {}
 Fundraiser.UI = Fundraiser.UI or {}
@@ -361,7 +361,7 @@ function Window:Ensure()
   ledgerCard:EnableMouse(true)
   ledgerCard:SetScript("OnMouseUp", function(_, button)
     if button == "LeftButton" then
-      -- Dedicated ledger window (#15) hooks here when enabled.
+      Fundraiser:ToggleLedgerUi()
     end
   end)
   ledgerCard:SetScript("OnEnter", function(self)

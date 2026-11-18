@@ -22,6 +22,7 @@ Use a character dedicated only to that role — do not mix personal AH there.
 - Admin window status dashboard: event card, progress toward goal, ledger status, raised-over-time chart; New event (+) and End event (-) on the event card; Settings / Target shortcuts
 - Publish a fundraiser event (name, Forever First Last mail target, required goal in gold, optional note, reminder interval); end an active campaign (archive + guild wipe) without publishing a replacement
 - Mailbox reminder until mail is sent to the donation target
+- Ledger window (`/fundraiser ledger` or the admin ledger card): scrollable donation rows, total, previous campaigns as summary lines, and a **Set MOTD** button for the guild message (raised vs goal + top contributor)
 - Ledger on the donation target (mail intake + all AH sales); guild-wide mesh relay; officer/target view
 - Target inbox assist: per-sender stacks, TSM -> Auctionator -> manual price, vendor vs AH advice
 - Settings -> AddOns -> Fundraiser: status, online installs, default reminder interval, global min admin rank; admin Danger zone for cleanup / broadcast reset

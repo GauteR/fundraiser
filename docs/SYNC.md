@@ -16,6 +16,8 @@ Fundraiser uses a **thin** hidden guild channel (`SendAddonMessage` / `CHAT_MSG_
 
 Every installed client keeps the same id-union replica and will push a snapshot when peers say `HELLO` / when `DIGEST` shows they are behind. Officers do **not** all need to be online for the mesh to move data — any online member with rows can relay.
 
+The ledger window (`UI/Ledger.lua`) only reads the local store and `FundraiserDB.archives`; it adds no wire traffic. **Set MOTD** calls the guild MOTD API directly (not part of the mesh).
+
 **UI gate only:** members without view access still store/relay; they do not see ledger totals in the admin window. This is **not** encryption. A modified addon or inspection of local data can read plaintext rows.
 
 ## Messages
