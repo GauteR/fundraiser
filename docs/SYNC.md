@@ -26,7 +26,7 @@ The ledger page (`UI/Ledger.lua`) only reads the local store and `FundraiserDB.a
 | --- | --- |
 | `HELLO` | Presence; any peer holding rows may push a full ledger snapshot |
 | `EVENT` | Officer event snapshot (revisioned; receive-side rank check). Wire: `EVENT\|id\|name\|target\|goal\|interval\|minAdmin\|rev\|publishedAt\|publisher\|goalCopper` — `goal` is an optional note; `goalCopper` is the numeric fundraising target (copper). Older peers omit field 11 → treat as `0`. |
-| `LEDGER` | Single ledger row (`mail` or `ah`); all clients merge into local store |
+| `LEDGER` | Single ledger row (`mail`, `ah` or `manual`); all clients merge into local store |
 | `DIGEST` | Event revision + ledger fingerprint (count/sum/maxAt) |
 | `RESET` | Officer wipe (`all` / `event` / `ledger` / `presence` / `campaign`) + `resetEpoch`; sender rank check; all acceptors wipe locally. `campaign` archives the active event+ledger first, then clears both and bumps epoch. Ended campaign ids stay in local archives and are rejected on `EVENT` re-accept (blocks mesh revival after End event) |
 | (epoch) | `HELLO` / `DIGEST` / `LEDGER` include `resetEpoch` (default 0 for older clients) |

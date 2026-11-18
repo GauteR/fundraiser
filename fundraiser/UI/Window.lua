@@ -22,8 +22,8 @@ local LOGO_SIZE = 44
 local SHELL_W = NAV_W + FRAME_WIDTH
 -- Tall enough for event + progress/ledger + chart + Settings row above the inset edge.
 local FRAME_HEIGHT_STATUS = 490
-local FRAME_HEIGHT_STATUS_COMPACT = 340
-local FRAME_HEIGHT_CREATE = 460
+-- One fixed shell height for every page (the Home page with goal widgets is the tallest).
+local SHELL_H = FRAME_HEIGHT_STATUS + HEADER_H
 local MARGIN = 16
 local CONTENT_WIDTH = FRAME_WIDTH - 2 * MARGIN
 local LABEL_WIDTH = 190
@@ -32,7 +32,6 @@ local ROW_HEIGHT = 30
 local CARD_GAP = 10
 local FOOTER_GAP = 16
 local FOOTER_BTN_H = 24
-local FOOTER_BOTTOM_PAD = 22
 local CHART_MAX_POINTS = 14
 local CHART_MAX_SEGMENTS = 13
 local CHART_LEGEND_W = 100
@@ -212,7 +211,7 @@ function Window:Ensure()
   end
 
   local f = CreateFrame("Frame", "FundraiserFrame", UIParent, "BasicFrameTemplateWithInset")
-  f:SetSize(SHELL_W, FRAME_HEIGHT_STATUS + HEADER_H)
+  f:SetSize(SHELL_W, SHELL_H)
   f:SetFrameStrata("DIALOG")
   if f.SetToplevel then
     f:SetToplevel(true)
@@ -518,6 +517,7 @@ end
 local NAV_ITEMS = {
   { page = "status", key = "NAV_STATUS", needs = "officer" },
   { page = "ledger", key = "NAV_LEDGER", needs = "ledger" },
+  { page = "donation", key = "NAV_DONATION", needs = "donation" },
   -- Actions pinned to the menu bottom (not pages): Set MOTD (confirm dialog), then Settings.
   { page = "motd", key = "BTN_SET_MOTD", needs = "motd", action = "motd" },
   { page = "settings", key = "NAV_SETTINGS", needs = "officer", action = "settings" },
@@ -666,6 +666,7 @@ function Window:UpdateNav()
   end
   local officer, ledger = isOfficer(), canSeeLedger()
   local motd = ledger and Fundraiser.UI.Ledger:CanSetMotd()
+  local donation = Fundraiser.UI.Ledger:CanAddDonation()
   local y = -(TITLE_BAR_H + HEADER_H + 12)
   local bottomY = 14
   -- Bottom entries are listed top-to-bottom in NAV_ITEMS, so stack them upward from the end.
@@ -684,7 +685,9 @@ function Window:UpdateNav()
     end
   end
   for _, b in ipairs(f.navButtons) do
-    local allowed = (b.item.needs == "officer" and officer) or (b.item.needs == "ledger" and ledger)
+    local allowed = (b.item.needs == "officer" and officer)
+      or (b.item.needs == "ledger" and ledger)
+      or (b.item.needs == "donation" and donation)
     if not b.item.action then
       if allowed then
         b:ClearAllPoints()
@@ -719,7 +722,7 @@ function Window:UpdateHeaderButtons()
     return
   end
   local officer = isOfficer()
-  local onForm = self.view == "create"
+  local onForm = self.view == "create" or self.view == "donation"
   local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
   local hasEvent = Store and Store:GetEvent() ~= nil
   setShown(f.refreshBtn, not onForm and (officer or canSeeLedger()))
@@ -742,14 +745,27 @@ end
 local function showOnly(f, which)
   setShown(f.statusPanel, which == "status")
   setShown(f.createPanel, which == "create")
-  local ledger = Fundraiser.UI.Ledger and Fundraiser.UI.Ledger.frame
-  if ledger then
-    setShown(ledger, which == "ledger")
+  local Ledger = Fundraiser.UI.Ledger
+  if Ledger and Ledger.frame then
+    setShown(Ledger.frame, which == "ledger")
+  end
+  if Ledger and Ledger.donationFrame then
+    setShown(Ledger.donationFrame, which == "donation")
   end
 end
 
 -- Open a page by name; officers get status/create, ledger viewers get the ledger.
 function Window:ShowPage(page)
+  if page == "donation" then
+    if Fundraiser.UI.Ledger:CanAddDonation() then
+      self:ShowDonation()
+    elseif canSeeLedger() then
+      self:ShowLedger()
+    else
+      self:Hide()
+    end
+    return
+  end
   if page == "ledger" or not isOfficer() then
     if canSeeLedger() then
       self:ShowLedger()
@@ -778,11 +794,20 @@ function Window:ShowLedger()
   local f = self:Ensure()
   local Ledger = Fundraiser.UI.Ledger
   self.view = "ledger"
-  f:SetSize(SHELL_W, Ledger.PANEL_HEIGHT + HEADER_H)
   showOnly(f, "ledger")
   f.pageTitle:SetText(Fundraiser:T("NAV_LEDGER"))
   self:UpdateNav()
   Ledger:Refresh()
+end
+
+-- Manual donation form (donation target only).
+function Window:ShowDonation()
+  local f = self:Ensure()
+  self.view = "donation"
+  showOnly(f, "donation")
+  f.pageTitle:SetText(Fundraiser:T("NAV_DONATION"))
+  Fundraiser.UI.Ledger:ResetDonationForm()
+  self:UpdateNav()
 end
 
 -- Open the shell on the ledger page (or close it when the ledger is already showing).
@@ -803,7 +828,6 @@ end
 function Window:ShowCreate()
   local f = self:Ensure()
   self.view = "create"
-  f:SetSize(SHELL_W, FRAME_HEIGHT_CREATE + HEADER_H)
   showOnly(f, "create")
   f.pageTitle:SetText(Fundraiser:T("NAV_CREATE"))
   self:UpdateNav()
@@ -1033,14 +1057,6 @@ function Window:LayoutGoalWidgets(showGoal)
     f.ledgerStatus:SetWidth(cardW - 20)
     footerY = midY - PROGRESS_CARD_H - FOOTER_GAP
   end
-
-  -- Frame height = content down to footer + button + pad above the bottom border.
-  local neededH = math.abs(footerY) + FOOTER_BTN_H + FOOTER_BOTTOM_PAD
-  local minH = showGoal and FRAME_HEIGHT_STATUS or FRAME_HEIGHT_STATUS_COMPACT
-  if neededH < minH then
-    neededH = minH
-  end
-  f:SetSize(SHELL_W, neededH + HEADER_H)
 
   if f.targetBtn then
     f.targetBtn:ClearAllPoints()

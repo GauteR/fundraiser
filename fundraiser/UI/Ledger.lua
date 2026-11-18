@@ -9,7 +9,8 @@ Fundraiser.UI.Ledger = Ledger
 
 -- Ledger is a page inside the shell window (UI/Window.lua): a panel under the logo band, right of the menu.
 local PANEL_W = 620
-local ROWS = 16
+-- Rows that fit the fixed shell height (see SHELL_H in UI/Window.lua).
+local ROWS = 20
 local ROW_H = 18
 local LIST_TOP = -112
 local LIST_X = 16
@@ -23,9 +24,6 @@ local GRID_X = { 0, COL_NAME_X - 4, COL_DETAIL_X - 4, TABLE_W - COL_AMOUNT_W - 8
 local GRID_COLOR = { 0.55, 0.50, 0.35, 0.55 }
 local COLOR_ARCHIVE = { 0.75, 0.75, 0.55 }
 local COLOR_HEADER = { 1, 0.82, 0 }
-
--- Panel height needed below the shell's logo band (header lines + 16 rows + bottom pad).
-Ledger.PANEL_HEIGHT = -LIST_TOP + ROWS * ROW_H + 14
 
 local function money(copper, height)
   if Fundraiser.FormatCopper then
@@ -45,6 +43,9 @@ end
 local function kindLabel(kind)
   if kind == "ah" then
     return Fundraiser:T("LEDGER_KIND_AH")
+  end
+  if kind == "manual" then
+    return Fundraiser:T("LEDGER_KIND_MANUAL")
   end
   return Fundraiser:T("LEDGER_KIND_MAIL")
 end
@@ -85,6 +86,12 @@ function Ledger:Deps()
     getPlayerRankIndex = function()
       return Roster:GetPlayerRankIndex()
     end,
+    setContributions = function(list)
+      Store:SetContributions(list)
+    end,
+    broadcastLedgerEntry = function(entry)
+      Fundraiser.Adapters.ThinGuildSync:BroadcastLedgerEntry(entry)
+    end,
     canEditMotd = function()
       return Roster:CanEditMotd()
     end,
@@ -107,6 +114,17 @@ function Ledger:UpdateMenu()
   if Window and Window.UpdateNav then
     Window:UpdateNav()
   end
+end
+
+-- Manual donations are written on the donation target only (same rule as mail/AH rows).
+function Ledger:CanAddDonation()
+  if not (Fundraiser.Config and Fundraiser.Config.LEDGER) then
+    return false
+  end
+  local Store = Fundraiser.Adapters.Store
+  local Roster = Fundraiser.Adapters.Roster
+  local event = Store:GetEvent()
+  return event ~= nil and Fundraiser.Domain.Roles.CanWriteLedger(event, Roster:GetPlayerName())
 end
 
 function Ledger:CanView()
@@ -228,7 +246,109 @@ function Ledger:Attach(shell)
   end
 
   self.frame = f
+  self:AttachDonation(shell)
   return f
+end
+
+-- "Add donation" page: donor, amount in gold, optional note. Only reachable on the donation target.
+function Ledger:AttachDonation(shell)
+  local p = CreateFrame("Frame", "FundraiserDonationPanel", shell)
+  p:SetPoint("TOPLEFT", shell, "TOPLEFT", Fundraiser.UI.Window.NAV_W, -Fundraiser.UI.Window.HEADER_H)
+  p:SetPoint("BOTTOMRIGHT", 0, 0)
+  p:Hide()
+
+  local y = -34
+  local title = p:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  title:SetPoint("TOPLEFT", LIST_X, y)
+  title:SetText(Fundraiser:T("SECTION_DONATION"))
+  local line = p:CreateTexture(nil, "ARTWORK")
+  line:SetColorTexture(1, 1, 1, 0.15)
+  line:SetSize(PANEL_W - 2 * LIST_X, 1)
+  line:SetPoint("TOPLEFT", LIST_X, y - 18)
+  y = y - 28
+
+  local help = p:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  help:SetPoint("TOPLEFT", LIST_X, y)
+  help:SetWidth(PANEL_W - 2 * LIST_X)
+  help:SetJustifyH("LEFT")
+  help:SetWordWrap(true)
+  help:SetText(Fundraiser:T("DONATION_HELP"))
+  y = y - 44
+
+  local function field(labelKey, name, width)
+    local fs = p:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    fs:SetPoint("TOPLEFT", LIST_X, y - 3)
+    fs:SetWidth(190)
+    fs:SetJustifyH("LEFT")
+    fs:SetText(Fundraiser:T(labelKey))
+    local eb = CreateFrame("EditBox", name, p, "InputBoxTemplate")
+    eb:SetSize(width, 20)
+    eb:SetPoint("TOPLEFT", 214, y)
+    eb:SetAutoFocus(false)
+    y = y - 30
+    return eb
+  end
+
+  p.donor = field("LABEL_DONOR", "FundraiserDonationDonor", 240)
+  p.amount = field("LABEL_DONATION_GOLD", "FundraiserDonationGold", 100)
+  p.note = field("LABEL_DONATION_NOTE", "FundraiserDonationNote", 240)
+
+  local add = CreateFrame("Button", "FundraiserDonationAddButton", p, "UIPanelButtonTemplate")
+  add:SetSize(140, 24)
+  add:SetPoint("TOPLEFT", LIST_X, y - 4)
+  add:SetText(Fundraiser:T("BTN_ADD_DONATION"))
+  add:SetScript("OnClick", function()
+    Ledger:SubmitDonation()
+  end)
+
+  local cancel = CreateFrame("Button", "FundraiserDonationCancelButton", p, "UIPanelButtonTemplate")
+  cancel:SetSize(100, 24)
+  cancel:SetPoint("LEFT", add, "RIGHT", 8, 0)
+  cancel:SetText(Fundraiser:T("BTN_CANCEL"))
+  cancel:SetScript("OnClick", function()
+    Fundraiser.UI.Window:ShowLedger()
+  end)
+
+  self.donationFrame = p
+end
+
+function Ledger:ResetDonationForm()
+  local p = self.donationFrame
+  if not p then
+    return
+  end
+  p.donor:SetText("")
+  p.amount:SetText("")
+  p.note:SetText("")
+end
+
+local function chat(text)
+  if DEFAULT_CHAT_FRAME then
+    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. text)
+  end
+end
+
+function Ledger:SubmitDonation()
+  local p = self.donationFrame
+  local UC = Fundraiser.Application.UseCases
+  local Roster = Fundraiser.Adapters.Roster
+  local gold = tonumber((p.amount:GetText() or ""):gsub(",", "."):match("^%s*(.-)%s*$"))
+  local copper = gold and math.floor(gold * 10000 + 0.5) or 0
+  local donor = p.donor:GetText()
+  local actor = { name = Roster:GetPlayerName(), now = (GetServerTime and GetServerTime()) or time() }
+  local entry, err = UC.AddManualDonation(self:Deps(), { name = donor, copper = copper, detail = p.note:GetText() }, actor)
+  if not entry then
+    local keys = {
+      not_target = "CHAT_DONATION_NOT_TARGET",
+      bad_name = "CHAT_DONATION_BAD_NAME",
+      bad_copper = "CHAT_DONATION_BAD_AMOUNT",
+      no_event = "STATUS_NO_EVENT",
+    }
+    chat(Fundraiser:T(keys[err] or "CHAT_DONATION_FAILED"))
+    return
+  end
+  chat(Fundraiser:T("CHAT_DONATION_ADDED", entry.name, money(entry.copper, 12)))
+  Fundraiser.UI.Window:ShowLedger()
 end
 
 -- The panel exists once the shell window has been built.
