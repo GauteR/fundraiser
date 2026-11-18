@@ -119,6 +119,27 @@ local function makeCell(parent, template, x, width, justify)
   return fs
 end
 
+-- Cell backdrop, bottom hairline and vertical column lines for one table row.
+local function addGrid(frame, withBottom)
+  frame.bg = frame:CreateTexture(nil, "BACKGROUND")
+  frame.bg:SetAllPoints()
+  frame.bg:SetColorTexture(0, 0, 0, 0)
+  for _, x in ipairs(GRID_X) do
+    local v = frame:CreateTexture(nil, "BORDER")
+    v:SetColorTexture(GRID_COLOR[1], GRID_COLOR[2], GRID_COLOR[3], GRID_COLOR[4])
+    v:SetWidth(1)
+    v:SetPoint("TOPLEFT", x, 0)
+    v:SetPoint("BOTTOMLEFT", x, 0)
+  end
+  if withBottom then
+    local b = frame:CreateTexture(nil, "BORDER")
+    b:SetColorTexture(GRID_COLOR[1], GRID_COLOR[2], GRID_COLOR[3], GRID_COLOR[4])
+    b:SetHeight(1)
+    b:SetPoint("BOTTOMLEFT", 0, 0)
+    b:SetPoint("BOTTOMRIGHT", 0, 0)
+  end
+end
+
 function Ledger:Ensure()
   if self.frame then
     return self.frame
@@ -226,27 +247,6 @@ function Ledger:Ensure()
 
   self.frame = f
   return f
-end
-
--- Cell backdrop, bottom hairline and vertical column lines for one table row.
-local function addGrid(frame, withBottom)
-  frame.bg = frame:CreateTexture(nil, "BACKGROUND")
-  frame.bg:SetAllPoints()
-  frame.bg:SetColorTexture(0, 0, 0, 0)
-  for _, x in ipairs(GRID_X) do
-    local v = frame:CreateTexture(nil, "BORDER")
-    v:SetColorTexture(GRID_COLOR[1], GRID_COLOR[2], GRID_COLOR[3], GRID_COLOR[4])
-    v:SetWidth(1)
-    v:SetPoint("TOPLEFT", x, 0)
-    v:SetPoint("BOTTOMLEFT", x, 0)
-  end
-  if withBottom then
-    local b = frame:CreateTexture(nil, "BORDER")
-    b:SetColorTexture(GRID_COLOR[1], GRID_COLOR[2], GRID_COLOR[3], GRID_COLOR[4])
-    b:SetHeight(1)
-    b:SetPoint("BOTTOMLEFT", 0, 0)
-    b:SetPoint("BOTTOMRIGHT", 0, 0)
-  end
 end
 
 local function setColor(row, color)
