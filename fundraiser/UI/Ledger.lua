@@ -1,4 +1,4 @@
--- Ledger window: scrollable donation rows of the active event, then one summary line per
+-- Ledger page: scrollable donation rows of the active event, then one summary line per
 -- archived event. Data and gating come from UseCases.GetLedgerView (Domain/LedgerView.lua).
 -- "Set MOTD" publishes today's status + top contributor to the guild message (always confirmed).
 Fundraiser = Fundraiser or {}
@@ -7,21 +7,25 @@ Fundraiser.UI = Fundraiser.UI or {}
 local Ledger = {}
 Fundraiser.UI.Ledger = Ledger
 
-local FRAME_W = 640
-local FRAME_H = 470
+-- Ledger is a page inside the shell window (UI/Window.lua): a panel under the logo band, right of the menu.
+local PANEL_W = 620
 local ROWS = 16
 local ROW_H = 18
 local LIST_TOP = -112
+local LIST_X = 16
 local COL_TIME_X, COL_TIME_W = 4, 144
 local COL_NAME_X, COL_NAME_W = 148, 140
-local COL_DETAIL_X, COL_DETAIL_W = 292, 150
+local COL_DETAIL_X, COL_DETAIL_W = 292, 140
 local COL_AMOUNT_W = 130
-local TABLE_W = FRAME_W - 56
+local TABLE_W = PANEL_W - 50
 -- Grid lines sit at the left edge of each column (and the table edges).
 local GRID_X = { 0, COL_NAME_X - 4, COL_DETAIL_X - 4, TABLE_W - COL_AMOUNT_W - 8, TABLE_W - 1 }
 local GRID_COLOR = { 0.55, 0.50, 0.35, 0.55 }
 local COLOR_ARCHIVE = { 0.75, 0.75, 0.55 }
 local COLOR_HEADER = { 1, 0.82, 0 }
+
+-- Panel height needed below the shell's logo band (header lines + 16 rows + bottom pad).
+Ledger.PANEL_HEIGHT = -LIST_TOP + ROWS * ROW_H + 14
 
 local function money(copper, height)
   if Fundraiser.FormatCopper then
@@ -140,55 +144,30 @@ local function addGrid(frame, withBottom)
   end
 end
 
--- Dock beside the admin window (title bars level). Without it, use the admin window's default top spot.
-function Ledger:Place()
-  local f = self:Ensure()
-  f:ClearAllPoints()
-  local admin = Fundraiser.UI.Window and Fundraiser.UI.Window.frame
-  if admin and admin:IsShown() then
-    f:SetPoint("TOPLEFT", admin, "TOPRIGHT", 4, 0)
-    return
-  end
-  local screenH = (GetScreenHeight and GetScreenHeight()) or 768
-  f:SetPoint("TOP", UIParent, "TOP", 0, -math.floor(screenH * 0.12))
-end
-
-function Ledger:Ensure()
+-- Builds the ledger panel inside the shell window (called once from Window:Ensure).
+function Ledger:Attach(shell)
   if self.frame then
     return self.frame
   end
-
-  local f = CreateFrame("Frame", "FundraiserLedgerFrame", UIParent, "BasicFrameTemplateWithInset")
-  f:SetSize(FRAME_W, FRAME_H)
-  f:SetClampedToScreen(true)
-  -- Same strata as the admin window (DIALOG); OnShow raises it so it opens on top.
-  f:SetFrameStrata("DIALOG")
-  f:SetToplevel(true)
-  f:SetMovable(true)
-  f:EnableMouse(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  local f = CreateFrame("Frame", "FundraiserLedgerPanel", shell)
+  f:SetPoint("TOPLEFT", shell, "TOPLEFT", Fundraiser.UI.Window.NAV_W, -Fundraiser.UI.Window.HEADER_H)
+  f:SetPoint("BOTTOMRIGHT", 0, 0)
   f:Hide()
-  if f.TitleText then
-    f.TitleText:SetText(Fundraiser:T("LEDGER_WINDOW_TITLE"))
-  end
-  tinsert(UISpecialFrames, "FundraiserLedgerFrame")
 
   f.total = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
-  f.total:SetPoint("TOPLEFT", 16, -34)
+  f.total:SetPoint("TOPLEFT", LIST_X, -34)
 
   f.summary = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  f.summary:SetPoint("TOPLEFT", 16, -58)
+  f.summary:SetPoint("TOPLEFT", LIST_X, -58)
 
   f.hint = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  f.hint:SetPoint("TOPLEFT", 16, -78)
-  f.hint:SetWidth(FRAME_W - 40)
+  f.hint:SetPoint("TOPLEFT", LIST_X, -78)
+  f.hint:SetWidth(PANEL_W - 2 * LIST_X)
   f.hint:SetJustifyH("LEFT")
 
   local refresh = CreateFrame("Button", "FundraiserLedgerRefresh", f, "UIPanelButtonTemplate")
   refresh:SetSize(90, 22)
-  refresh:SetPoint("TOPRIGHT", -14, -32)
+  refresh:SetPoint("TOPRIGHT", -16, -32)
   refresh:SetText(Fundraiser:T("BTN_REFRESH"))
   refresh:SetScript("OnClick", function()
     Ledger:Refresh()
@@ -209,7 +188,7 @@ function Ledger:Ensure()
 
   -- Column headers.
   local header = CreateFrame("Frame", nil, f)
-  header:SetPoint("TOPLEFT", 14, LIST_TOP + 18)
+  header:SetPoint("TOPLEFT", LIST_X, LIST_TOP + 18)
   header:SetSize(TABLE_W, ROW_H)
   addGrid(header, true)
   header.bg:SetColorTexture(1, 0.82, 0, 0.18)
@@ -229,7 +208,7 @@ function Ledger:Ensure()
   f.header = header
 
   local scroll = CreateFrame("ScrollFrame", "FundraiserLedgerScroll", f, "FauxScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 14, LIST_TOP)
+  scroll:SetPoint("TOPLEFT", LIST_X, LIST_TOP)
   scroll:SetPoint("BOTTOMRIGHT", -34, 14)
   scroll:SetScript("OnVerticalScroll", function(self, offset)
     FauxScrollFrame_OnVerticalScroll(self, offset, ROW_H, function()
@@ -243,7 +222,7 @@ function Ledger:Ensure()
     local r = CreateFrame("Frame", nil, f)
     r:SetSize(TABLE_W, ROW_H)
     addGrid(r, true)
-    r:SetPoint("TOPLEFT", 14, LIST_TOP - (i - 1) * ROW_H)
+    r:SetPoint("TOPLEFT", LIST_X, LIST_TOP - (i - 1) * ROW_H)
     r.time = makeCell(r, "GameFontHighlightSmall", COL_TIME_X, COL_TIME_W)
     r.name = makeCell(r, "GameFontHighlightSmall", COL_NAME_X, COL_NAME_W)
     r.detail = makeCell(r, "GameFontHighlightSmall", COL_DETAIL_X, COL_DETAIL_W)
@@ -254,14 +233,16 @@ function Ledger:Ensure()
     f.rows[i] = r
   end
 
-  f:SetScript("OnShow", function(self)
-    Ledger:Place()
-    self:Raise()
-    Ledger:Refresh()
-  end)
-
   self.frame = f
   return f
+end
+
+-- The panel exists once the shell window has been built.
+function Ledger:Ensure()
+  if not self.frame then
+    Fundraiser.UI.Window:Ensure()
+  end
+  return self.frame
 end
 
 local function setColor(row, color)
@@ -383,19 +364,4 @@ function Ledger:ConfirmSetMotd()
     return
   end
   accept()
-end
-
-function Ledger:Hide()
-  if self.frame then
-    self.frame:Hide()
-  end
-end
-
-function Ledger:Toggle()
-  local f = self:Ensure()
-  if f:IsShown() then
-    f:Hide()
-  else
-    f:Show()
-  end
 end

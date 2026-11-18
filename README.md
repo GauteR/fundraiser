@@ -22,7 +22,7 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 - Publishing a new event archives the previous event + ledger locally and clears the active ledger
 - Ending an event (`END_EVENT`): Minus on the event card archives the campaign, clears active event+ledger, and broadcasts `RESET campaign` to the guild (no replacement event)
 - Options -> AddOns -> Fundraiser: status, online installs (name / status / version), default reminder interval, global min admin rank; admin **Danger zone** (local clears + **Broadcast reset**)
-- `/fundraiser ledger` (or click the ledger card): scrollable ledger of the active event with archived campaigns as one summary line each at the bottom; **Set MOTD** posts raised/goal and the top contributor to the guild message (confirmation, needs MOTD permission)
+- One window with a left menu (Status / New event / Ledger) and a logo band; `/fundraiser ledger` (or the Ledger menu entry / ledger card) opens the ledger page: scrollable ledger of the active event with archived campaigns as one summary line each at the bottom; **Set MOTD** posts raised/goal and the top contributor to the guild message (confirmation, needs MOTD permission)
 - `/fundraiser` admin window: status dashboard (event, progress %, ledger, daily raised chart); **New event** / **End event**; **Addon settings** opens Options (chat warning if the jump fails)
 - Pure Lua unit tests (Given / When / Then scenarios)
 

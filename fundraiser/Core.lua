@@ -154,12 +154,13 @@ function Fundraiser:ToggleLedgerUi()
   end
   if not self:CanOpenLedgerUi() then
     Print(self:T("CHAT_LEDGER_NO_ACCESS"))
-    if self.UI and self.UI.Ledger and self.UI.Ledger.Hide then
-      self.UI.Ledger:Hide()
+    local Window = self.UI and self.UI.Window
+    if Window and Window.view == "ledger" then
+      Window:Hide()
     end
     return
   end
-  self.UI.Ledger:Toggle()
+  self.UI.Window:ToggleLedger()
 end
 
 function Fundraiser:PrintStatus()

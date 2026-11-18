@@ -1,14 +1,25 @@
--- Admin window: status dashboard (event / progress / daily chart) by default.
--- "New event" reveals the publish form (Publish archives the current campaign).
--- Ledger row details live in the dedicated ledger window (UI/Ledger.lua).
+-- Shell window: logo band on top, menu on the left, page content on the right.
+-- Pages: status dashboard (default), New event form (Publish archives the current campaign),
+-- and the ledger (UI/Ledger.lua).
 -- Summary data comes from Domain/AdminSummary.lua so the rendering here stays thin.
 Fundraiser = Fundraiser or {}
 Fundraiser.UI = Fundraiser.UI or {}
 
 local Window = {}
 Fundraiser.UI.Window = Window
+Window.NAV_W = 140
+Window.HEADER_H = 56
 
-local FRAME_WIDTH = 560
+-- Content width of a page (status/create/ledger); the shell adds the menu column on the left.
+local FRAME_WIDTH = 620
+local NAV_W = 140
+-- Logo band under the title bar; page panels start this far below the frame top.
+local HEADER_H = 56
+local TITLE_BAR_H = 26
+-- Placeholder until the real logo texture is added (path or file id).
+local LOGO_TEXTURE = "Interface\\Icons\\INV_Misc_Coin_01"
+local LOGO_SIZE = 44
+local SHELL_W = NAV_W + FRAME_WIDTH
 -- Tall enough for event + progress/ledger + chart + Settings row above the inset edge.
 local FRAME_HEIGHT_STATUS = 490
 local FRAME_HEIGHT_STATUS_COMPACT = 340
@@ -201,7 +212,7 @@ function Window:Ensure()
   end
 
   local f = CreateFrame("Frame", "FundraiserFrame", UIParent, "BasicFrameTemplateWithInset")
-  f:SetSize(FRAME_WIDTH, FRAME_HEIGHT_STATUS)
+  f:SetSize(SHELL_W, FRAME_HEIGHT_STATUS + HEADER_H)
   f:SetFrameStrata("DIALOG")
   if f.SetToplevel then
     f:SetToplevel(true)
@@ -224,8 +235,10 @@ function Window:Ensure()
   tinsert(UISpecialFrames, "FundraiserFrame")
 
   -- Status dashboard (default).
+  self:BuildShell(f)
+
   local status = CreateFrame("Frame", "FundraiserStatusPanel", f)
-  status:SetPoint("TOPLEFT", 0, 0)
+  status:SetPoint("TOPLEFT", NAV_W, -HEADER_H)
   status:SetPoint("BOTTOMRIGHT", 0, 0)
   f.statusPanel = status
 
@@ -494,7 +507,7 @@ function Window:Ensure()
 
   -- Create / publish view (hidden by default).
   local create = CreateFrame("Frame", "FundraiserCreatePanel", f)
-  create:SetPoint("TOPLEFT", 0, 0)
+  create:SetPoint("TOPLEFT", NAV_W, -HEADER_H)
   create:SetPoint("BOTTOMRIGHT", 0, 0)
   create:Hide()
   f.createPanel = create
@@ -563,6 +576,10 @@ function Window:Ensure()
     Window:ShowStatus()
   end)
 
+  if Fundraiser.UI.Ledger and Fundraiser.UI.Ledger.Attach then
+    Fundraiser.UI.Ledger:Attach(f)
+  end
+
   f:SetScript("OnShow", function()
     if not Window.userMoved then
       Window:PlaceDefault(f)
@@ -572,8 +589,9 @@ function Window:Ensure()
         f:Raise()
       end
     end
-    Window:ShowStatus()
-    Window:Refresh()
+    local page = Window.pendingPage or "status"
+    Window.pendingPage = nil
+    Window:ShowPage(page)
   end)
 
   self.view = "status"
@@ -582,20 +600,167 @@ function Window:Ensure()
   return f
 end
 
+-- Logo band + left menu (built once; pages are the panels anchored beside the menu).
+local NAV_ITEMS = {
+  { page = "status", key = "NAV_STATUS", needs = "officer" },
+  { page = "create", key = "NAV_CREATE", needs = "officer" },
+  { page = "ledger", key = "NAV_LEDGER", needs = "ledger" },
+}
+
+function Window:BuildShell(f)
+  local bandTop = -TITLE_BAR_H
+  local logo = f:CreateTexture(nil, "ARTWORK")
+  logo:SetTexture(LOGO_TEXTURE)
+  logo:SetSize(LOGO_SIZE, LOGO_SIZE)
+  logo:SetPoint("TOPLEFT", 14, bandTop - 6)
+  f.logo = logo
+
+  f.brand = f:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  f.brand:SetPoint("TOPLEFT", logo, "TOPRIGHT", 10, -4)
+  f.brand:SetText(Fundraiser:T("WINDOW_TITLE"))
+  f.pageTitle = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  f.pageTitle:SetPoint("TOPLEFT", f.brand, "BOTTOMLEFT", 0, -3)
+
+  local function line(horizontal)
+    local t = f:CreateTexture(nil, "ARTWORK")
+    t:SetColorTexture(1, 1, 1, 0.15)
+    if horizontal then
+      t:SetHeight(1)
+      t:SetPoint("TOPLEFT", 8, bandTop - HEADER_H)
+      t:SetPoint("TOPRIGHT", -8, bandTop - HEADER_H)
+    else
+      t:SetWidth(1)
+      t:SetPoint("TOPLEFT", NAV_W, bandTop - HEADER_H)
+      t:SetPoint("BOTTOMLEFT", NAV_W, 8)
+    end
+    return t
+  end
+  line(true)
+  line(false)
+
+  f.navButtons = {}
+  for _, item in ipairs(NAV_ITEMS) do
+    local b = CreateFrame("Button", "FundraiserNav_" .. item.page, f, "UIPanelButtonTemplate")
+    b:SetSize(NAV_W - 20, 26)
+    b:SetText(Fundraiser:T(item.key))
+    b:SetScript("OnClick", function()
+      Window:ShowPage(item.page)
+    end)
+    b.item = item
+    f.navButtons[#f.navButtons + 1] = b
+  end
+end
+
+local function isOfficer()
+  return Fundraiser:CanOpenAdminUi()
+end
+
+local function canSeeLedger()
+  return Fundraiser:CanOpenLedgerUi()
+end
+
+-- Show only the menu entries the player may use; mark the current page.
+function Window:UpdateNav()
+  local f = self.frame
+  if not f or not f.navButtons then
+    return
+  end
+  local officer, ledger = isOfficer(), canSeeLedger()
+  local y = -(TITLE_BAR_H + HEADER_H + 12)
+  for _, b in ipairs(f.navButtons) do
+    local allowed = (b.item.needs == "officer" and officer) or (b.item.needs == "ledger" and ledger)
+    if allowed then
+      b:ClearAllPoints()
+      b:SetPoint("TOPLEFT", 10, y)
+      y = y - 30
+      b:Show()
+      if b.item.page == self.view then
+        b:LockHighlight()
+      else
+        b:UnlockHighlight()
+      end
+    else
+      b:Hide()
+    end
+  end
+end
+
+local function setShown(frame, shown)
+  if shown then
+    frame:Show()
+  else
+    frame:Hide()
+  end
+end
+
+local function showOnly(f, which)
+  setShown(f.statusPanel, which == "status")
+  setShown(f.createPanel, which == "create")
+  local ledger = Fundraiser.UI.Ledger and Fundraiser.UI.Ledger.frame
+  if ledger then
+    setShown(ledger, which == "ledger")
+  end
+end
+
+-- Open a page by name; officers get status/create, ledger viewers get the ledger.
+function Window:ShowPage(page)
+  if page == "ledger" or not isOfficer() then
+    if canSeeLedger() then
+      self:ShowLedger()
+    else
+      self:Hide()
+    end
+    return
+  end
+  if page == "create" then
+    self:ShowCreate()
+  else
+    self:ShowStatus()
+  end
+end
+
 function Window:ShowStatus()
   local f = self:Ensure()
   self.view = "status"
-  f.createPanel:Hide()
-  f.statusPanel:Show()
+  showOnly(f, "status")
+  f.pageTitle:SetText(Fundraiser:T("NAV_STATUS"))
+  self:UpdateNav()
   self:Refresh()
+end
+
+function Window:ShowLedger()
+  local f = self:Ensure()
+  local Ledger = Fundraiser.UI.Ledger
+  self.view = "ledger"
+  f:SetSize(SHELL_W, Ledger.PANEL_HEIGHT + HEADER_H)
+  showOnly(f, "ledger")
+  f.pageTitle:SetText(Fundraiser:T("NAV_LEDGER"))
+  self:UpdateNav()
+  Ledger:Refresh()
+end
+
+-- Open the shell on the ledger page (or close it when the ledger is already showing).
+function Window:ToggleLedger()
+  local f = self:Ensure()
+  if f:IsShown() and self.view == "ledger" then
+    f:Hide()
+    return
+  end
+  if f:IsShown() then
+    self:ShowLedger()
+  else
+    self.pendingPage = "ledger"
+    f:Show()
+  end
 end
 
 function Window:ShowCreate()
   local f = self:Ensure()
   self.view = "create"
-  f:SetSize(FRAME_WIDTH, FRAME_HEIGHT_CREATE)
-  f.statusPanel:Hide()
-  f.createPanel:Show()
+  f:SetSize(SHELL_W, FRAME_HEIGHT_CREATE + HEADER_H)
+  showOnly(f, "create")
+  f.pageTitle:SetText(Fundraiser:T("NAV_CREATE"))
+  self:UpdateNav()
 
   f.eventName:SetText("")
   f.target:SetText("")
@@ -829,7 +994,7 @@ function Window:LayoutGoalWidgets(showGoal)
   if neededH < minH then
     neededH = minH
   end
-  f:SetSize(FRAME_WIDTH, neededH)
+  f:SetSize(SHELL_W, neededH + HEADER_H)
 
   if f.settingsBtn then
     f.settingsBtn:ClearAllPoints()
