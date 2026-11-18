@@ -23,7 +23,7 @@ Use a character dedicated only to that role — do not mix personal AH there.
 - Mailbox reminder until mail is sent to the donation target
 - Ledger on the donation target (mail intake + all AH sales); guild-wide mesh relay; officer/target view
 - Target inbox assist: per-sender stacks, TSM -> Auctionator -> manual price, vendor vs AH advice
-- Settings -> AddOns -> Fundraiser: status, online installs, default reminder interval, global min admin rank, cleanup / broadcast reset
+- Settings -> AddOns -> Fundraiser: status, online installs, default reminder interval, global min admin rank; admin Danger zone for cleanup / broadcast reset
 - Best-effort install presence (who is online with the addon)
 
 ## Install

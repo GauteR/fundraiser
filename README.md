@@ -20,7 +20,7 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 - Target inbox assist (`/fundraiser target`): per-sender stacks, TSM -> Auctionator -> manual price, vendor vs AH advice, one AH post per stack
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST` / `RESET`) — see [`docs/SYNC.md`](docs/SYNC.md)
 - Publishing a new event archives the previous event + ledger locally and clears the active ledger
-- Options -> AddOns -> Fundraiser: status, online installs (name / status / version), default reminder interval, global min admin rank, local cleanup, officer **Broadcast reset**
+- Options -> AddOns -> Fundraiser: status, online installs (name / status / version), default reminder interval, global min admin rank; admin **Danger zone** (local clears + **Broadcast reset**)
 - `/fundraiser` admin window includes **Addon settings** to open that Options panel
 - Pure Lua unit tests (Given / When / Then scenarios)
 
@@ -78,7 +78,7 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 | Status | Settings-style rows: addon enabled, guild, active event, admin access, installed count |
 | Online installs | Scrollable table (name / status / version from HELLO) |
 | Defaults | Default reminder interval (hours) and min admin rank; Apply saves to `FundraiserDB.settings` |
-| Cleanup (admin) | Local reset/clear actions; **Broadcast reset** sends guild `RESET\|all` (requires `COMM` + `RESET_SYNC`, rank-gated on receive) |
+| Danger zone (admin) | Separated by a rule; local reset/clear actions; **Broadcast reset** sends guild `RESET\|all` (requires `COMM` + `RESET_SYNC`, rank-gated on receive). Hidden without admin access. |
 | Open Fundraiser | Shown only when your rank may manage fundraisers |
 
 Defaults are stored in `FundraiserDB.settings` and overlaid onto `Config` at load. Forever may not restore SavedVariables after a cold start — re-apply in Options if needed. `DEBUG` stays in `Config.lua` only.
