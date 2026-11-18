@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Manual donations: officers and the donation-target character can add a donation by hand (Add donation menu page: donor, amount in gold / silver / copper, optional note). Stored as ledger kind `manual` and shared over the guild mesh.
+- Fixed window height on every page.
+- Single shell window: logo band on top (placeholder icon until the real logo is added), menu on the left (Home, Ledger, Settings), and New event / End event / Refresh buttons in the top bar, page content on the right. The ledger is a page in it (`/fundraiser ledger`, the Ledger menu entry, or the admin ledger card): scrollable donation rows (time/kind, name, detail, amount), prominent total, and one summary line per previous campaign (most recently finished first). Same view gate as before (officers + donation target).
+- **Set MOTD** entry in the left menu (shown with ledger access and MOTD permission): publishes `Fundraiser <name>: 1200g/5000g (24%). Top contributor: <charname>!` as the guild message of the day after a confirmation (needs guild MOTD edit permission; the top contributor's name becomes public to the guild).
 - Required numeric fundraising goal (`goalCopper`, entered as gold in the New event form) on the EVENT wire (field 11, backward compatible).
 - Admin status dashboard: event card, progress toward goal (percent + bar), ledger status card, cumulative daily raised chart with goal line.
 - End event (-) on the admin event card: archives the campaign, clears active event+ledger, broadcasts `RESET campaign` (`Config.END_EVENT`).

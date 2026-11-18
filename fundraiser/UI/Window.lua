@@ -1,18 +1,29 @@
--- Admin window: status dashboard (event / progress / daily chart) by default.
--- "New event" reveals the publish form (Publish archives the current campaign).
--- Ledger row details belong in the dedicated ledger window (#15).
+-- Shell window: logo band on top, menu on the left, page content on the right.
+-- Pages: status dashboard (default), New event form (Publish archives the current campaign),
+-- and the ledger (UI/Ledger.lua).
 -- Summary data comes from Domain/AdminSummary.lua so the rendering here stays thin.
 Fundraiser = Fundraiser or {}
 Fundraiser.UI = Fundraiser.UI or {}
 
 local Window = {}
 Fundraiser.UI.Window = Window
+Window.NAV_W = 140
+Window.HEADER_H = 56
 
-local FRAME_WIDTH = 560
+-- Content width of a page (status/create/ledger); the shell adds the menu column on the left.
+local FRAME_WIDTH = 620
+local NAV_W = 140
+-- Logo band under the title bar; page panels start this far below the frame top.
+local HEADER_H = 56
+local TITLE_BAR_H = 26
+-- Placeholder until the real logo texture is added (path or file id).
+local LOGO_TEXTURE = "Interface\\Icons\\INV_Misc_Coin_01"
+local LOGO_SIZE = 44
+local SHELL_W = NAV_W + FRAME_WIDTH
 -- Tall enough for event + progress/ledger + chart + Settings row above the inset edge.
 local FRAME_HEIGHT_STATUS = 490
-local FRAME_HEIGHT_STATUS_COMPACT = 340
-local FRAME_HEIGHT_CREATE = 460
+-- One fixed shell height for every page (the Home page with goal widgets is the tallest).
+local SHELL_H = FRAME_HEIGHT_STATUS + HEADER_H
 local MARGIN = 16
 local CONTENT_WIDTH = FRAME_WIDTH - 2 * MARGIN
 local LABEL_WIDTH = 190
@@ -21,7 +32,6 @@ local ROW_HEIGHT = 30
 local CARD_GAP = 10
 local FOOTER_GAP = 16
 local FOOTER_BTN_H = 24
-local FOOTER_BOTTOM_PAD = 22
 local CHART_MAX_POINTS = 14
 local CHART_MAX_SEGMENTS = 13
 local CHART_LEGEND_W = 100
@@ -110,6 +120,9 @@ local function makeCard(parent, name, width, height)
   card.title = title
   return card
 end
+
+-- Shared with the ledger page so every page uses the same cards.
+Window.MakeCard = makeCard
 
 -- Shared size so + (PlusButton art) and panel icon buttons match visually.
 local CARD_ACTION_BTN_SIZE = 22
@@ -201,7 +214,7 @@ function Window:Ensure()
   end
 
   local f = CreateFrame("Frame", "FundraiserFrame", UIParent, "BasicFrameTemplateWithInset")
-  f:SetSize(FRAME_WIDTH, FRAME_HEIGHT_STATUS)
+  f:SetSize(SHELL_W, SHELL_H)
   f:SetFrameStrata("DIALOG")
   if f.SetToplevel then
     f:SetToplevel(true)
@@ -224,8 +237,10 @@ function Window:Ensure()
   tinsert(UISpecialFrames, "FundraiserFrame")
 
   -- Status dashboard (default).
+  self:BuildShell(f)
+
   local status = CreateFrame("Frame", "FundraiserStatusPanel", f)
-  status:SetPoint("TOPLEFT", 0, 0)
+  status:SetPoint("TOPLEFT", NAV_W, -HEADER_H)
   status:SetPoint("BOTTOMRIGHT", 0, 0)
   f.statusPanel = status
 
@@ -239,61 +254,17 @@ function Window:Ensure()
   eventCard.title:SetText(Fundraiser:T("CARD_EVENT"))
   f.eventNameFs = eventCard:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   f.eventNameFs:SetPoint("TOPLEFT", 10, -28)
-  f.eventNameFs:SetWidth(cardW - 72)
+  f.eventNameFs:SetWidth(cardW - 20)
   f.eventNameFs:SetJustifyH("LEFT")
   f.eventDetailFs = eventCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   f.eventDetailFs:SetPoint("TOPLEFT", f.eventNameFs, "BOTTOMLEFT", 0, -4)
-  f.eventDetailFs:SetWidth(cardW - 72)
+  f.eventDetailFs:SetWidth(cardW - 20)
   f.eventDetailFs:SetJustifyH("LEFT")
   f.eventNoteFs = eventCard:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
   f.eventNoteFs:SetPoint("TOPLEFT", f.eventDetailFs, "BOTTOMLEFT", 0, -2)
-  f.eventNoteFs:SetWidth(cardW - 72)
+  f.eventNoteFs:SetWidth(cardW - 20)
   f.eventNoteFs:SetJustifyH("LEFT")
-  -- New event: original Blizzard PlusButton (no panel chrome).
-  local newEvent = makeCardIconButton(eventCard, "FundraiserNewEventButton")
-  trySetIcon(
-    newEvent,
-    "Interface\\Buttons\\UI-PlusButton-Up",
-    "Interface\\Buttons\\UI-PlusButton-Down",
-    "Interface\\Buttons\\UI-PlusButton-Hilight"
-  )
-  if not newEvent:GetNormalTexture() then
-    makeTextIconFallback(newEvent, "+")
-  end
-  newEvent:SetScript("OnClick", function()
-    Window:ShowCreate()
-  end)
-  newEvent:SetScript("OnEnter", function(self)
-    showTooltip(self, "TIP_NEW_EVENT_TITLE", "TIP_NEW_EVENT_BODY")
-  end)
-  newEvent:SetScript("OnLeave", hideTooltip)
-  f.newEventBtn = newEvent
-  -- End event: MinusButton left of + (archive + guild campaign wipe).
-  local endEvent = makeCardIconButton(eventCard, "FundraiserEndEventButton")
-  endEvent:ClearAllPoints()
-  endEvent:SetPoint("RIGHT", newEvent, "LEFT", -4, 0)
-  trySetIcon(
-    endEvent,
-    "Interface\\Buttons\\UI-MinusButton-Up",
-    "Interface\\Buttons\\UI-MinusButton-Down",
-    "Interface\\Buttons\\ButtonHilight-Square"
-  )
-  if endEvent.SetDisabledTexture then
-    endEvent:SetDisabledTexture("Interface\\Buttons\\UI-MinusButton-Disabled")
-  end
-  if not endEvent:GetNormalTexture() then
-    makeTextIconFallback(endEvent, "-")
-  end
-  endEvent:SetScript("OnClick", function()
-    Window:ConfirmEndEvent()
-  end)
-  endEvent:SetScript("OnEnter", function(self)
-    showTooltip(self, "TIP_END_EVENT_TITLE", "TIP_END_EVENT_BODY")
-  end)
-  endEvent:SetScript("OnLeave", hideTooltip)
-  endEvent:Hide()
-  f.endEventBtn = endEvent
-  -- Only +/- buttons open create / end; the card body is display-only.
+  -- +/- (new / end event) and refresh live in the top bar; the card body is display-only.
   f.eventCard = eventCard
   y = y - 78 - CARD_GAP
 
@@ -334,34 +305,14 @@ function Window:Ensure()
   ledgerCard.title:SetText(Fundraiser:T("CARD_LEDGER"))
   f.ledgerStatus = ledgerCard:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   f.ledgerStatus:SetPoint("TOPLEFT", 10, -32)
-  f.ledgerStatus:SetWidth(halfW - 56)
+  f.ledgerStatus:SetWidth(halfW - 20)
   f.ledgerStatus:SetJustifyH("LEFT")
   f.ledgerStatus:SetJustifyV("TOP")
-  -- Refresh only; whole ledger card is clickable (dedicated window #15).
-  local refresh = makeCardPanelIconButton(
-    ledgerCard,
-    "FundraiserRefreshButton",
-    "Interface\\Buttons\\UI-RefreshButton"
-  )
-  if refresh.icon then
-    local tex = refresh.icon:GetTexture()
-    if not tex or tex == "" then
-      refresh.icon:SetTexture("Interface\\Buttons\\UI-RotationRight-Button-Up")
-    end
-  end
-  refresh:SetScript("OnClick", function()
-    Window:Refresh()
-  end)
-  refresh:SetScript("OnEnter", function(self)
-    showTooltip(self, "TIP_REFRESH_TITLE", "TIP_REFRESH_BODY")
-  end)
-  refresh:SetScript("OnLeave", hideTooltip)
-  f.refreshBtn = refresh
-
+  -- Whole ledger card is clickable (opens the ledger page); refresh is in the top bar.
   ledgerCard:EnableMouse(true)
   ledgerCard:SetScript("OnMouseUp", function(_, button)
     if button == "LeftButton" then
-      -- Dedicated ledger window (#15) hooks here when enabled.
+      Fundraiser:ToggleLedgerUi()
     end
   end)
   ledgerCard:SetScript("OnEnter", function(self)
@@ -452,36 +403,14 @@ function Window:Ensure()
   f.chartLegend = legend
   f.chartCard = chartCard
 
-  -- Footer: Settings (cog + label) and optional Target assist.
+  -- Footer: optional Target assist (Settings lives in the shell menu).
   -- Extra FOOTER_GAP keeps the row clear of the chart and the frame bottom inset.
   local footerY = y - PROGRESS_CARD_H - CARD_GAP - CHART_CARD_H - FOOTER_GAP
   f.dashboardFooterY = footerY
 
-  local settingsBtn = CreateFrame("Button", "FundraiserAddonSettingsButton", status, "UIPanelButtonTemplate")
-  settingsBtn:SetSize(110, FOOTER_BTN_H)
-  settingsBtn:SetPoint("TOPLEFT", MARGIN, footerY)
-  settingsBtn:SetText(Fundraiser:T("BTN_SETTINGS"))
-  local cog = settingsBtn:CreateTexture(nil, "ARTWORK")
-  cog:SetSize(14, 14)
-  cog:SetPoint("LEFT", 8, 0)
-  cog:SetTexture("Interface\\Buttons\\UI-OptionsButton")
-  -- Pad label so it clears the cog icon.
-  if settingsBtn.ButtonText then
-    settingsBtn.ButtonText:ClearAllPoints()
-    settingsBtn.ButtonText:SetPoint("LEFT", cog, "RIGHT", 4, 0)
-    settingsBtn.ButtonText:SetPoint("RIGHT", -8, 0)
-    settingsBtn.ButtonText:SetJustifyH("LEFT")
-  end
-  settingsBtn:SetScript("OnClick", function()
-    if Fundraiser.Options and Fundraiser.Options.Open then
-      Fundraiser.Options:Open()
-    end
-  end)
-  f.settingsBtn = settingsBtn
-
   local targetBtn = CreateFrame("Button", "FundraiserTargetOpenButton", status, "UIPanelButtonTemplate")
   targetBtn:SetSize(160, FOOTER_BTN_H)
-  targetBtn:SetPoint("LEFT", settingsBtn, "RIGHT", 8, 0)
+  targetBtn:SetPoint("TOPLEFT", MARGIN, footerY)
   targetBtn:SetText(Fundraiser:T("BTN_TARGET_UI"))
   targetBtn:SetScript("OnClick", function()
     if Fundraiser.UI.Target then
@@ -494,7 +423,7 @@ function Window:Ensure()
 
   -- Create / publish view (hidden by default).
   local create = CreateFrame("Frame", "FundraiserCreatePanel", f)
-  create:SetPoint("TOPLEFT", 0, 0)
+  create:SetPoint("TOPLEFT", NAV_W, -HEADER_H)
   create:SetPoint("BOTTOMRIGHT", 0, 0)
   create:Hide()
   f.createPanel = create
@@ -563,6 +492,10 @@ function Window:Ensure()
     Window:ShowStatus()
   end)
 
+  if Fundraiser.UI.Ledger and Fundraiser.UI.Ledger.Attach then
+    Fundraiser.UI.Ledger:Attach(f)
+  end
+
   f:SetScript("OnShow", function()
     if not Window.userMoved then
       Window:PlaceDefault(f)
@@ -572,8 +505,9 @@ function Window:Ensure()
         f:Raise()
       end
     end
-    Window:ShowStatus()
-    Window:Refresh()
+    local page = Window.pendingPage or "status"
+    Window.pendingPage = nil
+    Window:ShowPage(page)
   end)
 
   self.view = "status"
@@ -582,20 +516,339 @@ function Window:Ensure()
   return f
 end
 
+-- Logo band + left menu (built once; pages are the panels anchored beside the menu).
+local NAV_ITEMS = {
+  { page = "status", key = "NAV_STATUS", needs = "officer", tip = "TIP_NAV_STATUS" },
+  { page = "ledger", key = "NAV_LEDGER", needs = "ledger", tip = "TIP_NAV_LEDGER" },
+  -- Actions pinned to the menu bottom (not pages): Add donation (opens the form), Set MOTD, Settings.
+  { page = "donation", key = "NAV_DONATION", needs = "donation", action = "donation", tip = "TIP_NAV_DONATION" },
+  { page = "motd", key = "BTN_SET_MOTD", needs = "motd", action = "motd", tip = "TIP_SET_MOTD" },
+  { page = "settings", key = "NAV_SETTINGS", needs = "officer", action = "settings", tip = "TIP_NAV_SETTINGS" },
+}
+
+function Window:BuildShell(f)
+  local bandTop = -TITLE_BAR_H
+  local logo = f:CreateTexture(nil, "ARTWORK")
+  logo:SetTexture(LOGO_TEXTURE)
+  logo:SetSize(LOGO_SIZE, LOGO_SIZE)
+  logo:SetPoint("TOPLEFT", 14, bandTop - 6)
+  f.logo = logo
+
+  f.brand = f:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  f.brand:SetPoint("TOPLEFT", logo, "TOPRIGHT", 10, -4)
+  f.brand:SetText(Fundraiser:T("WINDOW_TITLE"))
+  f.pageTitle = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  f.pageTitle:SetPoint("TOPLEFT", f.brand, "BOTTOMLEFT", 0, -3)
+
+  local function line(horizontal)
+    local t = f:CreateTexture(nil, "ARTWORK")
+    t:SetColorTexture(1, 1, 1, 0.15)
+    if horizontal then
+      t:SetHeight(1)
+      t:SetPoint("TOPLEFT", 8, bandTop - HEADER_H)
+      t:SetPoint("TOPRIGHT", -8, bandTop - HEADER_H)
+    else
+      t:SetWidth(1)
+      t:SetPoint("TOPLEFT", NAV_W, bandTop - HEADER_H)
+      t:SetPoint("BOTTOMLEFT", NAV_W, 8)
+    end
+    return t
+  end
+  line(true)
+  line(false)
+
+  f.navButtons = {}
+  for _, item in ipairs(NAV_ITEMS) do
+    local b = CreateFrame("Button", "FundraiserNav_" .. item.page, f, "UIPanelButtonTemplate")
+    b:SetSize(NAV_W - 20, 26)
+    b:SetText(Fundraiser:T(item.key))
+    b:SetScript("OnClick", function()
+      if item.action == "donation" then
+        Window:ShowPage("donation")
+        return
+      end
+      if item.action == "motd" then
+        Fundraiser.UI.Ledger:ConfirmSetMotd()
+        return
+      end
+      if item.action == "settings" then
+        if Fundraiser.Options and Fundraiser.Options.Open then
+          Fundraiser.Options:Open()
+        end
+        return
+      end
+      Window:ShowPage(item.page)
+    end)
+    b.item = item
+    -- Every menu entry describes what it does: <tip>_TITLE / <tip>_BODY in the locale.
+    b:SetScript("OnEnter", function(self)
+      showTooltip(self, item.tip .. "_TITLE", item.tip .. "_BODY")
+    end)
+    b:SetScript("OnLeave", hideTooltip)
+    f.navButtons[#f.navButtons + 1] = b
+  end
+
+  -- Top bar actions, right-aligned, left to right: [refresh] current page, [-] end event, [+] new event.
+  local refresh = makeCardPanelIconButton(f, "FundraiserRefreshButton", "Interface\\Buttons\\UI-RefreshButton")
+  refresh:ClearAllPoints()
+  refresh:SetPoint("TOPRIGHT", -16, bandTop - 18)
+  if refresh.icon then
+    local tex = refresh.icon:GetTexture()
+    if not tex or tex == "" then
+      refresh.icon:SetTexture("Interface\\Buttons\\UI-RotationRight-Button-Up")
+    end
+  end
+  refresh:SetScript("OnClick", function()
+    Window:RefreshCurrent()
+  end)
+  refresh:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_REFRESH_TITLE", "TIP_REFRESH_BODY")
+  end)
+  refresh:SetScript("OnLeave", hideTooltip)
+  f.refreshBtn = refresh
+
+  -- New event: original Blizzard PlusButton (no panel chrome).
+  local newEvent = makeCardIconButton(f, "FundraiserNewEventButton")
+  newEvent:ClearAllPoints()
+  newEvent:SetPoint("RIGHT", refresh, "LEFT", -6, 0)
+  trySetIcon(
+    newEvent,
+    "Interface\\Buttons\\UI-PlusButton-Up",
+    "Interface\\Buttons\\UI-PlusButton-Down",
+    "Interface\\Buttons\\UI-PlusButton-Hilight"
+  )
+  if not newEvent:GetNormalTexture() then
+    makeTextIconFallback(newEvent, "+")
+  end
+  newEvent:SetScript("OnClick", function()
+    Window:ShowCreate()
+  end)
+  newEvent:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_NEW_EVENT_TITLE", "TIP_NEW_EVENT_BODY")
+  end)
+  newEvent:SetScript("OnLeave", hideTooltip)
+  f.newEventBtn = newEvent
+
+  -- End event: MinusButton (archive + guild campaign wipe).
+  local endEvent = makeCardIconButton(f, "FundraiserEndEventButton")
+  endEvent:ClearAllPoints()
+  endEvent:SetPoint("RIGHT", newEvent, "LEFT", -4, 0)
+  trySetIcon(
+    endEvent,
+    "Interface\\Buttons\\UI-MinusButton-Up",
+    "Interface\\Buttons\\UI-MinusButton-Down",
+    "Interface\\Buttons\\ButtonHilight-Square"
+  )
+  if endEvent.SetDisabledTexture then
+    endEvent:SetDisabledTexture("Interface\\Buttons\\UI-MinusButton-Disabled")
+  end
+  if not endEvent:GetNormalTexture() then
+    makeTextIconFallback(endEvent, "-")
+  end
+  endEvent:SetScript("OnClick", function()
+    Window:ConfirmEndEvent()
+  end)
+  endEvent:SetScript("OnEnter", function(self)
+    showTooltip(self, "TIP_END_EVENT_TITLE", "TIP_END_EVENT_BODY")
+  end)
+  endEvent:SetScript("OnLeave", hideTooltip)
+  endEvent:Hide()
+  f.endEventBtn = endEvent
+
+  newEvent:ClearAllPoints()
+  newEvent:SetPoint("TOPRIGHT", -16, bandTop - 18)
+  endEvent:ClearAllPoints()
+  endEvent:SetPoint("RIGHT", newEvent, "LEFT", -4, 0)
+  refresh:ClearAllPoints()
+  refresh:SetPoint("RIGHT", endEvent, "LEFT", -6, 0)
+end
+
+local function isOfficer()
+  return Fundraiser:CanOpenAdminUi()
+end
+
+local function canSeeLedger()
+  return Fundraiser:CanOpenLedgerUi()
+end
+
+-- Show only the menu entries the player may use; mark the current page.
+function Window:UpdateNav()
+  local f = self.frame
+  if not f or not f.navButtons then
+    return
+  end
+  local officer, ledger = isOfficer(), canSeeLedger()
+  local motd = ledger and Fundraiser.UI.Ledger:CanSetMotd()
+  local donation = Fundraiser.UI.Ledger:CanAddDonation()
+  local y = -(TITLE_BAR_H + HEADER_H + 12)
+  local bottomY = 14
+  -- Bottom entries are listed top-to-bottom in NAV_ITEMS, so stack them upward from the end.
+  for i = #f.navButtons, 1, -1 do
+    local b = f.navButtons[i]
+    if b.item.action then
+      local allowed = (b.item.needs == "officer" and officer)
+        or (b.item.needs == "motd" and motd)
+        or (b.item.needs == "donation" and donation)
+      if allowed then
+        b:ClearAllPoints()
+        b:SetPoint("BOTTOMLEFT", 10, bottomY)
+        bottomY = bottomY + 30
+        b:Show()
+        if b.item.page == self.view then
+          b:LockHighlight()
+        else
+          b:UnlockHighlight()
+        end
+      else
+        b:Hide()
+      end
+    end
+  end
+  for _, b in ipairs(f.navButtons) do
+    local allowed = (b.item.needs == "officer" and officer) or (b.item.needs == "ledger" and ledger)
+    if not b.item.action then
+      if allowed then
+        b:ClearAllPoints()
+        b:SetPoint("TOPLEFT", 10, y)
+        y = y - 30
+        b:Show()
+        if b.item.page == self.view then
+          b:LockHighlight()
+        else
+          b:UnlockHighlight()
+        end
+      else
+        b:Hide()
+      end
+    end
+  end
+  self:UpdateHeaderButtons()
+end
+
+local function setShown(frame, shown)
+  if shown then
+    frame:Show()
+  else
+    frame:Hide()
+  end
+end
+
+-- Top bar buttons: officers get +/-; refresh needs a page that can refresh (not the form).
+function Window:UpdateHeaderButtons()
+  local f = self.frame
+  if not f or not f.refreshBtn then
+    return
+  end
+  local officer = isOfficer()
+  local onForm = self.view == "create" or self.view == "donation"
+  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+  local hasEvent = Store and Store:GetEvent() ~= nil
+  setShown(f.refreshBtn, not onForm and (officer or canSeeLedger()))
+  setShown(f.newEventBtn, officer and not onForm)
+  setShown(
+    f.endEventBtn,
+    officer and not onForm and hasEvent and (Fundraiser.Config and Fundraiser.Config.END_EVENT) and true or false
+  )
+end
+
+-- Refresh whichever page is showing.
+function Window:RefreshCurrent()
+  if self.view == "ledger" then
+    Fundraiser.UI.Ledger:Refresh()
+  else
+    self:Refresh()
+  end
+end
+
+local function showOnly(f, which)
+  setShown(f.statusPanel, which == "status")
+  setShown(f.createPanel, which == "create")
+  local Ledger = Fundraiser.UI.Ledger
+  if Ledger and Ledger.frame then
+    setShown(Ledger.frame, which == "ledger")
+  end
+  if Ledger and Ledger.donationFrame then
+    setShown(Ledger.donationFrame, which == "donation")
+  end
+end
+
+-- Open a page by name; officers get status/create, ledger viewers get the ledger.
+function Window:ShowPage(page)
+  if page == "donation" then
+    if Fundraiser.UI.Ledger:CanAddDonation() then
+      self:ShowDonation()
+    elseif canSeeLedger() then
+      self:ShowLedger()
+    else
+      self:Hide()
+    end
+    return
+  end
+  if page == "ledger" or not isOfficer() then
+    if canSeeLedger() then
+      self:ShowLedger()
+    else
+      self:Hide()
+    end
+    return
+  end
+  if page == "create" then
+    self:ShowCreate()
+  else
+    self:ShowStatus()
+  end
+end
+
 function Window:ShowStatus()
   local f = self:Ensure()
   self.view = "status"
-  f.createPanel:Hide()
-  f.statusPanel:Show()
+  showOnly(f, "status")
+  f.pageTitle:SetText(Fundraiser:T("NAV_STATUS"))
+  self:UpdateNav()
   self:Refresh()
+end
+
+function Window:ShowLedger()
+  local f = self:Ensure()
+  local Ledger = Fundraiser.UI.Ledger
+  self.view = "ledger"
+  showOnly(f, "ledger")
+  f.pageTitle:SetText(Fundraiser:T("NAV_LEDGER"))
+  self:UpdateNav()
+  Ledger:Refresh()
+end
+
+-- Manual donation form (donation target only).
+function Window:ShowDonation()
+  local f = self:Ensure()
+  self.view = "donation"
+  showOnly(f, "donation")
+  f.pageTitle:SetText(Fundraiser:T("NAV_DONATION"))
+  Fundraiser.UI.Ledger:ResetDonationForm()
+  self:UpdateNav()
+end
+
+-- Open the shell on the ledger page (or close it when the ledger is already showing).
+function Window:ToggleLedger()
+  local f = self:Ensure()
+  if f:IsShown() and self.view == "ledger" then
+    f:Hide()
+    return
+  end
+  if f:IsShown() then
+    self:ShowLedger()
+  else
+    self.pendingPage = "ledger"
+    f:Show()
+  end
 end
 
 function Window:ShowCreate()
   local f = self:Ensure()
   self.view = "create"
-  f:SetSize(FRAME_WIDTH, FRAME_HEIGHT_CREATE)
-  f.statusPanel:Hide()
-  f.createPanel:Show()
+  showOnly(f, "create")
+  f.pageTitle:SetText(Fundraiser:T("NAV_CREATE"))
+  self:UpdateNav()
 
   f.eventName:SetText("")
   f.target:SetText("")
@@ -810,7 +1063,7 @@ function Window:LayoutGoalWidgets(showGoal)
     f.progressCard:SetSize(halfW, PROGRESS_CARD_H)
     f.ledgerCard:SetPoint("TOPLEFT", MARGIN + halfW + CARD_GAP, midY)
     f.ledgerCard:SetSize(halfW, PROGRESS_CARD_H)
-    f.ledgerStatus:SetWidth(halfW - 56)
+    f.ledgerStatus:SetWidth(halfW - 20)
     f.chartCard:ClearAllPoints()
     f.chartCard:SetPoint("TOPLEFT", MARGIN, midY - PROGRESS_CARD_H - CARD_GAP)
     footerY = midY - PROGRESS_CARD_H - CARD_GAP - CHART_CARD_H - FOOTER_GAP
@@ -819,21 +1072,13 @@ function Window:LayoutGoalWidgets(showGoal)
     f.chartCard:Hide()
     f.ledgerCard:SetPoint("TOPLEFT", MARGIN, midY)
     f.ledgerCard:SetSize(cardW, PROGRESS_CARD_H)
-    f.ledgerStatus:SetWidth(cardW - 56)
+    f.ledgerStatus:SetWidth(cardW - 20)
     footerY = midY - PROGRESS_CARD_H - FOOTER_GAP
   end
 
-  -- Frame height = content down to footer + button + pad above the bottom border.
-  local neededH = math.abs(footerY) + FOOTER_BTN_H + FOOTER_BOTTOM_PAD
-  local minH = showGoal and FRAME_HEIGHT_STATUS or FRAME_HEIGHT_STATUS_COMPACT
-  if neededH < minH then
-    neededH = minH
-  end
-  f:SetSize(FRAME_WIDTH, neededH)
-
-  if f.settingsBtn then
-    f.settingsBtn:ClearAllPoints()
-    f.settingsBtn:SetPoint("TOPLEFT", MARGIN, footerY)
+  if f.targetBtn then
+    f.targetBtn:ClearAllPoints()
+    f.targetBtn:SetPoint("TOPLEFT", MARGIN, footerY)
   end
 end
 
@@ -1040,13 +1285,7 @@ function Window:Refresh()
     f.eventDetailFs:SetText(Fundraiser:T("STATUS_NO_EVENT"))
     f.eventNoteFs:SetText("")
   end
-  if f.endEventBtn then
-    if Fundraiser.Config and Fundraiser.Config.END_EVENT and status.hasEvent then
-      f.endEventBtn:Show()
-    else
-      f.endEventBtn:Hide()
-    end
-  end
+  self:UpdateHeaderButtons()
 
   local rows, total = {}, 0
   local canLedger = Fundraiser.Config.LEDGER

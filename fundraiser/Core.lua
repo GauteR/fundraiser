@@ -129,6 +129,40 @@ function Fundraiser:ToggleTargetUi()
   end
 end
 
+-- Ledger window: same view gate as UseCases.GetLedgerView (donation target, officers).
+function Fundraiser:CanOpenLedgerUi()
+  if not self:IsEnabled() then
+    return false
+  end
+  if not (self.Config and self.Config.LEDGER) then
+    return false
+  end
+  local Ledger = self.UI and self.UI.Ledger
+  if not Ledger then
+    return false
+  end
+  return Ledger:CanView()
+end
+
+function Fundraiser:ToggleLedgerUi()
+  if not self:IsEnabled() then
+    Print(self:T("CHAT_DISABLED"))
+    return
+  end
+  if not (self.Config and self.Config.LEDGER) then
+    return
+  end
+  if not self:CanOpenLedgerUi() then
+    Print(self:T("CHAT_LEDGER_NO_ACCESS"))
+    local Window = self.UI and self.UI.Window
+    if Window and Window.view == "ledger" then
+      Window:Hide()
+    end
+    return
+  end
+  self.UI.Window:ToggleLedger()
+end
+
 function Fundraiser:PrintStatus()
   if self:IsEnabled() then
     Print(self:T("CHAT_STATUS_ON"))
@@ -157,6 +191,10 @@ eventFrame:SetScript("OnEvent", function(_, event)
     local lower = msg:lower()
     if lower == "status" then
       Fundraiser:PrintStatus()
+      return
+    end
+    if lower == "ledger" then
+      Fundraiser:ToggleLedgerUi()
       return
     end
     if lower == "target" then

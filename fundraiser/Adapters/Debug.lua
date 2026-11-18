@@ -34,12 +34,13 @@ function Debug:Inject(payload, sender)
   return true
 end
 
-function Debug:SeedEvent()
+-- asMe: make the local player the donation target (to try Add donation / target UI solo).
+function Debug:SeedEvent(asMe)
   local Event = Fundraiser.Domain.Event
   local Store = Fundraiser.Adapters.Store
   local current = Store:GetEvent()
   local revision = current and ((tonumber(current.revision) or 0) + 1) or 1
-  -- Keep target off the local player so MAIL_SHOW reminders still appear while solo-testing.
+  -- Default keeps the target off the local player so MAIL_SHOW reminders still appear while solo-testing.
   local target = "Bank Alt"
   local event, err = Event.Create({
     id = "debug-event",
@@ -56,6 +57,10 @@ function Debug:SeedEvent()
   if not event then
     Print(Fundraiser:T("CHAT_DEBUG_FAIL", tostring(err)))
     return nil
+  end
+  if asMe then
+    -- Event.Create requires "First Last"; set the target afterwards so a one-word name works too.
+    event.target = Fundraiser.Adapters.Roster:GetPlayerName() or event.target
   end
   Store:SetEvent(event)
   Print(Fundraiser:T("CHAT_DEBUG_SEEDED", event.name, event.target, tostring(event.intervalSeconds)))
@@ -260,7 +265,7 @@ function Debug:Handle(msg)
   rest = rest or ""
 
   if cmd == "seed" then
-    self:SeedEvent()
+    self:SeedEvent(rest:lower():match("^me") ~= nil)
   elseif cmd == "hello" then
     local name, guid = rest:match("^(%S+)%s*(%S*)$")
     self:FakeHello(name ~= "" and name or nil, guid ~= "" and guid or nil)
