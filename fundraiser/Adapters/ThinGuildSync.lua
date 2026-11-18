@@ -1,5 +1,7 @@
--- Thin guild sync: HELLO / EVENT / LEDGER / DIGEST over SendAddonMessage.
+-- Thin guild sync: HELLO / EVENT / LEDGER / DIGEST / RESET over SendAddonMessage.
 -- Ledger mesh: all installed clients store + relay rows; UI view stays rank-gated.
+-- Epoch flow: BroadcastReset bumps local resetEpoch then encodes it; HELLO/DIGEST
+-- from a higher epoch force a local ledger wipe so stale peers cannot refill.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
 

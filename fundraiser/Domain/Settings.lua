@@ -1,10 +1,13 @@
--- Pure helpers for Options defaults (interval + global min admin rank).
+-- Pure helpers for Options defaults and install-presence display.
+-- Normalize/ApplyToConfig: defaultReminderInterval (seconds) + defaultMinAdminRank.
+-- BuildInstallRows/CountOnlineInstalls/BuildStatus: Options status section (no WoW API).
 Fundraiser = Fundraiser or {}
 Fundraiser.Domain = Fundraiser.Domain or {}
 
 local Settings = {}
 Fundraiser.Domain.Settings = Settings
 
+-- Reject non-positive interval and non-integer / negative rank before persisting.
 function Settings.Normalize(raw)
   raw = raw or {}
   local interval = tonumber(raw.defaultReminderInterval)

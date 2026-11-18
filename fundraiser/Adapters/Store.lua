@@ -1,4 +1,7 @@
 -- Local cache (SavedVariables FundraiserDB) with cold-start tolerant defaults.
+-- settings: Options overlays for reminder interval + min admin rank (applied onto Config).
+-- archives: capped history of replaced events (publish / remote EVENT with new id).
+-- resetEpoch: monotonic counter bumped on ledger/all wipe; stamped on HELLO/LEDGER/DIGEST/RESET.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
 
@@ -19,6 +22,7 @@ local function emptyDb()
   }
 end
 
+-- Fall back to Config.lua when FundraiserDB.settings is empty (first load / after ResetAll).
 local function defaultSettingsFromConfig()
   local cfg = Fundraiser.Config or {}
   return {

@@ -1,5 +1,8 @@
--- Options → AddOns → Fundraiser.
--- Blizzard Settings-style canvas: section headers, left labels, right values/controls, scroll.
+-- Options → AddOns → Fundraiser (Settings canvas).
+-- Layout mirrors Blizzard AddOns pages: section headers, left labels, right controls,
+-- outer scroll for the whole page, nested scroll for the online-install table.
+-- Editable knobs: default reminder interval (hours in UI, seconds in Store) and
+-- global min admin rank. Per-event interval stays on the admin window.
 Fundraiser = Fundraiser or {}
 Fundraiser.UI = Fundraiser.UI or {}
 Fundraiser.Options = Fundraiser.Options or {}
@@ -7,6 +10,7 @@ Fundraiser.Options = Fundraiser.Options or {}
 local Options = Fundraiser.Options
 local ADDON_FOLDER = "fundraiser"
 
+-- Install table columns (px from row left). Keep in sync with header FontStrings.
 local COL_NAME_X = 8
 local COL_STATUS_X = 240
 local COL_VERSION_X = 380
@@ -15,6 +19,7 @@ local MAX_INSTALL_ROWS = 40
 local INSTALL_TABLE_HEIGHT = 160
 local CONTENT_WIDTH = 560
 local LABEL_WIDTH = 280
+-- X of right-hand value/control column on status and edit rows.
 local CONTROL_X = 320
 
 local function GetMeta(field, fallback)
@@ -256,6 +261,8 @@ local function AfterLocalDataChange(panel)
   end
 end
 
+-- Persist Options defaults into FundraiserDB.settings and overlay Fundraiser.Config.
+-- Interval edit box is hours for officers; Store/Domain keep seconds.
 local function ApplySettingsFromPanel(panel)
   local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
   if not Store or not Store.SetSettings or not panel then

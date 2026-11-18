@@ -137,6 +137,8 @@ end
 -- Mesh merge: every installed client stores the id-union replica.
 -- UI still gates view via Roles.CanViewLedger. Addon messages are not signed;
 -- a malicious peer can forge rows (documented in SYNC.md).
+-- Rows stamped with resetEpoch < local epoch are dropped so a post-RESET HELLO
+-- cannot refill wiped ledgers from peers that never saw the wipe.
 function UC.MergeRemoteLedger(deps, remoteEntries, senderName, _senderRankIndex)
   local Ledger = Domain().Ledger
   local event = deps.getEvent and deps.getEvent() or nil
@@ -153,6 +155,7 @@ function UC.MergeRemoteLedger(deps, remoteEntries, senderName, _senderRankIndex)
   local accepted = {}
   for _, entry in ipairs(remoteEntries or {}) do
     local entryEpoch = tonumber(entry and entry.resetEpoch) or 0
+    -- Keep equal epoch (same wipe generation); reject older generations only.
     if entryEpoch >= localEpoch then
       accepted[#accepted + 1] = entry
     end

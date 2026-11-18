@@ -1,4 +1,11 @@
 -- Encode/decode thin guild sync payloads (pipe-separated, ASCII-safe).
+-- Wire shapes (fields after kind):
+--   HELLO|version|guid|resetEpoch
+--   EVENT|id|name|target|goal|interval|minAdmin|rev|publishedAt|publisher
+--   LEDGER|id|kind|name|detail|eventId|copper|at|resetEpoch
+--   DIGEST|eventRev|ledgerCount|ledgerSum|ledgerMaxAt|resetEpoch
+--   RESET|scope|at|publisher|resetEpoch
+-- resetEpoch blocks post-wipe mesh refill: receivers drop LEDGER rows with epoch < local.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
 
