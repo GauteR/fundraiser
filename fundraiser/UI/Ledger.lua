@@ -12,10 +12,14 @@ local FRAME_H = 470
 local ROWS = 16
 local ROW_H = 18
 local LIST_TOP = -112
-local COL_TIME_X, COL_TIME_W = 4, 140
+local COL_TIME_X, COL_TIME_W = 4, 144
 local COL_NAME_X, COL_NAME_W = 148, 140
-local COL_DETAIL_X, COL_DETAIL_W = 292, 170
+local COL_DETAIL_X, COL_DETAIL_W = 292, 150
 local COL_AMOUNT_W = 130
+local TABLE_W = FRAME_W - 56
+-- Grid lines sit at the left edge of each column (and the table edges).
+local GRID_X = { 0, COL_NAME_X - 4, COL_DETAIL_X - 4, TABLE_W - COL_AMOUNT_W - 8, TABLE_W - 1 }
+local GRID_COLOR = { 0.55, 0.50, 0.35, 0.55 }
 local COLOR_ARCHIVE = { 0.75, 0.75, 0.55 }
 local COLOR_HEADER = { 1, 0.82, 0 }
 
@@ -108,8 +112,8 @@ end
 
 local function makeCell(parent, template, x, width, justify)
   local fs = parent:CreateFontString(nil, "ARTWORK", template)
-  fs:SetPoint("LEFT", x, 0)
-  fs:SetWidth(width)
+  fs:SetPoint("LEFT", x + 2, 0)
+  fs:SetWidth(width - 6)
   fs:SetJustifyH(justify or "LEFT")
   fs:SetWordWrap(false)
   return fs
@@ -172,7 +176,14 @@ function Ledger:Ensure()
   -- Column headers.
   local header = CreateFrame("Frame", nil, f)
   header:SetPoint("TOPLEFT", 14, LIST_TOP + 18)
-  header:SetSize(FRAME_W - 56, ROW_H)
+  header:SetSize(TABLE_W, ROW_H)
+  addGrid(header, true)
+  header.bg:SetColorTexture(1, 0.82, 0, 0.18)
+  local top = header:CreateTexture(nil, "BORDER")
+  top:SetColorTexture(GRID_COLOR[1], GRID_COLOR[2], GRID_COLOR[3], GRID_COLOR[4])
+  top:SetHeight(1)
+  top:SetPoint("TOPLEFT", 0, 0)
+  top:SetPoint("TOPRIGHT", 0, 0)
   makeCell(header, "GameFontNormalSmall", COL_TIME_X, COL_TIME_W):SetText(Fundraiser:T("LEDGER_COL_TIME"))
   makeCell(header, "GameFontNormalSmall", COL_NAME_X, COL_NAME_W):SetText(Fundraiser:T("LEDGER_COL_NAME"))
   makeCell(header, "GameFontNormalSmall", COL_DETAIL_X, COL_DETAIL_W):SetText(Fundraiser:T("LEDGER_COL_DETAIL"))
@@ -196,7 +207,8 @@ function Ledger:Ensure()
   f.rows = {}
   for i = 1, ROWS do
     local r = CreateFrame("Frame", nil, f)
-    r:SetSize(FRAME_W - 56, ROW_H)
+    r:SetSize(TABLE_W, ROW_H)
+    addGrid(r, true)
     r:SetPoint("TOPLEFT", 14, LIST_TOP - (i - 1) * ROW_H)
     r.time = makeCell(r, "GameFontHighlightSmall", COL_TIME_X, COL_TIME_W)
     r.name = makeCell(r, "GameFontHighlightSmall", COL_NAME_X, COL_NAME_W)
@@ -214,6 +226,27 @@ function Ledger:Ensure()
 
   self.frame = f
   return f
+end
+
+-- Cell backdrop, bottom hairline and vertical column lines for one table row.
+local function addGrid(frame, withBottom)
+  frame.bg = frame:CreateTexture(nil, "BACKGROUND")
+  frame.bg:SetAllPoints()
+  frame.bg:SetColorTexture(0, 0, 0, 0)
+  for _, x in ipairs(GRID_X) do
+    local v = frame:CreateTexture(nil, "BORDER")
+    v:SetColorTexture(GRID_COLOR[1], GRID_COLOR[2], GRID_COLOR[3], GRID_COLOR[4])
+    v:SetWidth(1)
+    v:SetPoint("TOPLEFT", x, 0)
+    v:SetPoint("BOTTOMLEFT", x, 0)
+  end
+  if withBottom then
+    local b = frame:CreateTexture(nil, "BORDER")
+    b:SetColorTexture(GRID_COLOR[1], GRID_COLOR[2], GRID_COLOR[3], GRID_COLOR[4])
+    b:SetHeight(1)
+    b:SetPoint("BOTTOMLEFT", 0, 0)
+    b:SetPoint("BOTTOMRIGHT", 0, 0)
+  end
 end
 
 local function setColor(row, color)
@@ -235,6 +268,8 @@ function Ledger:UpdateRows()
     else
       row:Show()
       if item.type == "row" then
+        -- Zebra stripes follow the item index so they stay put while scrolling.
+        row.bg:SetColorTexture(1, 1, 1, (offset + i) % 2 == 0 and 0.07 or 0.02)
         local r = item.row
         setColor(row, { 1, 1, 1 })
         row.time:SetText(formatDate(r.at) .. " " .. kindLabel(r.kind))
@@ -242,6 +277,7 @@ function Ledger:UpdateRows()
         row.detail:SetText(r.detail or "")
         row.amount:SetText(money(r.copper, 12))
       elseif item.type == "header" then
+        row.bg:SetColorTexture(1, 0.82, 0, 0.18)
         setColor(row, COLOR_HEADER)
         row.time:SetText(item.text)
         row.name:SetText("")
@@ -249,6 +285,7 @@ function Ledger:UpdateRows()
         row.amount:SetText("")
       else
         local a = item.archive
+        row.bg:SetColorTexture(0.75, 0.75, 0.55, 0.10)
         setColor(row, COLOR_ARCHIVE)
         row.time:SetText(formatDate(a.archivedAt))
         row.name:SetText(Fundraiser:T("LEDGER_PREVIOUS_FMT", a.name ~= "" and a.name or "?"))
