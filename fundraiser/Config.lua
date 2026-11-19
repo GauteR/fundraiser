@@ -25,8 +25,12 @@ Fundraiser.Config = {
   -- TSM custom price for "lowest" AH reference (fallback: Auctionator, then manual).
   TSM_PRICE_SOURCE = "DBMinBuyout",
   AH_CUT_FRACTION = 0.05,
-  AH_DURATION = 2,
+  -- Forever auction duration index: 1 = 2h, 2 = 8h, 3 = 24h.
+  AH_DURATION = 3,
   AH_UNDERCUT_COPPER = 0,
+  -- Target page: stacks worth less than this (copper, value of the recommended action)
+  -- stay listed but are left out of Post all / Sell all.
+  MIN_STACK_VALUE_COPPER = 100,
 
   -- Addon message prefix (max 16 characters on Classic-era clients).
   COMM_PREFIX = "Fundraiser",

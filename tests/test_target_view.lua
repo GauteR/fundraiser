@@ -1,0 +1,129 @@
+-- Pure Lua tests for the target page view model (grouping, bulk eligibility, selection).
+-- Style: Given / When / Then scenarios.
+local root = arg and arg[0] and arg[0]:match("(.+)[/\\]") or "."
+local repo = root .. "/.."
+
+dofile(repo .. "/fundraiser/Config.lua")
+dofile(repo .. "/fundraiser/Domain/SaleAdvice.lua")
+dofile(repo .. "/fundraiser/Domain/TargetView.lua")
+
+local TV = Fundraiser.Domain.TargetView
+local failed = 0
+
+local function assert_eq(a, b, msg)
+  if a ~= b then
+    failed = failed + 1
+    io.stderr:write(string.format("FAIL: %s (%s ~= %s)\n", msg or "assert_eq", tostring(a), tostring(b)))
+  end
+end
+
+local function row(bag, slot, name, advice, vendorTotal, ahNet)
+  return { bag = bag, slot = slot, name = name, advice = advice, vendorTotal = vendorTotal, ahNet = ahNet }
+end
+
+-- Scenario: stacks are grouped by the sale advice
+do
+  local rows = {
+    row(0, 1, "Linen", "vendor", 40, 10),
+    row(0, 2, "Silk", "ah", 20, 500),
+    row(0, 3, "Mystery", "manual", nil, nil),
+    row(0, 4, "Rune", "ah", 10, 900),
+  }
+  local view = TV.Build(rows, { minValue = 0 })
+  assert_eq(#view.groups.auction.entries, 2, "group: two auction stacks")
+  assert_eq(#view.groups.vendor.entries, 1, "group: one vendor stack")
+  assert_eq(#view.groups.price.entries, 1, "group: one needs-price stack")
+  assert_eq(view.groups.auction.entries[1].row.name, "Rune", "group: best value first inside a list")
+  assert_eq(view.groups.auction.entries[2].row.name, "Silk", "group: second best value next")
+  assert_eq(view.groups.auction.total, 1400, "group: auction total is the sum of AH net")
+  assert_eq(view.groups.vendor.total, 40, "group: vendor total is the sum of vendor totals")
+end
+
+-- Scenario: the value of a stack is the value of the recommended action
+do
+  assert_eq(TV.Value(row(0, 1, "A", "ah", 5, 300)), 300, "value: AH net for auction stacks")
+  assert_eq(TV.Value(row(0, 1, "A", "vendor", 50, 10)), 50, "value: vendor total for vendor stacks")
+  assert_eq(TV.Value(row(0, 1, "A", "manual", nil, nil)), nil, "value: none without a usable price")
+end
+
+-- Scenario: stacks below the minimum value stay listed but leave bulk actions
+do
+  local rows = { row(0, 1, "Cheap", "vendor", 50, nil), row(0, 2, "Fine", "vendor", 150, nil) }
+  local view = TV.Build(rows, { minValue = 100 })
+  local cheap, fine
+  for _, e in ipairs(view.groups.vendor.entries) do
+    if e.row.name == "Cheap" then
+      cheap = e
+    else
+      fine = e
+    end
+  end
+  assert_eq(cheap.belowMin, true, "min value: cheap stack is marked")
+  assert_eq(cheap.bulk, false, "min value: cheap stack is not bulk eligible")
+  assert_eq(fine.belowMin, false, "min value: fine stack is not marked")
+  assert_eq(fine.bulk, true, "min value: fine stack is bulk eligible")
+  assert_eq(#TV.BulkEntries(view, "vendor"), 1, "min value: bulk list only has the fine stack")
+  assert_eq(view.groups.vendor.bulkCount, 1, "min value: bulk count")
+  assert_eq(view.groups.vendor.bulkTotal, 150, "min value: bulk total")
+  assert_eq(view.groups.vendor.total, 200, "min value: group total still counts every stack")
+end
+
+-- Scenario: skipped stacks leave bulk actions, needs-price stacks never join them
+do
+  local rows = { row(0, 1, "A", "ah", 1, 400), row(0, 2, "B", "ah", 1, 300), row(0, 3, "C", "manual", nil, nil) }
+  local view = TV.Build(rows, { minValue = 0, skipped = { [TV.Key(rows[1])] = true } })
+  assert_eq(#TV.BulkEntries(view, "auction"), 1, "skip: skipped stack leaves the bulk list")
+  assert_eq(TV.BulkEntries(view, "auction")[1].row.name, "B", "skip: the other stack stays")
+  assert_eq(#TV.BulkEntries(view, "price"), 0, "skip: needs-price stacks are never bulk")
+  assert_eq(view.groups.auction.entries[1].skipped, true, "skip: skipped stack is flagged in the list")
+end
+
+-- Scenario: the default minimum value comes from Config
+do
+  Fundraiser.Config.MIN_STACK_VALUE_COPPER = 100
+  local view = TV.Build({ row(0, 1, "A", "vendor", 99, nil) }, {})
+  assert_eq(view.groups.vendor.entries[1].belowMin, true, "config: default minimum applies")
+  local none = TV.Build({ row(0, 1, "A", "vendor", 99, nil) }, { minValue = 0 })
+  assert_eq(none.groups.vendor.entries[1].belowMin, false, "config: explicit minimum overrides")
+end
+
+-- Scenario: selection walks auction, then vendor, then needs-price stacks, and wraps
+do
+  local rows = {
+    row(0, 1, "V", "vendor", 100, nil),
+    row(0, 2, "A", "ah", 1, 500),
+    row(0, 3, "N", "manual", nil, nil),
+  }
+  local view = TV.Build(rows, { minValue = 0 })
+  local flat = TV.Flatten(view)
+  assert_eq(#flat, 3, "flatten: every stack is selectable")
+  assert_eq(flat[1].row.name, "A", "flatten: auction first")
+  assert_eq(flat[2].row.name, "V", "flatten: vendor second")
+  assert_eq(flat[3].row.name, "N", "flatten: needs price last")
+  assert_eq(TV.Move(1, 1, 3), 2, "move: next")
+  assert_eq(TV.Move(3, 1, 3), 1, "move: next wraps to the first")
+  assert_eq(TV.Move(1, -1, 3), 3, "move: previous wraps to the last")
+  assert_eq(TV.Move(1, 1, 0), 0, "move: nothing to select in an empty list")
+end
+
+-- Scenario: selection is clamped after the list shrinks, and an empty list selects nothing
+do
+  assert_eq(TV.Clamp(5, 3), 3, "clamp: above the end")
+  assert_eq(TV.Clamp(0, 3), 1, "clamp: below the start")
+  assert_eq(TV.Clamp(2, 3), 2, "clamp: inside the list")
+  assert_eq(TV.Clamp(4, 0), 0, "clamp: empty list")
+  local view = TV.Build({}, { minValue = 0 })
+  assert_eq(#TV.Flatten(view), 0, "empty: no entries")
+  assert_eq(view.groups.auction.total, 0, "empty: zero total")
+end
+
+-- Scenario: stack keys identify a bag slot
+do
+  assert_eq(TV.Key(row(2, 7, "A", "ah")), "2:7", "key: bag and slot")
+end
+
+if failed > 0 then
+  io.stderr:write(string.format("%d test(s) failed\n", failed))
+  os.exit(1)
+end
+print("target view tests passed")

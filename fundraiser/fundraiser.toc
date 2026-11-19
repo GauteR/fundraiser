@@ -19,11 +19,14 @@ Domain/LedgerView.lua
 Domain/Reminder.lua
 Domain/Ledger.lua
 Domain/SaleAdvice.lua
+Domain/TargetView.lua
+Domain/ActionQueue.lua
 Application/UseCases.lua
 Adapters/Codec.lua
 Adapters/Store.lua
 Adapters/Roster.lua
 Adapters/Pricing.lua
+Adapters/BagAssist.lua
 Adapters/ThinGuildSync.lua
 Adapters/Mail.lua
 Adapters/Auction.lua
