@@ -122,6 +122,27 @@ do
   assert_eq(TV.Key(row(2, 7, "A", "ah")), "2:7", "key: bag and slot")
 end
 
+-- Scenario: the note shown next to a row says why it is left out of bulk actions
+do
+  assert_eq(TV.RowNote({ group = "auction", skipped = true, belowMin = true }), "skipped", "note: skipped wins")
+  assert_eq(TV.RowNote({ group = "auction", belowMin = true }), "below_min", "note: below the minimum")
+  assert_eq(TV.RowNote({ group = "price" }), "needs_price", "note: no price yet")
+  assert_eq(TV.RowNote({ group = "vendor" }), nil, "note: a normal row has none")
+end
+
+-- Scenario: status lines are coloured by what happened
+do
+  assert_eq(TV.StatusKind("CHAT_TARGET_POSTED"), "ok", "status: posted")
+  assert_eq(TV.StatusKind("CHAT_TARGET_VENDOR_OK"), "ok", "status: sold")
+  assert_eq(TV.StatusKind("TARGET_BULK_DONE_FMT"), "ok", "status: bulk done")
+  assert_eq(TV.StatusKind("TARGET_BULK_PROGRESS_FMT"), "info", "status: bulk progress")
+  assert_eq(TV.StatusKind("TARGET_HINT"), "info", "status: hint")
+  assert_eq(TV.StatusKind("CHAT_TARGET_POST_FAILED"), "error", "status: failure")
+  assert_eq(TV.StatusKind("CHAT_TARGET_OPEN_AH"), "error", "status: needs the auction house")
+  assert_eq(TV.StatusKind("TARGET_BULK_STOPPED_FMT"), "error", "status: bulk stopped")
+  assert_eq(TV.StatusKind(nil), "info", "status: nothing")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)

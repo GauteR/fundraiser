@@ -14,6 +14,8 @@ Fundraiser.Config = {
   END_EVENT = true,
   LEDGER = true,
   TARGET_UI = true,
+  -- Donation target: show the Target panel beside the auction house while it is open.
+  TARGET_AUTO_DOCK = true,
   AH_ASSIST = true,
   -- Solo in-game simulation: /fundraiser debug …
   DEBUG = true,

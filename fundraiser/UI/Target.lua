@@ -13,16 +13,33 @@ local MARGIN = 16
 local CARD_GAP = 10
 local CARD_PAD = 10
 local CARD_W = PANEL_W - 2 * MARGIN
-local ROWS = 10
+local ROWS = 9
 local ROW_H = 18
-local LIST_TOP = -28
+local HEADER_Y = -28
+local LIST_TOP = -46
 local LIST_CARD_H = -LIST_TOP + ROWS * ROW_H + 10
 local DETAIL_CARD_H = 150
 local LIST_W = CARD_W - CARD_PAD - 34
+-- List columns: icon, item name, quantity, value (net of the recommended action), note.
+local ICON_SIZE = 14
+local COL_NAME_X, COL_NAME_W = 22, 236
+local COL_QTY_X, COL_QTY_W = 262, 40
+local COL_VALUE_X, COL_VALUE_W = 306, 110
+local COL_NOTE_X = 424
+local COLOR_GROUP = {
+  auction = { 0.30, 0.65, 1.00 },
+  vendor = { 1.00, 0.82, 0.00 },
+  price = { 1.00, 0.55, 0.15 },
+}
+local COLOR_STATUS = {
+  ok = { 0.40, 1.00, 0.40 },
+  error = { 1.00, 0.40, 0.40 },
+  info = { 1.00, 1.00, 1.00 },
+}
 -- Opening or closing the auction house / a vendor changes what the bulk buttons may do.
 local WINDOW_EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "MERCHANT_SHOW", "MERCHANT_CLOSED" }
-local COLOR_HEADER = { 1, 0.82, 0 }
-local COLOR_SELECTED = { 1, 0.82, 0, 0.22 }
+local COLOR_SELECTED = { 1, 0.82, 0, 0.30 }
+local COLOR_NOTE = { 0.65, 0.65, 0.65 }
 
 local function money(copper)
   if copper == nil then
@@ -43,7 +60,7 @@ local function buildItems(view)
     if #g.entries == 0 then
       return
     end
-    items[#items + 1] = { type = "header", text = headerText }
+    items[#items + 1] = { type = "header", text = headerText, group = group }
     for _, entry in ipairs(g.entries) do
       items[#items + 1] = { type = "entry", entry = entry }
     end
@@ -61,6 +78,29 @@ local function statusText(key, a, b)
     return Fundraiser:T(key, tostring(a), money(b))
   end
   return Fundraiser:T(key)
+end
+
+-- Show a status line coloured by what happened (green ok, red failure, white info).
+function Target:SetStatus(key, text)
+  local c = COLOR_STATUS[TV().StatusKind(key)]
+  self.frame.status:SetTextColor(c[1], c[2], c[3])
+  self.frame.status:SetText(text)
+end
+
+-- Item tooltip for a row: the real bag tooltip when available, else the item link.
+function Target:ShowItemTooltip(owner, row)
+  if not GameTooltip then
+    return
+  end
+  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+  if row.bag and row.slot and GameTooltip.SetBagItem then
+    GameTooltip:SetBagItem(row.bag, row.slot)
+  elseif row.link then
+    GameTooltip:SetHyperlink(row.link)
+  else
+    GameTooltip:SetText(row.name or "?")
+  end
+  GameTooltip:Show()
 end
 
 function Target:Attach(shell)
@@ -88,6 +128,25 @@ function Target:Attach(shell)
   end)
   f.scroll = scroll
 
+  -- Column labels above the rows, like the ledger table.
+  local head = CreateFrame("Frame", nil, card)
+  head:SetPoint("TOPLEFT", CARD_PAD, HEADER_Y)
+  head:SetSize(LIST_W, ROW_H)
+  head.bg = head:CreateTexture(nil, "BACKGROUND")
+  head.bg:SetAllPoints()
+  head.bg:SetColorTexture(1, 0.82, 0, 0.18)
+  local function label(x, width, key, justify)
+    local fs = head:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    fs:SetPoint("LEFT", x, 0)
+    fs:SetWidth(width)
+    fs:SetJustifyH(justify or "LEFT")
+    fs:SetText(Fundraiser:T(key))
+  end
+  label(COL_NAME_X, COL_NAME_W, "TARGET_COL_ITEM")
+  label(COL_QTY_X, COL_QTY_W, "TARGET_COL_QTY", "RIGHT")
+  label(COL_VALUE_X, COL_VALUE_W, "TARGET_COL_VALUE", "RIGHT")
+  label(COL_NOTE_X, LIST_W - COL_NOTE_X, "TARGET_COL_NOTE")
+
   f.rows = {}
   for i = 1, ROWS do
     local r = CreateFrame("Button", nil, card)
@@ -96,18 +155,42 @@ function Target:Attach(shell)
     r.bg = r:CreateTexture(nil, "BACKGROUND")
     r.bg:SetAllPoints()
     r.bg:SetColorTexture(0, 0, 0, 0)
-    r.value = r:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    r.value:SetPoint("RIGHT", -4, 0)
-    r.value:SetWidth(120)
-    r.value:SetJustifyH("RIGHT")
-    r.text = r:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    r.text:SetPoint("LEFT", 4, 0)
-    r.text:SetPoint("RIGHT", r.value, "LEFT", -6, 0)
-    r.text:SetJustifyH("LEFT")
-    r.text:SetWordWrap(false)
+    -- Accent bar on the selected row.
+    r.bar = r:CreateTexture(nil, "ARTWORK")
+    r.bar:SetColorTexture(1, 0.82, 0, 1)
+    r.bar:SetWidth(2)
+    r.bar:SetPoint("TOPLEFT", 0, 0)
+    r.bar:SetPoint("BOTTOMLEFT", 0, 0)
+    r.bar:Hide()
+    r.icon = r:CreateTexture(nil, "ARTWORK")
+    r.icon:SetSize(ICON_SIZE, ICON_SIZE)
+    r.icon:SetPoint("LEFT", 4, 0)
+    local function cell(x, width, justify)
+      local fs = r:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+      fs:SetPoint("LEFT", x, 0)
+      fs:SetWidth(width)
+      fs:SetJustifyH(justify or "LEFT")
+      fs:SetWordWrap(false)
+      return fs
+    end
+    r.text = cell(COL_NAME_X, COL_NAME_W)
+    r.qty = cell(COL_QTY_X, COL_QTY_W, "RIGHT")
+    r.value = cell(COL_VALUE_X, COL_VALUE_W, "RIGHT")
+    r.note = cell(COL_NOTE_X, LIST_W - COL_NOTE_X)
+    r.note:SetTextColor(COLOR_NOTE[1], COLOR_NOTE[2], COLOR_NOTE[3])
     r:SetScript("OnClick", function(self)
       if self.entry then
         Target:Select(self.entry.key)
+      end
+    end)
+    r:SetScript("OnEnter", function(self)
+      if self.entry then
+        Target:ShowItemTooltip(self, self.entry.row)
+      end
+    end)
+    r:SetScript("OnLeave", function()
+      if GameTooltip then
+        GameTooltip:Hide()
       end
     end)
     f.rows[i] = r
@@ -180,7 +263,7 @@ function Target:Attach(shell)
   f.sellAllBtn = sellAll
 
   -- Inline result of the last action (chat gets the same message from AuctionPost).
-  f.status = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  f.status = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   f.status:SetPoint("TOPLEFT", MARGIN, bulkY - 32)
   f.status:SetWidth(CARD_W)
   f.status:SetJustifyH("LEFT")
@@ -242,29 +325,39 @@ function Target:UpdateRows()
     local r = f.rows[i]
     local item = self.items[offset + i]
     r.entry = nil
+    r.bar:Hide()
+    r.icon:Hide()
+    r.qty:SetText("")
+    r.note:SetText("")
+    r.text:SetWidth(COL_NAME_W)
     if not item then
       r:Hide()
     elseif item.type == "header" then
+      local c = COLOR_GROUP[item.group] or COLOR_GROUP.vendor
+      r.text:SetWidth(LIST_W - COL_NAME_X)
       r.text:SetText(item.text)
-      r.text:SetTextColor(COLOR_HEADER[1], COLOR_HEADER[2], COLOR_HEADER[3])
+      r.text:SetTextColor(c[1], c[2], c[3])
       r.value:SetText("")
-      r.bg:SetColorTexture(1, 1, 1, 0.06)
+      r.bg:SetColorTexture(c[1], c[2], c[3], 0.12)
       r:Show()
     else
       local entry = item.entry
       local row = entry.row
       r.entry = entry
-      local mark = ""
-      if entry.skipped then
-        mark = Fundraiser:T("TARGET_MARK_SKIPPED")
-      elseif entry.belowMin then
-        mark = Fundraiser:T("TARGET_MARK_BELOW_MIN")
+      local icon = row.itemId and C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(row.itemId)
+      if icon then
+        r.icon:SetTexture(icon)
+        r.icon:Show()
       end
-      r.text:SetText(string.format("%s x%d%s", row.name or "?", row.count or 1, mark))
+      r.text:SetText(row.name or "?")
       r.text:SetTextColor(1, 1, 1)
+      r.qty:SetText(tostring(row.count or 1))
       r.value:SetText(money(entry.value))
+      local note = TV().RowNote(entry)
+      r.note:SetText(note and Fundraiser:T("TARGET_NOTE_" .. string.upper(note)) or "")
       if entry.key == self.selectedKey then
         r.bg:SetColorTexture(COLOR_SELECTED[1], COLOR_SELECTED[2], COLOR_SELECTED[3], COLOR_SELECTED[4])
+        r.bar:Show()
       else
         r.bg:SetColorTexture(0, 0, 0, 0)
       end
@@ -359,7 +452,7 @@ function Target:Act(action)
   local manual = tonumber(self.frame.manualPrice:GetText())
   local ok, key, a, b = Fundraiser.Adapters.AuctionPost:HandleRow(entry.row, action, manual)
   if key then
-    self.frame.status:SetText(statusText(key, a, b))
+    self:SetStatus(key, statusText(key, a, b))
   end
   -- BAG_UPDATE_DELAYED rescans when the bag actually changes.
 end
@@ -452,7 +545,7 @@ function Target:BulkClick(group)
   end
   local d = BP.Describe(self.view, group, windowsOpen())
   if not d.canRun then
-    f.status:SetText(Fundraiser:T(d.blockKey))
+    self:SetStatus(d.blockKey, Fundraiser:T(d.blockKey))
     return
   end
   local entries = TV().BulkEntries(self.view, group)
@@ -477,11 +570,14 @@ function Target:RunPost()
   local ok, reason = queue:Next()
   local f = self.frame
   if not ok then
-    f.status:SetText(stoppedText(queue, reason))
+    self:SetStatus("TARGET_BULK_STOPPED_FMT", stoppedText(queue, reason))
   elseif queue:Finished() then
-    f.status:SetText(Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done()))
+    self:SetStatus("TARGET_BULK_DONE_FMT", Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done()))
   else
-    f.status:SetText(Fundraiser:T("TARGET_BULK_PROGRESS_FMT", queue:Done(), queue:Total(), queue:Remaining()))
+    self:SetStatus(
+      "TARGET_BULK_PROGRESS_FMT",
+      Fundraiser:T("TARGET_BULK_PROGRESS_FMT", queue:Done(), queue:Total(), queue:Remaining())
+    )
   end
   self:UpdateBulk()
 end
@@ -491,19 +587,120 @@ function Target:RunSell(queue)
   while queue:Remaining() > 0 do
     local ok, reason = queue:Next()
     if not ok then
-      f.status:SetText(stoppedText(queue, reason))
+      self:SetStatus("TARGET_BULK_STOPPED_FMT", stoppedText(queue, reason))
       self:UpdateBulk()
       return
     end
   end
-  f.status:SetText(Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done()))
+  self:SetStatus("TARGET_BULK_DONE_FMT", Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done()))
   self:UpdateBulk()
+end
+
+-- The same panel docks beside the auction house while it is open (donation target only):
+-- it moves from the shell window into a compact frame anchored to the right of the auction
+-- house, and goes back to the shell when the auction house closes.
+local PANEL_H = 490
+
+function Target:EnsureDock()
+  if self.dock then
+    return self.dock
+  end
+  local d = CreateFrame("Frame", "FundraiserTargetDock", UIParent, "BasicFrameTemplateWithInset")
+  d:SetSize(PANEL_W + 8, PANEL_H + 28)
+  d:SetFrameStrata("DIALOG")
+  d:SetClampedToScreen(true)
+  d:EnableMouse(true)
+  if d.TitleText then
+    d.TitleText:SetText(Fundraiser:T("TARGET_DOCK_TITLE"))
+  end
+  d:Hide()
+  self.dock = d
+  return d
+end
+
+function Target:Dock()
+  if not Fundraiser:CanOpenTargetUi() then
+    return
+  end
+  local Window = Fundraiser.UI.Window
+  -- Already on screen as the shell's Target page: leave it there.
+  if Window.frame and Window.frame:IsShown() and Window.view == "target" then
+    return
+  end
+  Window:Ensure()
+  local f = self.frame
+  if not f then
+    return
+  end
+  local dock = self:EnsureDock()
+  dock:ClearAllPoints()
+  if AuctionHouseFrame then
+    dock:SetPoint("TOPLEFT", AuctionHouseFrame, "TOPRIGHT", 2, 0)
+  else
+    dock:SetPoint("CENTER", UIParent, "CENTER", 300, 0)
+  end
+  f:SetParent(dock)
+  f:ClearAllPoints()
+  f:SetPoint("TOPLEFT", dock, "TOPLEFT", 4, -24)
+  f:SetSize(PANEL_W, PANEL_H)
+  self.docked = true
+  dock:Show()
+  f:Show()
+  self:Open()
+end
+
+-- Back into the shell window (it shows there only while the shell is on the Target page).
+function Target:Undock()
+  if not self.docked then
+    return
+  end
+  self.docked = false
+  local f = self.frame
+  local Window = Fundraiser.UI.Window
+  local shell = Window.frame
+  if self.dock then
+    self.dock:Hide()
+  end
+  if not (f and shell) then
+    return
+  end
+  f:SetParent(shell)
+  f:ClearAllPoints()
+  f:SetPoint("TOPLEFT", shell, "TOPLEFT", Window.NAV_W, -Window.HEADER_H)
+  f:SetPoint("BOTTOMRIGHT", 0, 0)
+  if shell:IsShown() and Window.view == "target" then
+    f:Show()
+  else
+    f:Hide()
+  end
+end
+
+-- Watches the auction house window; called once at login.
+function Target:Initialize()
+  if self.initialized then
+    return
+  end
+  local cfg = Fundraiser.Config or {}
+  if not (cfg.TARGET_UI and cfg.TARGET_AUTO_DOCK) then
+    return
+  end
+  local ev = CreateFrame("Frame", "FundraiserTargetDockEvents")
+  ev:RegisterEvent("AUCTION_HOUSE_SHOW")
+  ev:RegisterEvent("AUCTION_HOUSE_CLOSED")
+  ev:SetScript("OnEvent", function(_, event)
+    if event == "AUCTION_HOUSE_SHOW" then
+      Target:Dock()
+    else
+      Target:Undock()
+    end
+  end)
+  self.initialized = true
 end
 
 -- Called by the shell when the page opens.
 function Target:Open()
   if self.frame then
-    self.frame.status:SetText(Fundraiser:T("TARGET_HINT"))
+    self:SetStatus("TARGET_HINT", Fundraiser:T("TARGET_HINT"))
   end
   self:Refresh()
 end

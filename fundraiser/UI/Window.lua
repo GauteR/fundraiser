@@ -783,7 +783,8 @@ local function showOnly(f, which)
     setShown(Ledger.donationFrame, which == "donation")
   end
   local Target = Fundraiser.UI.Target
-  if Target and Target.frame then
+  -- While docked beside the auction house the panel belongs to the dock, not the shell.
+  if Target and Target.frame and not Target.docked then
     setShown(Target.frame, which == "target")
   end
 end
@@ -830,6 +831,7 @@ end
 
 function Window:ShowTarget()
   local f = self:Ensure()
+  Fundraiser.UI.Target:Undock()
   self.view = "target"
   showOnly(f, "target")
   f.pageTitle:SetText(Fundraiser:T("NAV_TARGET"))

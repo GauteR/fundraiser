@@ -136,3 +136,39 @@ function TargetView.Move(index, delta, count)
   end
   return ((index - 1 + delta) % count) + 1
 end
+
+-- Why a row is left out of bulk actions: "skipped", "below_min", "needs_price", or nil.
+function TargetView.RowNote(entry)
+  if entry.skipped then
+    return "skipped"
+  end
+  if entry.belowMin then
+    return "below_min"
+  end
+  if entry.group == "price" then
+    return "needs_price"
+  end
+  return nil
+end
+
+local OK_KEYS = {
+  CHAT_TARGET_POSTED = true,
+  CHAT_TARGET_VENDOR_OK = true,
+  TARGET_BULK_DONE_FMT = true,
+}
+
+local INFO_KEYS = {
+  TARGET_BULK_PROGRESS_FMT = true,
+  TARGET_HINT = true,
+}
+
+-- Colour class of a status line: "ok", "info" or "error".
+function TargetView.StatusKind(key)
+  if key == nil or INFO_KEYS[key] then
+    return "info"
+  end
+  if OK_KEYS[key] then
+    return "ok"
+  end
+  return "error"
+end
