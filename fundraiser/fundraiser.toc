@@ -18,6 +18,7 @@ Domain/AdminSummary.lua
 Domain/LedgerView.lua
 Domain/Reminder.lua
 Domain/Ledger.lua
+Domain/ItemLots.lua
 Domain/SaleAdvice.lua
 Domain/TargetView.lua
 Domain/ActionQueue.lua
