@@ -24,7 +24,7 @@ Use a character dedicated only to that role — do not mix personal AH there.
 - Mailbox reminder until mail is sent to the donation target
 - One window with a left menu (Home / Ledger / Settings) and top-bar buttons (+ new event, - end event, refresh). Ledger page (`/fundraiser ledger`, menu entry or the admin ledger card): scrollable donation rows, total, previous campaigns as summary lines, and a **Set MOTD** menu entry for the guild message (raised vs goal + top contributor)
 - Ledger on the donation target (mail intake + all AH sales; officers and the target can add manual donations); guild-wide mesh relay; officer/target view
-- Target inbox assist: per-sender stacks, TSM -> Auctionator -> manual price, vendor vs AH advice
+- Target page in the main window (donation target only): bag stacks split into Auction / Vendor / Needs price lists, TSM -> Auctionator -> manual price, post or vendor one stack at a time
 - Settings -> AddOns -> Fundraiser: status, online installs, default reminder interval, global min admin rank; admin Danger zone for cleanup / broadcast reset
 - Best-effort install presence (who is online with the addon)
 
@@ -44,8 +44,8 @@ Use a character dedicated only to that role — do not mix personal AH there.
 1. Officers: Settings -> AddOns -> Fundraiser for default interval and min admin rank, then `/fundraiser` -> **New event** -> set fields (target = dedicated fundraiser alt; **Goal (gold)** required; interval overrides the default) -> **Publish event**. Use **End event** to archive and clear the active campaign for the guild without creating a new one.
 2. Members keep the addon installed; open the mailbox to see reminders when due.
 3. Send mail to the designated target to clear the current reminder window.
-4. On the target alt: open the mailbox, use `/fundraiser target` (or **Target inbox assist**) to post AH or vendor stacks. Officers see the ledger when they log in; any online member with the addon can help relay mesh data.
+4. On the target alt: empty the mailbox, then open **Target** in the main window (or `/fundraiser target`) at the auction house or a vendor to post or sell stacks from your bags. Officers see the ledger when they log in; any online member with the addon can help relay mesh data.
 
 ## Slash
 
-`/fundraiser` — open the admin window · `/fundraiser status` — enabled flag · `/fundraiser target` — donation-target inbox assist
+`/fundraiser` — open the admin window · `/fundraiser status` — enabled flag · `/fundraiser target` — donation-target page

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Target page in the main window (menu entry **Target**, `/fundraiser target`, and the Home button), shown only on the donation-target character. It scans the bags, lists stacks under Auction, Vendor and Needs price headers, and posts or vendors the selected stack with the result shown inline. Rescans on bag changes. Same cards and margins as Home and Ledger.
 - Target assist groundwork: a bag scan (`Adapters/BagAssist.lua`) that lists stacks with TSM / Auctionator and vendor prices and the sale advice, a view model that groups stacks into Auction, Vendor and Needs price lists (`Domain/TargetView.lua`), and a bulk action queue (`Domain/ActionQueue.lua`). New constant `Config.MIN_STACK_VALUE_COPPER` (default 100 copper): stacks below it will be left out of bulk actions. No UI change yet.
 - Manual donations: officers and the donation-target character can add a donation by hand (Add donation menu page: donor, amount in gold / silver / copper, optional note). Stored as ledger kind `manual` and shared over the guild mesh.
 - Fixed window height on every page.
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Addon settings from the admin window now opens Settings → AddOns → Fundraiser (uses saved category ID before the panel-name overwrite).
 
 ### Changed
+- The Target page replaces the separate "Target inbox assist" window and scans bags instead of the mailbox (the mailbox cannot be open at the auctioneer); empty the mailbox the normal way first. The Home Target button and `/fundraiser target` now both go through the donation-target check.
 - Auction posting now uses the modern Forever auction house API (`C_AuctionHouse` `PostItem` / `PostCommodity`) and needs the auction house to be open; the old `StartAuction` path is gone. `Config.AH_DURATION` is now the Forever duration index (1 = 2h, 2 = 8h, 3 = 24h) and defaults to 24h (index 3).
 - Redesigned the `/fundraiser` admin window as a status dashboard; New event form is behind a button; Open ledger / Settings / Target shortcuts; install presence only in Settings. Row details move to the dedicated ledger window.
 - Money amounts use coin icons (`GetCoinTextureString` / MoneyIcons) instead of ascii `g` / `s` / `c`.

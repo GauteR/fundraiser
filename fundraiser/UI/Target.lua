@@ -1,223 +1,317 @@
--- Donation-target inbox assist: per-sender item stacks, AH vs vendor advice.
+-- Target page: a page inside the shell window (UI/Window.lua) for the donation-target
+-- character. Scans the bags, groups stacks into Auction / Vendor / Needs price
+-- (Domain/TargetView.lua) and acts on one selected stack at a time.
 Fundraiser = Fundraiser or {}
 Fundraiser.UI = Fundraiser.UI or {}
 
 local Target = {}
 Fundraiser.UI.Target = Target
 
+-- Same margins, card gap and padding as the Home and Ledger pages.
+local PANEL_W = 620
+local MARGIN = 16
+local CARD_GAP = 10
+local CARD_PAD = 10
+local CARD_W = PANEL_W - 2 * MARGIN
+local ROWS = 10
+local ROW_H = 18
+local LIST_TOP = -28
+local LIST_CARD_H = -LIST_TOP + ROWS * ROW_H + 10
+local DETAIL_CARD_H = 150
+local LIST_W = CARD_W - CARD_PAD - 34
+local COLOR_HEADER = { 1, 0.82, 0 }
+local COLOR_SELECTED = { 1, 0.82, 0, 0.22 }
+
 local function money(copper)
-  if not copper then
+  if copper == nil then
     return "-"
   end
   return Fundraiser.FormatCopper(copper)
 end
 
-function Target:Ensure()
+local function TV()
+  return Fundraiser.Domain.TargetView
+end
+
+-- Flat list the scroll frame renders: a header per non-empty group, then its stacks.
+local function buildItems(view)
+  local items = {}
+  local function section(group, headerText)
+    local g = view.groups[group]
+    if #g.entries == 0 then
+      return
+    end
+    items[#items + 1] = { type = "header", text = headerText }
+    for _, entry in ipairs(g.entries) do
+      items[#items + 1] = { type = "entry", entry = entry }
+    end
+  end
+  local g = view.groups
+  section("auction", Fundraiser:T("TARGET_GROUP_AUCTION_FMT", #g.auction.entries, money(g.auction.total)))
+  section("vendor", Fundraiser:T("TARGET_GROUP_VENDOR_FMT", #g.vendor.entries, money(g.vendor.total)))
+  section("price", Fundraiser:T("TARGET_GROUP_PRICE_FMT", #g.price.entries))
+  return items
+end
+
+-- Inline status text for an action result (reason keys come from AuctionPost).
+local function statusText(key, a, b)
+  if key == "CHAT_TARGET_POSTED" then
+    return Fundraiser:T(key, tostring(a), money(b))
+  end
+  return Fundraiser:T(key)
+end
+
+function Target:Attach(shell)
   if self.frame then
     return self.frame
   end
-
-  local f = CreateFrame("Frame", "FundraiserTargetFrame", UIParent, "BasicFrameTemplateWithInset")
-  f:SetSize(560, 420)
-  f:SetPoint("CENTER", 40, -20)
-  f:SetMovable(true)
-  f:EnableMouse(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  local Window = Fundraiser.UI.Window
+  local f = CreateFrame("Frame", "FundraiserTargetPanel", shell)
+  f:SetPoint("TOPLEFT", shell, "TOPLEFT", Window.NAV_W, -Window.HEADER_H)
+  f:SetPoint("BOTTOMRIGHT", 0, 0)
   f:Hide()
-  if f.TitleText then
-    f.TitleText:SetText(Fundraiser:T("TARGET_WINDOW_TITLE"))
+
+  -- List card: group headers and stacks, click to select.
+  local card = Window.MakeCard(f, "FundraiserTargetListCard", CARD_W, LIST_CARD_H)
+  card:SetPoint("TOPLEFT", MARGIN, -34)
+  card.title:SetText(Fundraiser:T("CARD_TARGET_STACKS"))
+
+  local scroll = CreateFrame("ScrollFrame", "FundraiserTargetScroll", card, "FauxScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", CARD_PAD, LIST_TOP)
+  scroll:SetPoint("BOTTOMRIGHT", -34, 10)
+  scroll:SetScript("OnVerticalScroll", function(self, offset)
+    FauxScrollFrame_OnVerticalScroll(self, offset, ROW_H, function()
+      Target:UpdateRows()
+    end)
+  end)
+  f.scroll = scroll
+
+  f.rows = {}
+  for i = 1, ROWS do
+    local r = CreateFrame("Button", nil, card)
+    r:SetSize(LIST_W, ROW_H)
+    r:SetPoint("TOPLEFT", CARD_PAD, LIST_TOP - (i - 1) * ROW_H)
+    r.bg = r:CreateTexture(nil, "BACKGROUND")
+    r.bg:SetAllPoints()
+    r.bg:SetColorTexture(0, 0, 0, 0)
+    r.value = r:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    r.value:SetPoint("RIGHT", -4, 0)
+    r.value:SetWidth(120)
+    r.value:SetJustifyH("RIGHT")
+    r.text = r:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    r.text:SetPoint("LEFT", 4, 0)
+    r.text:SetPoint("RIGHT", r.value, "LEFT", -6, 0)
+    r.text:SetJustifyH("LEFT")
+    r.text:SetWordWrap(false)
+    r:SetScript("OnClick", function(self)
+      if self.entry then
+        Target:Select(self.entry.key)
+      end
+    end)
+    f.rows[i] = r
   end
-  tinsert(UISpecialFrames, "FundraiserTargetFrame")
 
-  local hint = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  hint:SetPoint("TOPLEFT", 16, -32)
-  hint:SetWidth(520)
-  hint:SetJustifyH("LEFT")
-  hint:SetText(Fundraiser:T("TARGET_HINT"))
-  f.hint = hint
+  -- Detail card: the selected stack, manual unit price, actions.
+  local detail = Window.MakeCard(f, "FundraiserTargetDetailCard", CARD_W, DETAIL_CARD_H)
+  detail:SetPoint("TOPLEFT", MARGIN, -(34 + LIST_CARD_H + CARD_GAP))
+  detail.title:SetText(Fundraiser:T("CARD_TARGET_SELECTED"))
 
-  local list = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  list:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -8)
-  list:SetWidth(520)
-  list:SetHeight(160)
-  list:SetJustifyH("LEFT")
-  list:SetJustifyV("TOP")
-  f.list = list
+  f.detail = detail:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  f.detail:SetPoint("TOPLEFT", CARD_PAD, -28)
+  f.detail:SetWidth(CARD_W - 2 * CARD_PAD)
+  f.detail:SetJustifyH("LEFT")
+  f.detail:SetJustifyV("TOP")
+  f.detail:SetWordWrap(true)
 
-  local detail = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  detail:SetPoint("TOPLEFT", list, "BOTTOMLEFT", 0, -12)
-  detail:SetWidth(520)
-  detail:SetJustifyH("LEFT")
-  f.detail = detail
-
-  local priceLabel = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-  priceLabel:SetPoint("TOPLEFT", detail, "BOTTOMLEFT", 0, -16)
+  local priceLabel = detail:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+  priceLabel:SetPoint("BOTTOMLEFT", CARD_PAD, 14)
   priceLabel:SetText(Fundraiser:T("TARGET_MANUAL_PRICE"))
-
-  local price = CreateFrame("EditBox", "FundraiserTargetManualPrice", f, "InputBoxTemplate")
-  price:SetSize(120, 20)
-  price:SetPoint("LEFT", priceLabel, "RIGHT", 8, 0)
+  local price = CreateFrame("EditBox", "FundraiserTargetManualPrice", detail, "InputBoxTemplate")
+  price:SetSize(100, 20)
+  price:SetPoint("LEFT", priceLabel, "RIGHT", 10, 0)
   price:SetAutoFocus(false)
   f.manualPrice = price
 
-  local y = -320
-  local function btn(name, text, x)
-    local b = CreateFrame("Button", name, f, "UIPanelButtonTemplate")
-    b:SetSize(100, 24)
-    b:SetPoint("TOPLEFT", x, y)
-    b:SetText(text)
-    return b
-  end
-
-  local refresh = btn("FundraiserTargetRefresh", Fundraiser:T("BTN_REFRESH"), 16)
-  refresh:SetScript("OnClick", function()
-    Target:Refresh()
-  end)
-
-  local prev = btn("FundraiserTargetPrev", "<", 130)
-  prev:SetWidth(40)
-  prev:SetScript("OnClick", function()
-    Target:SelectDelta(-1)
-  end)
-
-  local next = btn("FundraiserTargetNext", ">", 180)
-  next:SetWidth(40)
-  next:SetScript("OnClick", function()
-    Target:SelectDelta(1)
-  end)
-
-  local post = btn("FundraiserTargetPost", Fundraiser:T("BTN_POST_AH"), 240)
-  post:SetScript("OnClick", function()
-    Target:Act("ah")
-  end)
-
-  local vendor = btn("FundraiserTargetVendor", Fundraiser:T("BTN_VENDOR"), 350)
-  vendor:SetScript("OnClick", function()
+  local vendorBtn = CreateFrame("Button", "FundraiserTargetVendor", detail, "UIPanelButtonTemplate")
+  vendorBtn:SetSize(100, 24)
+  vendorBtn:SetPoint("BOTTOMRIGHT", -CARD_PAD, 10)
+  vendorBtn:SetText(Fundraiser:T("BTN_VENDOR"))
+  vendorBtn:SetScript("OnClick", function()
     Target:Act("vendor")
   end)
+  f.vendorBtn = vendorBtn
 
-  f:SetScript("OnShow", function()
+  local postBtn = CreateFrame("Button", "FundraiserTargetPost", detail, "UIPanelButtonTemplate")
+  postBtn:SetSize(100, 24)
+  postBtn:SetPoint("RIGHT", vendorBtn, "LEFT", -8, 0)
+  postBtn:SetText(Fundraiser:T("BTN_POST_AH"))
+  postBtn:SetScript("OnClick", function()
+    Target:Act("ah")
+  end)
+  f.postBtn = postBtn
+
+  -- Inline result of the last action (chat gets the same message from AuctionPost).
+  f.status = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  f.status:SetPoint("TOPLEFT", MARGIN, -(34 + LIST_CARD_H + CARD_GAP + DETAIL_CARD_H + 8))
+  f.status:SetWidth(CARD_W)
+  f.status:SetJustifyH("LEFT")
+
+  -- Items moved or looted while the page is open show up without a manual refresh.
+  f:SetScript("OnShow", function(self)
+    self:RegisterEvent("BAG_UPDATE_DELAYED")
+  end)
+  f:SetScript("OnHide", function(self)
+    self:UnregisterEvent("BAG_UPDATE_DELAYED")
+  end)
+  f:SetScript("OnEvent", function()
     Target:Refresh()
   end)
 
-  self.index = 1
-  self.rows = {}
+  self.skipped = {}
+  self.items = {}
+  self.flat = {}
+  self.selectedKey = nil
+  self.selectedIndex = 0
   self.frame = f
   return f
 end
 
-function Target:SelectDelta(delta)
-  if not self.rows or #self.rows == 0 then
+function Target:Selected()
+  return self.flat[self.selectedIndex]
+end
+
+function Target:Select(key)
+  for i, entry in ipairs(self.flat) do
+    if entry.key == key then
+      self.selectedIndex = i
+      self.selectedKey = key
+      self:UpdateRows()
+      self:ShowSelected()
+      return
+    end
+  end
+end
+
+function Target:UpdateRows()
+  local f = self.frame
+  if not f then
     return
   end
-  self.index = self.index + delta
-  if self.index < 1 then
-    self.index = #self.rows
+  FauxScrollFrame_Update(f.scroll, #self.items, ROWS, ROW_H)
+  local offset = FauxScrollFrame_GetOffset(f.scroll)
+  for i = 1, ROWS do
+    local r = f.rows[i]
+    local item = self.items[offset + i]
+    r.entry = nil
+    if not item then
+      r:Hide()
+    elseif item.type == "header" then
+      r.text:SetText(item.text)
+      r.text:SetTextColor(COLOR_HEADER[1], COLOR_HEADER[2], COLOR_HEADER[3])
+      r.value:SetText("")
+      r.bg:SetColorTexture(1, 1, 1, 0.06)
+      r:Show()
+    else
+      local entry = item.entry
+      local row = entry.row
+      r.entry = entry
+      r.text:SetText(string.format("%s x%d", row.name or "?", row.count or 1))
+      r.text:SetTextColor(1, 1, 1)
+      r.value:SetText(money(entry.value))
+      if entry.key == self.selectedKey then
+        r.bg:SetColorTexture(COLOR_SELECTED[1], COLOR_SELECTED[2], COLOR_SELECTED[3], COLOR_SELECTED[4])
+      else
+        r.bg:SetColorTexture(0, 0, 0, 0)
+      end
+      r:Show()
+    end
   end
-  if self.index > #self.rows then
-    self.index = 1
-  end
-  self:ShowSelected()
 end
 
 function Target:ShowSelected()
-  local f = self:Ensure()
-  local row = self.rows[self.index]
-  if not row then
-    f.detail:SetText(Fundraiser:T("TARGET_EMPTY"))
+  local f = self.frame
+  local entry = self:Selected()
+  if not entry then
+    f.detail:SetText(#self.flat == 0 and Fundraiser:T("TARGET_EMPTY") or Fundraiser:T("TARGET_SELECT_HINT"))
     f.manualPrice:SetText("")
+    f.postBtn:Disable()
+    f.vendorBtn:Disable()
     return
   end
-  local advice = row.advice or "manual"
+  local row = entry.row
   f.detail:SetText(Fundraiser:T(
     "TARGET_DETAIL_FMT",
-    self.index,
-    #self.rows,
-    row.sender,
-    row.name,
+    row.name or "?",
     tostring(row.count),
     money(row.vendorTotal),
     money(row.ahUnit and (row.ahUnit * row.count) or nil),
     money(row.ahNet),
     row.source or "?",
-    Fundraiser:T("TARGET_ADVICE_" .. string.upper(advice))
+    Fundraiser:T("TARGET_ADVICE_" .. string.upper(row.advice or "manual"))
   ))
-  if row.ahUnit then
-    f.manualPrice:SetText(tostring(row.ahUnit))
+  f.manualPrice:SetText(row.ahUnit and tostring(row.ahUnit) or "")
+  if row.auctionable then
+    f.postBtn:Enable()
   else
-    f.manualPrice:SetText("")
+    f.postBtn:Disable()
+  end
+  if row.vendorUnit then
+    f.vendorBtn:Enable()
+  else
+    f.vendorBtn:Disable()
   end
 end
 
+-- Rescan the bags and rebuild the lists; the selection follows its stack when it is still there.
 function Target:Refresh()
-  local f = self:Ensure()
-  if not Fundraiser.Adapters.InboxAssist:IsDonationTarget() then
-    f.list:SetText(Fundraiser:T("TARGET_NOT_TARGET"))
-    self.rows = {}
+  local f = self.frame
+  if not f then
+    return
+  end
+  if not Fundraiser:CanOpenTargetUi() then
+    self.items, self.flat, self.selectedIndex, self.selectedKey = {}, {}, 0, nil
+    self:UpdateRows()
     self:ShowSelected()
     return
   end
-  self.rows = Fundraiser.Adapters.InboxAssist:Scan()
-  if #self.rows == 0 then
-    f.list:SetText(Fundraiser:T("TARGET_EMPTY"))
-  else
-    local lines = {}
-    local lastSender = nil
-    for i, row in ipairs(self.rows) do
-      if row.sender ~= lastSender then
-        lines[#lines + 1] = Fundraiser:T("TARGET_SENDER_FMT", row.sender)
-        lastSender = row.sender
-      end
-      local mark = (i == self.index) and ">" or " "
-      lines[#lines + 1] = string.format(
-        "%s %d. %sx%d [%s] AH:%s Vend:%s",
-        mark,
-        i,
-        row.name,
-        row.count,
-        Fundraiser:T("TARGET_ADVICE_" .. string.upper(row.advice or "manual")),
-        money(row.ahUnit and row.ahUnit * row.count or nil),
-        money(row.vendorTotal)
-      )
+  local rows = Fundraiser.Adapters.BagAssist:Scan()
+  local view = TV().Build(rows, { skipped = self.skipped })
+  self.items = buildItems(view)
+  self.flat = TV().Flatten(view)
+
+  local found
+  for i, entry in ipairs(self.flat) do
+    if entry.key == self.selectedKey then
+      found = i
+      break
     end
-    f.list:SetText(table.concat(lines, "\n"))
   end
-  if self.index > #self.rows then
-    self.index = math.max(1, #self.rows)
-  end
+  self.selectedIndex = found or TV().Clamp(self.selectedIndex, #self.flat)
+  local selected = self.flat[self.selectedIndex]
+  self.selectedKey = selected and selected.key or nil
+
+  self:UpdateRows()
   self:ShowSelected()
 end
 
+-- Act on the selected stack ("ah" or "vendor"); the result shows inline and goes to chat.
 function Target:Act(action)
-  local row = self.rows and self.rows[self.index]
-  if not row then
+  local entry = self:Selected()
+  if not entry then
     return
   end
   local manual = tonumber(self.frame.manualPrice:GetText())
-  Fundraiser.Adapters.AuctionPost:HandleRow(row, action, manual)
-  -- Rescan shortly; TakeInboxItem is often deferred.
-  if C_Timer and C_Timer.After then
-    C_Timer.After(0.5, function()
-      Target:Refresh()
-    end)
-  else
-    self:Refresh()
+  local ok, key, a, b = Fundraiser.Adapters.AuctionPost:HandleRow(entry.row, action, manual)
+  if key then
+    self.frame.status:SetText(statusText(key, a, b))
   end
+  -- BAG_UPDATE_DELAYED rescans when the bag actually changes.
 end
 
-function Target:Hide()
+-- Called by the shell when the page opens.
+function Target:Open()
   if self.frame then
-    self.frame:Hide()
+    self.frame.status:SetText(Fundraiser:T("TARGET_HINT"))
   end
-end
-
-function Target:Toggle()
-  local f = self:Ensure()
-  if f:IsShown() then
-    f:Hide()
-  else
-    f:Show()
-  end
+  self:Refresh()
 end

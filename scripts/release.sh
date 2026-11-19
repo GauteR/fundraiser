@@ -167,6 +167,7 @@ if [[ $SKIP_TESTS -eq 0 ]]; then
   lua tests/test_action_queue.lua
   lua tests/test_auction_post.lua
   lua tests/test_bag_assist.lua
+  lua tests/test_shell_pages.lua
 fi
 
 RELEASE_SH="$REPO_ROOT/.release/release.sh"

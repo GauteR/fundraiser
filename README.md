@@ -17,7 +17,7 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 - Officer-published event: name, **First Last** mail target, required fundraising goal (gold), optional goal note, per-event reminder interval
 - Mailbox reminder for members (beside the mail window) until mail is sent to the target
 - Ledger writes on the **donation-target** only (incoming mail money/items + **all** AH sales + manual donations from the **Add donation** menu page, which officers can also use); every client stores/relays the mesh; officers + target view in UI
-- Target inbox assist (`/fundraiser target`): per-sender stacks, TSM -> Auctionator -> manual price, vendor vs AH advice, one AH post per stack
+- Target page (`/fundraiser target`, **Target** in the main window menu, donation-target character only): scans your bags, splits stacks into **Auction**, **Vendor** and **Needs price** lists from TSM -> Auctionator -> manual prices, one action per selected stack
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST` / `RESET`) — see [`docs/SYNC.md`](docs/SYNC.md)
 - Publishing a new event archives the previous event + ledger locally and clears the active ledger
 - Ending an event (`END_EVENT`): Minus on the event card archives the campaign, clears active event+ledger, and broadcasts `RESET campaign` to the guild (no replacement event)
@@ -69,7 +69,7 @@ With `Config.DEBUG = true`:
 1. Set **Defaults** under Settings -> AddOns -> Fundraiser (or **Settings** in the left menu of the admin window): default reminder interval and global min admin rank (rank index <= this may manage).
 2. Officers: `/fundraiser` opens the admin status dashboard (event, progress toward goal, ledger status, raised chart; install presence is under Settings -> AddOns -> Fundraiser). Press **New event** (+), fill fields including **Goal (gold)** (required; per-event interval overrides the default) -> **Publish event** (target = dedicated fundraiser alt). Publishing a new event **archives** the previous event+ledger locally and clears the active ledger. Press **End event** (-) to archive and clear the active campaign for the guild without creating a replacement. Members get a chat refusal if they open `/fundraiser`.
 3. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
-4. On the target alt: open mailbox -> `/fundraiser target` (or **Target inbox assist**) -> Post AH / Vendor per stack; AH sales also hit the ledger. Other characters cannot open the target UI.
+4. On the target alt: empty the mailbox the normal way, open the auction house or a vendor, then open **Target** in the main window (or `/fundraiser target`) -> select a stack -> Post AH / Vendor; AH sales also hit the ledger. The page scans bags only. Other characters get no Target menu entry and cannot open the page.
 
 Close windows with the frame X or Escape (`UISpecialFrames`).
 
@@ -98,7 +98,7 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua) for feature flags and comp
 | `REMINDER` | `true` | Mailbox reminder popup + mail dismiss |
 | `ADMIN_UI` | `true` | Main window |
 | `LEDGER` | `true` | Target logging + officer ledger UI |
-| `TARGET_UI` | `true` | Donation-target inbox assist window |
+| `TARGET_UI` | `true` | Donation-target page (bag scan, AH / vendor actions) |
 | `AH_ASSIST` | `true` | AH/vendor actions from target UI |
 | `TSM_PRICE_SOURCE` | `"DBMinBuyout"` | TSM price key for min AH reference |
 | `DEBUG` | `true` | Solo sim: `/fundraiser debug …` (not in Options) |

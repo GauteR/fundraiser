@@ -50,31 +50,6 @@ local function locationOf(row)
   return ItemLocation:CreateFromBagAndSlot(row.bag, row.slot)
 end
 
--- Bag slot lookup by item id (used only for rows that came from the mailbox).
-local function findBagItem(itemId, count)
-  if not itemId or not C_Container then
-    return nil
-  end
-  for bag = 0, 4 do
-    local slots = C_Container.GetContainerNumSlots(bag) or 0
-    for slot = 1, slots do
-      local info = C_Container.GetContainerItemInfo(bag, slot)
-      if info and info.itemID == itemId and (tonumber(info.stackCount) or 1) >= (count or 1) then
-        return bag, slot
-      end
-    end
-  end
-  return nil
-end
-
-function AuctionPost:TakeAttachment(mailIndex, attachIndex)
-  if TakeInboxItem then
-    TakeInboxItem(mailIndex, attachIndex)
-    return true
-  end
-  return false
-end
-
 -- row: { bag, slot, count }. unitPrice: copper per unit.
 -- Returns ok, reasonKey, count, buyout (count and buyout on success).
 function AuctionPost:PostStack(row, unitPrice)
@@ -139,18 +114,9 @@ local function report(ok, key, a, b)
 end
 
 -- Act on one stack (action "ah" or "vendor") and print the result to chat.
--- Rows that still sit in the mailbox (old target window) are taken first.
 function AuctionPost:HandleRow(row, action, manualUnit)
   if not row then
     return false
-  end
-  if row.mailIndex then
-    self:TakeAttachment(row.mailIndex, row.attachIndex)
-    local bag, slot = findBagItem(row.itemId, row.count)
-    if not bag then
-      return report(false, "CHAT_TARGET_ITEM_NOT_IN_BAGS")
-    end
-    row.bag, row.slot = bag, slot
   end
   if action == "vendor" then
     return report(self:VendorStack(row))
