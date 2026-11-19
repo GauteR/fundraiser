@@ -99,6 +99,10 @@ function AuctionPost:VendorStack(row)
     return false, "CHAT_TARGET_ITEM_NOT_IN_BAGS"
   end
   C_Container.UseContainerItem(row.bag, row.slot)
+  local recorder = Fundraiser.Adapters.SaleRecorder
+  if recorder and recorder.RecordVendor then
+    recorder:RecordVendor(row)
+  end
   return true, "CHAT_TARGET_VENDOR_OK"
 end
 
