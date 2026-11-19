@@ -147,6 +147,7 @@ if [[ $SKIP_TESTS -eq 0 ]]; then
   lua "$REPO_ROOT/tests/test_roster_name.lua"
   lua "$REPO_ROOT/tests/test_item_lots.lua"
   lua "$REPO_ROOT/tests/test_item_mail.lua"
+  lua "$REPO_ROOT/tests/test_item_sale.lua"
 fi
 
 if ! ADDONS_DIR="$(resolve_forever_addons_dir "$DESTINATION")"; then

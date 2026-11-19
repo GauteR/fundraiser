@@ -221,6 +221,69 @@ function UC.AppendLedgerEntry(deps, fields, actor)
   return appendEntry(deps, event, fields)
 end
 
+-- Target-only: a sale puts its proceeds on the oldest open row of that item (same row id, newer
+-- timestamp, so the mesh replaces the old row). sale: { item, qty, proceeds (copper, net), at, ownRow }.
+-- Proceeds no row can take get a row of their own when sale.ownRow is set (auction sales);
+-- vendor sales of items nobody donated are not recorded. Returns the rows written (maybe none).
+function UC.RecordSale(deps, sale, actor)
+  local Roles = Domain().Roles
+  local ItemLots = Domain().ItemLots
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
+  end
+  actor = actor or {}
+  if not Roles.CanWriteLedger(event, actor.name) then
+    return nil, "not_target"
+  end
+  local lots = deps.getLots and deps.getLots() or {}
+  local parts, restQty, restCopper = ItemLots.Allocate(lots, sale.item, sale.qty, sale.proceeds)
+  if deps.setLots then
+    deps.setLots(lots)
+  end
+
+  local written = {}
+  local at = tonumber(sale.at) or 0
+  for _, part in ipairs(parts) do
+    local row
+    for _, r in ipairs((deps.getContributions and deps.getContributions()) or {}) do
+      if r.id == part.id then
+        row = r
+        break
+      end
+    end
+    if row then
+      local entry = appendEntry(deps, event, {
+        id = row.id,
+        kind = row.kind,
+        name = row.name,
+        detail = ItemLots.RowDetail(lots, row.id),
+        copper = (tonumber(row.copper) or 0) + part.copper,
+        at = math.max(at, (tonumber(row.at) or 0) + 1),
+      })
+      written[#written + 1] = entry
+    else
+      -- The row is gone (ledger cleared or replaced): keep the money.
+      restCopper = restCopper + part.copper
+      restQty = restQty + part.qty
+    end
+  end
+
+  if restCopper > 0 and sale.ownRow then
+    local name = ItemLots.ParseCount(sale.item)
+    local entry = appendEntry(deps, event, {
+      id = string.format("ah:%s:%d:%d", tostring(sale.item), restCopper, at),
+      kind = "ah",
+      name = "AH",
+      detail = name,
+      copper = restCopper,
+      at = at,
+    })
+    written[#written + 1] = entry
+  end
+  return written
+end
+
 -- Ledger row id for an incoming mail. Without attachments it keeps the old format; item
 -- attachments are appended so two mails from one donor stay separate rows.
 function UC.MailId(sender, subject, money, items)
