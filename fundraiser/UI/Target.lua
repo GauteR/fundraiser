@@ -38,6 +38,13 @@ local COLOR_STATUS = {
 }
 -- Opening or closing the auction house / a vendor changes what the bulk buttons may do.
 local WINDOW_EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "MERCHANT_SHOW", "MERCHANT_CLOSED" }
+-- Selected-stack card geometry.
+local SEL_ICON = 32
+local SEL_GRID_Y = -68
+local SEL_LINE_H = 14
+local SEL_LABEL_W = 110
+local SEL_VALUE_W = 150
+local SEL_COL2_X = 300
 local COLOR_SELECTED = { 1, 0.82, 0, 0.30 }
 local COLOR_NOTE = { 0.65, 0.65, 0.65 }
 
@@ -201,12 +208,66 @@ function Target:Attach(shell)
   detail:SetPoint("TOPLEFT", MARGIN, -(34 + LIST_CARD_H + CARD_GAP))
   detail.title:SetText(Fundraiser:T("CARD_TARGET_SELECTED"))
 
+  -- Shown instead of the stack details when nothing is selected.
   f.detail = detail:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   f.detail:SetPoint("TOPLEFT", CARD_PAD, -28)
   f.detail:SetWidth(CARD_W - 2 * CARD_PAD)
   f.detail:SetJustifyH("LEFT")
   f.detail:SetJustifyV("TOP")
   f.detail:SetWordWrap(true)
+
+  -- Selected stack: icon, item name in its quality colour, stack size and the recommendation.
+  local sel = CreateFrame("Frame", nil, detail)
+  sel:SetPoint("TOPLEFT", 0, 0)
+  sel:SetPoint("BOTTOMRIGHT", 0, 0)
+  f.sel = sel
+  local iconBtn = CreateFrame("Button", nil, sel)
+  iconBtn:SetSize(SEL_ICON, SEL_ICON)
+  iconBtn:SetPoint("TOPLEFT", CARD_PAD, -26)
+  sel.icon = iconBtn:CreateTexture(nil, "ARTWORK")
+  sel.icon:SetAllPoints()
+  iconBtn:SetScript("OnEnter", function(self)
+    if self.row then
+      Target:ShowItemTooltip(self, self.row)
+    end
+  end)
+  iconBtn:SetScript("OnLeave", function()
+    if GameTooltip then
+      GameTooltip:Hide()
+    end
+  end)
+  sel.iconBtn = iconBtn
+  sel.name = sel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  sel.name:SetPoint("TOPLEFT", iconBtn, "TOPRIGHT", 8, -1)
+  sel.name:SetWidth(CARD_W - 2 * CARD_PAD - SEL_ICON - 8)
+  sel.name:SetJustifyH("LEFT")
+  sel.name:SetWordWrap(false)
+  sel.sub = sel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  sel.sub:SetPoint("TOPLEFT", sel.name, "BOTTOMLEFT", 0, -4)
+  sel.sub:SetWidth(CARD_W - 2 * CARD_PAD - SEL_ICON - 8)
+  sel.sub:SetJustifyH("LEFT")
+
+  -- Label / value grid: two columns of three lines under the header.
+  local function pair(x, line, labelKey)
+    local y = SEL_GRID_Y - (line - 1) * SEL_LINE_H
+    local label = sel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    label:SetPoint("TOPLEFT", x, y)
+    label:SetWidth(SEL_LABEL_W)
+    label:SetJustifyH("LEFT")
+    label:SetTextColor(0.65, 0.65, 0.65)
+    label:SetText(Fundraiser:T(labelKey))
+    local value = sel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    value:SetPoint("TOPLEFT", x + SEL_LABEL_W, y)
+    value:SetWidth(SEL_VALUE_W)
+    value:SetJustifyH("RIGHT")
+    return value
+  end
+  sel.vendorValue = pair(CARD_PAD, 1, "TARGET_LBL_VENDOR")
+  sel.grossValue = pair(CARD_PAD, 2, "TARGET_LBL_AH_GROSS")
+  sel.netValue = pair(CARD_PAD, 3, "TARGET_LBL_AH_NET")
+  sel.sourceValue = pair(SEL_COL2_X, 1, "TARGET_LBL_SOURCE")
+  sel.unitValue = pair(SEL_COL2_X, 2, "TARGET_LBL_UNIT")
+  sel.countValue = pair(SEL_COL2_X, 3, "TARGET_LBL_STACK")
 
   local priceLabel = detail:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
   priceLabel:SetPoint("BOTTOMLEFT", CARD_PAD, 14)
@@ -370,6 +431,8 @@ function Target:ShowSelected()
   local f = self.frame
   local entry = self:Selected()
   if not entry then
+    f.sel:Hide()
+    f.detail:Show()
     f.detail:SetText(#self.flat == 0 and Fundraiser:T("TARGET_EMPTY") or Fundraiser:T("TARGET_SELECT_HINT"))
     f.manualPrice:SetText("")
     f.postBtn:Disable()
@@ -378,16 +441,44 @@ function Target:ShowSelected()
     return
   end
   local row = entry.row
-  f.detail:SetText(Fundraiser:T(
-    "TARGET_DETAIL_FMT",
-    row.name or "?",
-    tostring(row.count),
-    money(row.vendorTotal),
-    money(row.ahUnit and (row.ahUnit * row.count) or nil),
-    money(row.ahNet),
-    row.source or "?",
-    Fundraiser:T("TARGET_ADVICE_" .. string.upper(row.advice or "manual"))
+  f.detail:Hide()
+  local sel = f.sel
+  sel:Show()
+  local icon = row.itemId and C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(row.itemId)
+  sel.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+  sel.iconBtn.row = row
+  sel.name:SetText(row.name or "?")
+  local quality = row.itemId and C_Item and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(row.itemId)
+  local r, g, b = 1, 0.82, 0
+  if quality and C_Item.GetItemQualityColor then
+    r, g, b = C_Item.GetItemQualityColor(quality)
+  end
+  sel.name:SetTextColor(r, g, b)
+  -- Recommendation in the colour of its group, next to the stack size.
+  local gc = COLOR_GROUP[entry.group] or COLOR_GROUP.vendor
+  local advice = Fundraiser:T("TARGET_ADVICE_" .. string.upper(row.advice or "manual"))
+  sel.sub:SetText(string.format(
+    "%s   |cff%02x%02x%02x%s|r",
+    Fundraiser:T("TARGET_STACK_FMT", tostring(row.count)),
+    math.floor(gc[1] * 255),
+    math.floor(gc[2] * 255),
+    math.floor(gc[3] * 255),
+    advice
   ))
+  sel.vendorValue:SetText(money(row.vendorTotal))
+  sel.grossValue:SetText(money(row.ahUnit and (row.ahUnit * row.count) or nil))
+  sel.netValue:SetText(money(row.ahNet))
+  sel.sourceValue:SetText(row.source or "?")
+  sel.unitValue:SetText(money(row.ahUnit))
+  sel.countValue:SetText(tostring(row.count))
+  -- The value of the recommended action stands out.
+  sel.vendorValue:SetTextColor(1, 1, 1)
+  sel.netValue:SetTextColor(1, 1, 1)
+  if row.advice == "vendor" then
+    sel.vendorValue:SetTextColor(gc[1], gc[2], gc[3])
+  elseif row.advice == "ah" then
+    sel.netValue:SetTextColor(gc[1], gc[2], gc[3])
+  end
   f.manualPrice:SetText(row.ahUnit and tostring(row.ahUnit) or "")
   f.skipBtn:SetText(Fundraiser:T(entry.skipped and "BTN_INCLUDE" or "BTN_SKIP"))
   if entry.group == "price" then
