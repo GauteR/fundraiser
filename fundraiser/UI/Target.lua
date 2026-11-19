@@ -618,6 +618,51 @@ function Target:EnsureDock()
   return d
 end
 
+-- Place the dock beside the right-most visible auction window.
+function Target:Reanchor()
+  local dock = self.dock
+  if not dock then
+    return
+  end
+  local candidates = {}
+  for _, name in ipairs((Fundraiser.Config and Fundraiser.Config.TARGET_DOCK_ANCHORS) or { "AuctionHouseFrame" }) do
+    local frame = _G[name]
+    if frame then
+      candidates[#candidates + 1] = {
+        name = name,
+        right = frame.GetRight and frame:GetRight() or nil,
+        shown = frame.IsShown and frame:IsShown() or false,
+      }
+    end
+  end
+  local picked = TV().PickAnchor(candidates)
+  dock:ClearAllPoints()
+  if picked then
+    dock:SetPoint("TOPLEFT", _G[picked], "TOPRIGHT", 2, 0)
+  else
+    dock:SetPoint("CENTER", UIParent, "CENTER", 300, 0)
+  end
+end
+
+-- Move the dock again when an addon's side window (for example Auctionator's price history)
+-- opens or closes; windows that do not exist yet are picked up on the next dock.
+function Target:WatchAnchors()
+  self.watched = self.watched or {}
+  for _, name in ipairs((Fundraiser.Config and Fundraiser.Config.TARGET_DOCK_ANCHORS) or {}) do
+    local frame = _G[name]
+    if frame and frame.HookScript and not self.watched[name] then
+      self.watched[name] = true
+      local function again()
+        if Target.docked then
+          Target:Reanchor()
+        end
+      end
+      frame:HookScript("OnShow", again)
+      frame:HookScript("OnHide", again)
+    end
+  end
+end
+
 function Target:Dock()
   if not Fundraiser:CanOpenTargetUi() then
     return
@@ -633,12 +678,8 @@ function Target:Dock()
     return
   end
   local dock = self:EnsureDock()
-  dock:ClearAllPoints()
-  if AuctionHouseFrame then
-    dock:SetPoint("TOPLEFT", AuctionHouseFrame, "TOPRIGHT", 2, 0)
-  else
-    dock:SetPoint("CENTER", UIParent, "CENTER", 300, 0)
-  end
+  self:Reanchor()
+  self:WatchAnchors()
   f:SetParent(dock)
   f:ClearAllPoints()
   f:SetPoint("TOPLEFT", dock, "TOPLEFT", 4, -24)

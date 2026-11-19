@@ -172,3 +172,20 @@ function TargetView.StatusKind(key)
   end
   return "error"
 end
+
+-- Which auction window the dock goes beside: the visible one furthest to the right, so the dock
+-- never covers another auction window (Blizzard's, or an addon's side panel). candidates:
+-- { { name, right (screen x of the right edge, may be nil), shown } } in order of preference;
+-- a tie keeps the first. Returns the name, or nil when none is shown.
+function TargetView.PickAnchor(candidates)
+  local best, bestRight
+  for _, c in ipairs(candidates or {}) do
+    if c.shown then
+      local right = tonumber(c.right) or -math.huge
+      if best == nil or right > bestRight then
+        best, bestRight = c.name, right
+      end
+    end
+  end
+  return best
+end

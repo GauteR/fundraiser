@@ -16,6 +16,10 @@ Fundraiser.Config = {
   TARGET_UI = true,
   -- Donation target: show the Target panel beside the auction house while it is open.
   TARGET_AUTO_DOCK = true,
+  -- Global frame names the dock may sit beside (the right-most visible one wins). Auctionator's
+  -- tabs live inside AuctionHouseFrame; its price history window can dock to the right of it.
+  -- Add another addon's auction window here by its frame name (find it with /fstack).
+  TARGET_DOCK_ANCHORS = { "AuctionHouseFrame", "AuctionFrame", "AuctionatorItemHistoryFrame" },
   AH_ASSIST = true,
   -- Solo in-game simulation: /fundraiser debug …
   DEBUG = true,

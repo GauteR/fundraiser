@@ -143,6 +143,37 @@ do
   assert_eq(TV.StatusKind(nil), "info", "status: nothing")
 end
 
+-- Scenario: the dock goes beside the right-most visible auction window
+do
+  assert_eq(
+    TV.PickAnchor({
+      { name = "AuctionHouseFrame", right = 900, shown = true },
+      { name = "AuctionFrame", right = nil, shown = false },
+      { name = "AuctionatorItemHistoryFrame", right = 1200, shown = true },
+    }),
+    "AuctionatorItemHistoryFrame",
+    "anchor: the window furthest to the right wins"
+  )
+  assert_eq(
+    TV.PickAnchor({
+      { name = "AuctionHouseFrame", right = 900, shown = true },
+      { name = "AuctionatorItemHistoryFrame", right = 1200, shown = false },
+    }),
+    "AuctionHouseFrame",
+    "anchor: hidden windows are ignored"
+  )
+  assert_eq(
+    TV.PickAnchor({
+      { name = "A", right = 900, shown = true },
+      { name = "B", right = 900, shown = true },
+    }),
+    "A",
+    "anchor: a tie keeps the first (listed first = preferred)"
+  )
+  assert_eq(TV.PickAnchor({ { name = "A", right = nil, shown = true } }), "A", "anchor: unknown edge still counts")
+  assert_eq(TV.PickAnchor({}), nil, "anchor: nothing to anchor to")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)
