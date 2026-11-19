@@ -189,3 +189,14 @@ function TargetView.PickAnchor(candidates)
   end
   return best
 end
+
+-- Selection after a stack is skipped: the next stack, or the same one at the end of the list.
+function TargetView.AfterSkip(index, count)
+  if count < 1 then
+    return 0
+  end
+  if index < count then
+    return index + 1
+  end
+  return count
+end

@@ -556,8 +556,49 @@ function Target:ToggleSkip()
   if not entry or entry.group == "price" then
     return
   end
-  self.skipped[entry.key] = (not entry.skipped) or nil
+  local skipping = not entry.skipped
+  self.skipped[entry.key] = skipping or nil
+  -- Skipping moves on to the next stack in the list; including a stack again stays on it.
+  -- The list order does not change when a stack is skipped, so the next key is known now.
+  if skipping then
+    local nextEntry = self.flat[TV().AfterSkip(self.selectedIndex, #self.flat)]
+    if nextEntry then
+      self.selectedKey = nextEntry.key
+    end
+  end
   self:Refresh()
+  if skipping then
+    self:ScrollToSelected()
+  end
+end
+
+-- Scroll the list just far enough that the selected stack is visible.
+function Target:ScrollToSelected()
+  local f = self.frame
+  local position
+  for i, item in ipairs(self.items) do
+    if item.type == "entry" and item.entry.key == self.selectedKey then
+      position = i
+      break
+    end
+  end
+  if not (f and position and FauxScrollFrame_SetOffset) then
+    return
+  end
+  local offset = FauxScrollFrame_GetOffset(f.scroll)
+  local target = offset
+  if position <= offset then
+    target = position - 1
+  elseif position > offset + ROWS then
+    target = position - ROWS
+  end
+  if target ~= offset then
+    FauxScrollFrame_SetOffset(f.scroll, target)
+    if f.scroll.ScrollBar then
+      f.scroll.ScrollBar:SetValue(target * ROW_H)
+    end
+    self:UpdateRows()
+  end
 end
 
 local function windowsOpen()

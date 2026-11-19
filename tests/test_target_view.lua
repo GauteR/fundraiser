@@ -174,6 +174,15 @@ do
   assert_eq(TV.PickAnchor({}), nil, "anchor: nothing to anchor to")
 end
 
+-- Scenario: skipping a stack moves the selection to the next one and stops at the end
+do
+  assert_eq(TV.AfterSkip(1, 3), 2, "after skip: next stack")
+  assert_eq(TV.AfterSkip(2, 3), 3, "after skip: next stack again")
+  assert_eq(TV.AfterSkip(3, 3), 3, "after skip: the last stack stays selected")
+  assert_eq(TV.AfterSkip(1, 1), 1, "after skip: a single stack stays selected")
+  assert_eq(TV.AfterSkip(0, 0), 0, "after skip: an empty list selects nothing")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)
