@@ -8,7 +8,7 @@
   fundraiser folder itself. Overrides env FUNDRAISER_FOREVER_ADDONS.
 
 .PARAMETER SkipTests
-  Skip lua tests (test_domain, test_options_settings, test_admin_summary, test_release_meta).
+  Skip lua tests (test_domain, test_options_settings, test_admin_summary, test_release_meta, test_roster_name).
 
 .PARAMETER WhatIf
   Show what would be copied without writing files.
@@ -121,7 +121,8 @@ if (-not $SkipTests) {
     "test_domain.lua",
     "test_options_settings.lua",
     "test_admin_summary.lua",
-    "test_release_meta.lua"
+    "test_release_meta.lua",
+    "test_roster_name.lua"
   )
   foreach ($test in $tests) {
     & lua (Join-Path $RepoRoot "tests\$test")

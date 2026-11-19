@@ -163,6 +163,7 @@ if [[ $SKIP_TESTS -eq 0 ]]; then
   lua tests/test_options_settings.lua
   lua tests/test_admin_summary.lua
   lua tests/test_release_meta.lua
+  lua tests/test_roster_name.lua
 fi
 
 RELEASE_SH="$REPO_ROOT/.release/release.sh"

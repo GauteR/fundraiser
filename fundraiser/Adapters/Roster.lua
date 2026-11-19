@@ -52,16 +52,24 @@ function Roster:SetRankOverride(rankIndex)
 end
 
 function Roster:GetPlayerName()
-  local name
-  -- Prefer full name APIs when present (Forever first+last).
-  if UnitFullName then
-    local n = UnitFullName("player")
-    if type(n) == "string" and n ~= "" then
-      name = n
-    end
+  -- Forever names are "First Last". UnitName returns both parts, while UnitFullName may return
+  -- only the first part as its name, so take whichever candidate has a space, else any.
+  local candidates = {}
+  if UnitName then
+    candidates[#candidates + 1] = UnitName("player")
   end
-  if (not name or name == "") and UnitName then
-    name = UnitName("player")
+  if UnitFullName then
+    candidates[#candidates + 1] = (UnitFullName("player"))
+  end
+  local name
+  for _, n in ipairs(candidates) do
+    if type(n) == "string" and n ~= "" then
+      name = name or n
+      if n:find(" ", 1, true) then
+        name = n
+        break
+      end
+    end
   end
   return displayName(name)
 end

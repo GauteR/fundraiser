@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - End event (-) on the admin event card: archives the campaign, clears active event+ledger, broadcasts `RESET campaign` (`Config.END_EVENT`).
 
 ### Fixed
+- The donation-target check failed on Forever because `UnitFullName` returns only the first name; the player name now prefers the full "First Last" name from `UnitName`, so the target character is recognised.
 - Addon settings from the admin window now opens Settings → AddOns → Fundraiser (uses saved category ID before the panel-name overwrite).
 
 ### Changed
