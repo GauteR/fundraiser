@@ -84,8 +84,10 @@ function AuctionPost:PostStack(row, unitPrice)
   else
     ok, result = pcall(C_AuctionHouse.PostItem, location, duration, count, nil, plan.buyout)
   end
-  if not ok or result == false then
-    return false, "CHAT_TARGET_POST_FAILED"
+  -- Only an error counts as a failure: the call may return false even when the client created
+  -- the auction. The error text is passed on so the status line can show it.
+  if not ok then
+    return false, "CHAT_TARGET_POST_FAILED", tostring(result)
   end
   return true, "CHAT_TARGET_POSTED", count, plan.buyout
 end
@@ -110,6 +112,8 @@ local function report(ok, key, a, b)
   if key then
     if key == "CHAT_TARGET_POSTED" then
       Print(Fundraiser:T(key, tostring(a), Fundraiser.FormatCopper(b)))
+    elseif key == "CHAT_TARGET_POST_FAILED" and a then
+      Print(Fundraiser:T("CHAT_TARGET_POST_FAILED_DETAIL", tostring(a)))
     else
       Print(Fundraiser:T(key))
     end

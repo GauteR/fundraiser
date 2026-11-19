@@ -84,6 +84,9 @@ local function statusText(key, a, b)
   if key == "CHAT_TARGET_POSTED" then
     return Fundraiser:T(key, tostring(a), money(b))
   end
+  if key == "CHAT_TARGET_POST_FAILED" and a then
+    return Fundraiser:T("CHAT_TARGET_POST_FAILED_DETAIL", tostring(a))
+  end
   return Fundraiser:T(key)
 end
 

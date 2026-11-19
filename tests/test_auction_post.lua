@@ -196,9 +196,24 @@ do
   C_AuctionHouse.PostItem = function()
     error("blocked")
   end
-  local ok, key = AP:PostStack(stack(), 200)
+  local ok, key, detail = AP:PostStack(stack(), 200)
   assert_eq(ok, false, "api error: refused")
   assert_eq(key, "CHAT_TARGET_POST_FAILED", "api error: reason")
+  assert_eq(type(detail) == "string" and detail:find("blocked", 1, true) ~= nil, true, "api error: the error text is passed on")
+end
+
+-- Scenario: the client accepted the post even though the call returned false (seen in game:
+-- "Auction created." was shown), so it is not reported as a failure
+do
+  reset()
+  C_AuctionHouse.PostItem = function(loc, duration, qty, bid, buyout)
+    world.posts[#world.posts + 1] = { kind = "item", loc = loc, duration = duration, qty = qty, bid = bid, buyout = buyout }
+    return false
+  end
+  local ok, key = AP:PostStack(stack(), 200)
+  assert_eq(ok, true, "returns false: still a success")
+  assert_eq(key, "CHAT_TARGET_POSTED", "returns false: reported as posted")
+  assert_eq(#world.posts, 1, "returns false: the post was sent once")
 end
 
 -- Scenario: vendoring needs an open merchant and the item in the bag slot
