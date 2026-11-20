@@ -221,6 +221,66 @@ function UC.AppendLedgerEntry(deps, fields, actor)
   return appendEntry(deps, event, fields)
 end
 
+-- Ledger row id for an incoming mail. Without attachments it keeps the old format; item
+-- attachments are appended so two mails from one donor stay separate rows.
+function UC.MailId(sender, subject, money, items)
+  local id = string.format(
+    "mail:%s:%s:%d:%s",
+    tostring(sender),
+    tostring(subject or ""),
+    tonumber(money) or 0,
+    (items and #items > 0) and "1" or "0"
+  )
+  if items and #items > 0 then
+    local parts = {}
+    for _, item in ipairs(items) do
+      parts[#parts + 1] = string.format("%s x%d", tostring(item.name), tonumber(item.count) or 1)
+    end
+    id = id .. ":" .. table.concat(parts, ",")
+  end
+  return id
+end
+
+-- Target-only: record one incoming player mail. Money goes on the row as before; item
+-- attachments become lots on the same row, listed in its detail and worth nothing until sold.
+-- mail: { id, sender, subject, money, items = { { name, count } }, fromAuctionHouse, at }.
+-- Items the auction house sends back (expired or cancelled auctions) are not donations.
+-- Returns the row, or nil, reason ("known" when this mail's items are already recorded).
+function UC.RecordItemMail(deps, mail, actor)
+  local Roles = Domain().Roles
+  local ItemLots = Domain().ItemLots
+  local event = deps.getEvent and deps.getEvent() or nil
+  if not event then
+    return nil, "no_event"
+  end
+  actor = actor or {}
+  if not Roles.CanWriteLedger(event, actor.name) then
+    return nil, "not_target"
+  end
+  local items = (not mail.fromAuctionHouse and mail.items) or {}
+  local lots = deps.getLots and deps.getLots() or {}
+  if #items > 0 then
+    if ItemLots.HasRow(lots, mail.id) then
+      return nil, "known"
+    end
+    for _, item in ipairs(items) do
+      ItemLots.Add(lots, { id = mail.id, item = item.name, qty = item.count })
+    end
+    if deps.setLots then
+      deps.setLots(lots)
+    end
+  end
+  local detail = #items > 0 and ItemLots.RowDetail(lots, mail.id) or (mail.subject or "")
+  return appendEntry(deps, event, {
+    id = mail.id,
+    kind = "mail",
+    name = Roles.DisplayName(mail.sender) or mail.sender,
+    detail = detail,
+    copper = (tonumber(mail.money) or 0) + ItemLots.RowCopper(lots, mail.id),
+    at = mail.at,
+  })
+end
+
 local manualSeq = 0
 
 -- Manual donation entered by hand; stored and meshed like mail/AH rows.

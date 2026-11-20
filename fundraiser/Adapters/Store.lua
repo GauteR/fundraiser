@@ -14,6 +14,8 @@ local function emptyDb()
   return {
     event = nil,
     contributions = {},
+    -- Donated items waiting to be sold (Domain/ItemLots.lua); local only, not shared.
+    lots = {},
     presence = {},
     reminder = {},
     settings = {},
@@ -62,6 +64,7 @@ function Store:Load()
     _G[name] = db
   end
   db.contributions = db.contributions or {}
+  db.lots = db.lots or {}
   db.presence = db.presence or {}
   db.reminder = db.reminder or {}
   db.settings = db.settings or {}
@@ -109,6 +112,17 @@ end
 function Store:GetContributions()
   self.db = self.db or self:Load()
   return self.db.contributions
+end
+
+function Store:GetLots()
+  self.db = self.db or self:Load()
+  self.db.lots = self.db.lots or {}
+  return self.db.lots
+end
+
+function Store:SetLots(list)
+  self.db = self.db or self:Load()
+  self.db.lots = list or {}
 end
 
 function Store:SetContributions(list)
@@ -214,6 +228,7 @@ end
 function Store:ClearLedger()
   self.db = self.db or self:Load()
   self.db.contributions = {}
+  self.db.lots = {}
   return self.db.contributions
 end
 

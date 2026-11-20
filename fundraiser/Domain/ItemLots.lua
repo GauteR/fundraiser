@@ -88,6 +88,16 @@ function ItemLots.Allocate(lots, item, qty, proceeds)
   return parts, left, (left > 0) and remaining or 0
 end
 
+-- True when the ledger row already has lots (its mail was recorded before).
+function ItemLots.HasRow(lots, id)
+  for _, lot in ipairs(lots) do
+    if lot.id == id then
+      return true
+    end
+  end
+  return false
+end
+
 -- Copper earned on a ledger row (sum over its lots).
 function ItemLots.RowCopper(lots, id)
   local sum = 0

@@ -95,6 +95,29 @@ function Mail:OnSendSuccess()
   self.pendingCopper = nil
 end
 
+-- Item attachments of one inbox mail: { { name, count } }.
+local function inboxItems(mailIndex)
+  local items = {}
+  if not GetInboxItem then
+    return items
+  end
+  for j = 1, tonumber(ATTACHMENTS_MAX_RECEIVE) or 12 do
+    local name, _, _, count = GetInboxItem(mailIndex, j)
+    if name and name ~= "" then
+      items[#items + 1] = { name = name, count = tonumber(count) or 1 }
+    end
+  end
+  return items
+end
+
+-- Mail from the auction house (payouts, returned auctions) is not a player donation.
+local function isAuctionHouseMail(mailIndex, sender)
+  if GetInboxInvoiceInfo and GetInboxInvoiceInfo(mailIndex) then
+    return true
+  end
+  return sender == "Auction House"
+end
+
 function Mail:ScanInbox()
   if not (Fundraiser.Config and Fundraiser.Config.LEDGER) then
     return
@@ -125,6 +148,12 @@ function Mail:ScanInbox()
     setContributions = function(list)
       Store:SetContributions(list)
     end,
+    getLots = function()
+      return Store:GetLots()
+    end,
+    setLots = function(list)
+      Store:SetLots(list)
+    end,
     broadcastLedgerEntry = function(entry)
       Fundraiser.Adapters.ThinGuildSync:BroadcastLedgerEntry(entry)
     end,
@@ -136,16 +165,17 @@ function Mail:ScanInbox()
     money = tonumber(money) or 0
     CODAmount = tonumber(CODAmount) or 0
     if CODAmount <= 0 and sender and (money > 0 or hasItem) then
-      local id = string.format("mail:%s:%s:%d:%s", tostring(sender), tostring(subject or ""), money, tostring(hasItem and 1 or 0))
+      local items = hasItem and inboxItems(i) or {}
+      local id = UC.MailId(sender, subject, money, items)
       if not self.seenMail[id] then
         self.seenMail[id] = true
-        UC.AppendLedgerEntry(deps, {
+        UC.RecordItemMail(deps, {
           id = id,
-          kind = "mail",
-          name = Fundraiser.Domain.Roles.DisplayName(sender) or sender,
-          detail = subject or "",
-          copper = money,
-          eventId = event.id,
+          sender = sender,
+          subject = subject,
+          money = money,
+          items = items,
+          fromAuctionHouse = isAuctionHouseMail(i, sender),
           at = now(),
         }, actor)
       end
