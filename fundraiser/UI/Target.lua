@@ -13,12 +13,22 @@ local MARGIN = 16
 local CARD_GAP = 10
 local CARD_PAD = 10
 local CARD_W = PANEL_W - 2 * MARGIN
-local ROWS = 9
+-- Vertical budget of the panel (the shell page and the dock are both this tall): the list takes
+-- whatever the other pieces leave, so the page is used from top to bottom.
+local PANEL_H = 490
+local TOP = 34
+local BOTTOM_PAD = 8
+local DETAIL_CARD_H = 146
+local BULK_H = 24
+local STATUS_H = 14
 local ROW_H = 18
 local HEADER_Y = -28
 local LIST_TOP = -46
-local LIST_CARD_H = -LIST_TOP + ROWS * ROW_H + 10
-local DETAIL_CARD_H = 150
+local LIST_CHROME = -LIST_TOP + 10
+local ROWS = math.floor(
+  (PANEL_H - TOP - BOTTOM_PAD - DETAIL_CARD_H - CARD_GAP - 8 - BULK_H - 8 - STATUS_H - LIST_CHROME) / ROW_H
+)
+local LIST_CARD_H = LIST_CHROME + ROWS * ROW_H
 local LIST_W = CARD_W - CARD_PAD - 34
 -- List columns: icon, item name, quantity, value (net of the recommended action), note.
 local ICON_SIZE = 14
@@ -734,8 +744,6 @@ end
 -- The same panel docks beside the auction house while it is open (donation target only):
 -- it moves from the shell window into a compact frame anchored to the right of the auction
 -- house, and goes back to the shell when the auction house closes.
-local PANEL_H = 490
-
 function Target:EnsureDock()
   if self.dock then
     return self.dock
@@ -876,7 +884,7 @@ end
 -- Called by the shell when the page opens.
 function Target:Open()
   if self.frame then
-    self:SetStatus("TARGET_HINT", Fundraiser:T("TARGET_HINT"))
+    self.frame.status:SetText("")
   end
   self:Refresh()
 end

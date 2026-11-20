@@ -136,7 +136,6 @@ do
   assert_eq(TV.StatusKind("CHAT_TARGET_VENDOR_OK"), "ok", "status: sold")
   assert_eq(TV.StatusKind("TARGET_BULK_DONE_FMT"), "ok", "status: bulk done")
   assert_eq(TV.StatusKind("TARGET_BULK_PROGRESS_FMT"), "info", "status: bulk progress")
-  assert_eq(TV.StatusKind("TARGET_HINT"), "info", "status: hint")
   assert_eq(TV.StatusKind("CHAT_TARGET_POST_FAILED"), "error", "status: failure")
   assert_eq(TV.StatusKind("CHAT_TARGET_OPEN_AH"), "error", "status: needs the auction house")
   assert_eq(TV.StatusKind("TARGET_BULK_STOPPED_FMT"), "error", "status: bulk stopped")

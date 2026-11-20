@@ -159,7 +159,6 @@ local OK_KEYS = {
 
 local INFO_KEYS = {
   TARGET_BULK_PROGRESS_FMT = true,
-  TARGET_HINT = true,
 }
 
 -- Colour class of a status line: "ok", "info" or "error".
