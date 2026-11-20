@@ -91,8 +91,8 @@ L.TIP_REFRESH_BODY = "Reload event status, ledger totals, and the raised chart f
 L.BTN_POST_AH = "Post AH"
 L.BTN_VENDOR = "Vendor"
 
-L.NAV_TARGET = "Target"
-L.TIP_NAV_TARGET_TITLE = "Target"
+L.NAV_TARGET = "Trading"
+L.TIP_NAV_TARGET_TITLE = "Trading"
 L.TIP_NAV_TARGET_BODY = "Your bags split into an Auction list and a Vendor list. Post or vendor one stack at a time."
 L.CARD_TARGET_STACKS = "Bag stacks"
 L.CARD_TARGET_SELECTED = "Selected stack"
