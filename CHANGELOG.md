@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Target page bulk actions: **Post all** and **Sell all** (each confirmed with count and estimated total, stopping on the first failure) act on the Auction and Vendor lists. Posting is one stack per click ("Post next (N left)"); selling to a vendor runs in one go. A per-stack **Skip** toggle (this session only) and the minimum stack value (`Config.MIN_STACK_VALUE_COPPER`) leave stacks out of the bulk actions; they are marked in the list and can still be acted on one by one. Stacks that need a price are never part of a bulk action.
 - Target page in the main window (menu entry **Target**, `/fundraiser target`, and the Home button), shown only on the donation-target character. It scans the bags, lists stacks under Auction, Vendor and Needs price headers, and posts or vendors the selected stack with the result shown inline. Rescans on bag changes. Same cards and margins as Home and Ledger.
 - Target assist groundwork: a bag scan (`Adapters/BagAssist.lua`) that lists stacks with TSM / Auctionator and vendor prices and the sale advice, a view model that groups stacks into Auction, Vendor and Needs price lists (`Domain/TargetView.lua`), and a bulk action queue (`Domain/ActionQueue.lua`). New constant `Config.MIN_STACK_VALUE_COPPER` (default 100 copper): stacks below it will be left out of bulk actions. No UI change yet.
 - Manual donations: officers and the donation-target character can add a donation by hand (Add donation menu page: donor, amount in gold / silver / copper, optional note). Stored as ledger kind `manual` and shared over the guild mesh.
@@ -19,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - End event (-) on the admin event card: archives the campaign, clears active event+ledger, broadcasts `RESET campaign` (`Config.END_EVENT`).
 
 ### Fixed
-- The donation-target check failed on Forever because `UnitFullName` returns only the first name; the player name now prefers the full "First Last" name from `UnitName`, so the target character is recognised.
+- The donation-target check failed on Forever because `UnitName` and `UnitFullName` return the first name and the last name as two separate values, so the player never matched a "First Last" event target. The player name now comes from `GetUnitName("player", true)` (full name), joining the two values when it is missing.
 - Addon settings from the admin window now opens Settings → AddOns → Fundraiser (uses saved category ID before the panel-name overwrite).
 
 ### Changed

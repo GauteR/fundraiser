@@ -52,26 +52,25 @@ function Roster:SetRankOverride(rankIndex)
 end
 
 function Roster:GetPlayerName()
-  -- Forever names are "First Last". UnitName returns both parts, while UnitFullName may return
-  -- only the first part as its name, so take whichever candidate has a space, else any.
-  local candidates = {}
-  if UnitName then
-    candidates[#candidates + 1] = UnitName("player")
-  end
-  if UnitFullName then
-    candidates[#candidates + 1] = (UnitFullName("player"))
-  end
-  local name
-  for _, n in ipairs(candidates) do
+  -- Forever names are "First Last". GetUnitName(unit, true) returns both parts; UnitName and
+  -- UnitFullName return "First", "Last" as two values (the last name sits in the realm slot).
+  if GetUnitName then
+    local n = GetUnitName("player", true)
     if type(n) == "string" and n ~= "" then
-      name = name or n
-      if n:find(" ", 1, true) then
-        name = n
-        break
-      end
+      return displayName(n)
     end
   end
-  return displayName(name)
+  local api = UnitFullName or UnitName
+  if api then
+    local first, last = api("player")
+    if type(first) == "string" and first ~= "" then
+      if type(last) == "string" and last ~= "" and not first:find(" ", 1, true) then
+        first = first .. " " .. last
+      end
+      return displayName(first)
+    end
+  end
+  return nil
 end
 
 function Roster:GetPlayerGUID()

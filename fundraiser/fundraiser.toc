@@ -22,6 +22,7 @@ Domain/SaleAdvice.lua
 Domain/TargetView.lua
 Domain/ActionQueue.lua
 Domain/ShellPages.lua
+Domain/BulkPlan.lua
 Application/UseCases.lua
 Adapters/Codec.lua
 Adapters/Store.lua

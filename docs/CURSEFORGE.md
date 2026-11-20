@@ -24,7 +24,7 @@ Use a character dedicated only to that role — do not mix personal AH there.
 - Mailbox reminder until mail is sent to the donation target
 - One window with a left menu (Home / Ledger / Settings) and top-bar buttons (+ new event, - end event, refresh). Ledger page (`/fundraiser ledger`, menu entry or the admin ledger card): scrollable donation rows, total, previous campaigns as summary lines, and a **Set MOTD** menu entry for the guild message (raised vs goal + top contributor)
 - Ledger on the donation target (mail intake + all AH sales; officers and the target can add manual donations); guild-wide mesh relay; officer/target view
-- Target page in the main window (donation target only): bag stacks split into Auction / Vendor / Needs price lists, TSM -> Auctionator -> manual price, post or vendor one stack at a time
+- Target page in the main window (donation target only): bag stacks split into Auction / Vendor / Needs price lists, TSM -> Auctionator -> manual price, post or vendor one stack at a time or a whole list after a confirmation (Skip and a minimum value keep stacks out)
 - Settings -> AddOns -> Fundraiser: status, online installs, default reminder interval, global min admin rank; admin Danger zone for cleanup / broadcast reset
 - Best-effort install presence (who is online with the addon)
 

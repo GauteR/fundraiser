@@ -1,5 +1,7 @@
 -- Pure Lua tests for the player name the roles gate compares with the event target.
 -- Style: Given / When / Then scenarios.
+-- Real Forever values (observed in the client): UnitName("player") and UnitFullName("player")
+-- both return "First", "Last" as two values; GetUnitName("player", true) returns "First Last".
 local root = arg and arg[0] and arg[0]:match("(.+)[/\\]") or "."
 local repo = root .. "/.."
 
@@ -17,14 +19,20 @@ local function assert_eq(a, b, msg)
   end
 end
 
--- Scenario: Forever returns only the first name from UnitFullName but the full name from UnitName
+local function reset()
+  GetUnitName, UnitName, UnitFullName = nil, nil, nil
+end
+
+-- Scenario: Forever gives the full name from GetUnitName
 do
-  UnitFullName = function()
-    return "Neema", "Neema Miststalker"
-  end
-  UnitName = function()
+  reset()
+  GetUnitName = function()
     return "Neema Miststalker"
   end
+  UnitName = function()
+    return "Neema", "Miststalker"
+  end
+  UnitFullName = UnitName
   assert_eq(Roster:GetPlayerName(), "Neema Miststalker", "forever: full First Last name")
   assert_eq(
     Roles.IsDonationTarget({ target = "Neema Miststalker" }, Roster:GetPlayerName()),
@@ -33,25 +41,37 @@ do
   )
 end
 
--- Scenario: only UnitFullName carries the full name
+-- Scenario: without GetUnitName the last name comes from the second return value
 do
-  UnitFullName = function()
-    return "Bank Alt", "Realm"
-  end
+  reset()
   UnitName = function()
-    return "Bank"
+    return "Neema", "Miststalker"
   end
-  assert_eq(Roster:GetPlayerName(), "Bank Alt", "full name from UnitFullName when UnitName is short")
+  assert_eq(Roster:GetPlayerName(), "Neema Miststalker", "UnitName: first and last joined")
+  reset()
+  UnitFullName = function()
+    return "Neema", "Miststalker"
+  end
+  assert_eq(Roster:GetPlayerName(), "Neema Miststalker", "UnitFullName: first and last joined")
+end
+
+-- Scenario: a name that already has both parts is used as is
+do
+  reset()
+  UnitName = function()
+    return "Bank Alt"
+  end
+  assert_eq(Roster:GetPlayerName(), "Bank Alt", "full name from UnitName")
 end
 
 -- Scenario: single-word names and missing APIs still work
 do
-  UnitFullName = nil
+  reset()
   UnitName = function()
     return "Solo"
   end
   assert_eq(Roster:GetPlayerName(), "Solo", "single word name")
-  UnitName = nil
+  reset()
   assert_eq(Roster:GetPlayerName(), nil, "no API: nil")
 end
 
