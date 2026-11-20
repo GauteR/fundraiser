@@ -88,7 +88,6 @@ L.CHAT_END_EVENT_LOCAL_ONLY =
 L.CHAT_END_EVENT_FAILED = "Could not end event (%s)."
 L.TIP_REFRESH_TITLE = "Refresh"
 L.TIP_REFRESH_BODY = "Reload event status, ledger totals, and the raised chart from local data."
-L.BTN_TARGET_UI = "Open target page"
 L.BTN_POST_AH = "Post AH"
 L.BTN_VENDOR = "Vendor"
 

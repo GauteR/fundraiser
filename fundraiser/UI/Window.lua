@@ -30,8 +30,6 @@ local LABEL_WIDTH = 190
 local FIELD_X = 214
 local ROW_HEIGHT = 30
 local CARD_GAP = 10
-local FOOTER_GAP = 16
-local FOOTER_BTN_H = 24
 local CHART_MAX_POINTS = 14
 local CHART_MAX_SEGMENTS = 13
 local CHART_LEGEND_W = 100
@@ -403,19 +401,6 @@ function Window:Ensure()
   f.chartLegend = legend
   f.chartCard = chartCard
 
-  -- Footer: optional Target assist (Settings lives in the shell menu).
-  -- Extra FOOTER_GAP keeps the row clear of the chart and the frame bottom inset.
-  local footerY = y - PROGRESS_CARD_H - CARD_GAP - CHART_CARD_H - FOOTER_GAP
-  f.dashboardFooterY = footerY
-
-  local targetBtn = CreateFrame("Button", "FundraiserTargetOpenButton", status, "UIPanelButtonTemplate")
-  targetBtn:SetSize(160, FOOTER_BTN_H)
-  targetBtn:SetPoint("TOPLEFT", MARGIN, footerY)
-  targetBtn:SetText(Fundraiser:T("BTN_TARGET_UI"))
-  targetBtn:SetScript("OnClick", function()
-    Fundraiser:ToggleTargetUi()
-  end)
-  f.targetBtn = targetBtn
   f.halfW = halfW
   f.cardW = cardW
 
@@ -1088,7 +1073,6 @@ function Window:LayoutGoalWidgets(showGoal)
   local midY = f.dashboardMidY
   local halfW = f.halfW
   local cardW = f.cardW
-  local footerY
 
   f.ledgerCard:ClearAllPoints()
   if showGoal then
@@ -1102,19 +1086,12 @@ function Window:LayoutGoalWidgets(showGoal)
     f.ledgerStatus:SetWidth(halfW - 20)
     f.chartCard:ClearAllPoints()
     f.chartCard:SetPoint("TOPLEFT", MARGIN, midY - PROGRESS_CARD_H - CARD_GAP)
-    footerY = midY - PROGRESS_CARD_H - CARD_GAP - CHART_CARD_H - FOOTER_GAP
   else
     f.progressCard:Hide()
     f.chartCard:Hide()
     f.ledgerCard:SetPoint("TOPLEFT", MARGIN, midY)
     f.ledgerCard:SetSize(cardW, PROGRESS_CARD_H)
     f.ledgerStatus:SetWidth(cardW - 20)
-    footerY = midY - PROGRESS_CARD_H - FOOTER_GAP
-  end
-
-  if f.targetBtn then
-    f.targetBtn:ClearAllPoints()
-    f.targetBtn:SetPoint("TOPLEFT", MARGIN, footerY)
   end
 end
 
@@ -1373,12 +1350,6 @@ function Window:Refresh()
       f.progressBar:SetValue(0)
       self:UpdateChart({ points = {}, goalCopper = goalCopper, maxY = math.max(goalCopper, 1) })
     end
-  end
-
-  if Fundraiser:CanOpenTargetUi() then
-    f.targetBtn:Show()
-  else
-    f.targetBtn:Hide()
   end
 end
 

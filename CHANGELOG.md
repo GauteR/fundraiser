@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Addon settings from the admin window now opens Settings → AddOns → Fundraiser (uses saved category ID before the panel-name overwrite).
 
 ### Changed
+- Removed the "Open target page" button from the Home page: the Target menu entry (and `/fundraiser target`, and the panel beside the auction house) is the way in.
 - The Target page replaces the separate "Target inbox assist" window and scans bags instead of the mailbox (the mailbox cannot be open at the auctioneer); empty the mailbox the normal way first. The Home Target button and `/fundraiser target` now both go through the donation-target check.
 - Auction posting now uses the modern Forever auction house API (`C_AuctionHouse` `PostItem` / `PostCommodity`) and needs the auction house to be open; the old `StartAuction` path is gone. `Config.AH_DURATION` is now the Forever duration index (1 = 2h, 2 = 8h, 3 = 24h) and defaults to 24h (index 3).
 - Redesigned the `/fundraiser` admin window as a status dashboard; New event form is behind a button; Open ledger / Settings / Target shortcuts; install presence only in Settings. Row details move to the dedicated ledger window.
