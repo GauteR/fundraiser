@@ -231,6 +231,37 @@ do
   assert_eq(world.used[1], "1:2", "vendor: the right slot is used")
 end
 
+-- Scenario: a vendor sale is handed to the sale recorder (ledger), failures are not
+do
+  reset()
+  local recorded = {}
+  Fundraiser.Adapters.SaleRecorder = {
+    RecordVendor = function(_, row)
+      recorded[#recorded + 1] = row
+    end,
+  }
+  local row = stack()
+  AP:VendorStack(row)
+  assert_eq(#recorded, 1, "recorder: a sale is recorded")
+  assert_eq(recorded[1], row, "recorder: with the stack that was sold")
+
+  reset()
+  recorded = {}
+  Fundraiser.Adapters.SaleRecorder = {
+    RecordVendor = function(_, r)
+      recorded[#recorded + 1] = r
+    end,
+  }
+  world.merchantOpen = false
+  AP:VendorStack(stack())
+  assert_eq(#recorded, 0, "recorder: a refused sale is not recorded")
+
+  reset()
+  Fundraiser.Adapters.SaleRecorder = nil
+  local ok = AP:VendorStack(stack())
+  assert_eq(ok, true, "recorder: selling works without a recorder")
+end
+
 -- Scenario: HandleRow routes the action and reports the result in chat
 do
   reset()
