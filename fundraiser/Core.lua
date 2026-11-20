@@ -119,14 +119,13 @@ function Fundraiser:ToggleTargetUi()
   end
   if not self:CanOpenTargetUi() then
     Print(self:T("CHAT_TARGET_NO_ACCESS"))
-    if self.UI and self.UI.Target and self.UI.Target.Hide then
-      self.UI.Target:Hide()
+    local Window = self.UI and self.UI.Window
+    if Window and Window.view == "target" then
+      Window:Hide()
     end
     return
   end
-  if self.UI and self.UI.Target then
-    self.UI.Target:Toggle()
-  end
+  self.UI.Window:ToggleTarget()
 end
 
 -- Ledger window: same view gate as UseCases.GetLedgerView (donation target, officers).

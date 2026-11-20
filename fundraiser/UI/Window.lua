@@ -413,9 +413,7 @@ function Window:Ensure()
   targetBtn:SetPoint("TOPLEFT", MARGIN, footerY)
   targetBtn:SetText(Fundraiser:T("BTN_TARGET_UI"))
   targetBtn:SetScript("OnClick", function()
-    if Fundraiser.UI.Target then
-      Fundraiser.UI.Target:Toggle()
-    end
+    Fundraiser:ToggleTargetUi()
   end)
   f.targetBtn = targetBtn
   f.halfW = halfW
@@ -495,6 +493,9 @@ function Window:Ensure()
   if Fundraiser.UI.Ledger and Fundraiser.UI.Ledger.Attach then
     Fundraiser.UI.Ledger:Attach(f)
   end
+  if Fundraiser.UI.Target and Fundraiser.UI.Target.Attach then
+    Fundraiser.UI.Target:Attach(f)
+  end
 
   f:SetScript("OnShow", function()
     if not Window.userMoved then
@@ -520,6 +521,7 @@ end
 local NAV_ITEMS = {
   { page = "status", key = "NAV_STATUS", needs = "officer", tip = "TIP_NAV_STATUS" },
   { page = "ledger", key = "NAV_LEDGER", needs = "ledger", tip = "TIP_NAV_LEDGER" },
+  { page = "target", key = "NAV_TARGET", needs = "target", tip = "TIP_NAV_TARGET" },
   -- Actions pinned to the menu bottom (not pages): Add donation (opens the form), Set MOTD, Settings.
   { page = "donation", key = "NAV_DONATION", needs = "donation", action = "donation", tip = "TIP_NAV_DONATION" },
   { page = "motd", key = "BTN_SET_MOTD", needs = "motd", action = "motd", tip = "TIP_SET_MOTD" },
@@ -671,25 +673,34 @@ local function canSeeLedger()
   return Fundraiser:CanOpenLedgerUi()
 end
 
+local ShellPages = Fundraiser.Domain.ShellPages
+
+-- What the current player may use; ShellPages decides pages and menu entries from it.
+function Window:Access()
+  local ledger = canSeeLedger()
+  return {
+    officer = isOfficer(),
+    ledger = ledger,
+    target = Fundraiser:CanOpenTargetUi(),
+    donation = Fundraiser.UI.Ledger:CanAddDonation() and true or false,
+    motd = ledger and Fundraiser.UI.Ledger:CanSetMotd() and true or false,
+  }
+end
+
 -- Show only the menu entries the player may use; mark the current page.
 function Window:UpdateNav()
   local f = self.frame
   if not f or not f.navButtons then
     return
   end
-  local officer, ledger = isOfficer(), canSeeLedger()
-  local motd = ledger and Fundraiser.UI.Ledger:CanSetMotd()
-  local donation = Fundraiser.UI.Ledger:CanAddDonation()
+  local access = self:Access()
   local y = -(TITLE_BAR_H + HEADER_H + 12)
   local bottomY = 14
   -- Bottom entries are listed top-to-bottom in NAV_ITEMS, so stack them upward from the end.
   for i = #f.navButtons, 1, -1 do
     local b = f.navButtons[i]
     if b.item.action then
-      local allowed = (b.item.needs == "officer" and officer)
-        or (b.item.needs == "motd" and motd)
-        or (b.item.needs == "donation" and donation)
-      if allowed then
+      if ShellPages.Allowed(b.item.needs, access) then
         b:ClearAllPoints()
         b:SetPoint("BOTTOMLEFT", 10, bottomY)
         bottomY = bottomY + 30
@@ -705,9 +716,8 @@ function Window:UpdateNav()
     end
   end
   for _, b in ipairs(f.navButtons) do
-    local allowed = (b.item.needs == "officer" and officer) or (b.item.needs == "ledger" and ledger)
     if not b.item.action then
-      if allowed then
+      if ShellPages.Allowed(b.item.needs, access) then
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", 10, y)
         y = y - 30
@@ -743,7 +753,7 @@ function Window:UpdateHeaderButtons()
   local onForm = self.view == "create" or self.view == "donation"
   local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
   local hasEvent = Store and Store:GetEvent() ~= nil
-  setShown(f.refreshBtn, not onForm and (officer or canSeeLedger()))
+  setShown(f.refreshBtn, not onForm and (officer or canSeeLedger() or Fundraiser:CanOpenTargetUi()))
   setShown(f.newEventBtn, officer and not onForm)
   setShown(
     f.endEventBtn,
@@ -755,6 +765,8 @@ end
 function Window:RefreshCurrent()
   if self.view == "ledger" then
     Fundraiser.UI.Ledger:Refresh()
+  elseif self.view == "target" then
+    Fundraiser.UI.Target:Refresh()
   else
     self:Refresh()
   end
@@ -770,32 +782,30 @@ local function showOnly(f, which)
   if Ledger and Ledger.donationFrame then
     setShown(Ledger.donationFrame, which == "donation")
   end
+  local Target = Fundraiser.UI.Target
+  if Target and Target.frame then
+    setShown(Target.frame, which == "target")
+  end
 end
 
 -- Open a page by name; officers get status/create, ledger viewers get the ledger.
 function Window:ShowPage(page)
-  if page == "donation" then
-    if Fundraiser.UI.Ledger:CanAddDonation() then
-      self:ShowDonation()
-    elseif canSeeLedger() then
-      self:ShowLedger()
-    else
-      self:Hide()
-    end
-    return
+  local shown = ShellPages.Resolve(page, self:Access())
+  if page == "target" and shown ~= "target" then
+    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("CHAT_TARGET_NO_ACCESS"))
   end
-  if page == "ledger" or not isOfficer() then
-    if canSeeLedger() then
-      self:ShowLedger()
-    else
-      self:Hide()
-    end
-    return
-  end
-  if page == "create" then
+  if shown == "donation" then
+    self:ShowDonation()
+  elseif shown == "target" then
+    self:ShowTarget()
+  elseif shown == "ledger" then
+    self:ShowLedger()
+  elseif shown == "create" then
     self:ShowCreate()
-  else
+  elseif shown == "status" then
     self:ShowStatus()
+  else
+    self:Hide()
   end
 end
 
@@ -816,6 +826,30 @@ function Window:ShowLedger()
   f.pageTitle:SetText(Fundraiser:T("NAV_LEDGER"))
   self:UpdateNav()
   Ledger:Refresh()
+end
+
+function Window:ShowTarget()
+  local f = self:Ensure()
+  self.view = "target"
+  showOnly(f, "target")
+  f.pageTitle:SetText(Fundraiser:T("NAV_TARGET"))
+  self:UpdateNav()
+  Fundraiser.UI.Target:Open()
+end
+
+-- Open the shell on the target page (or close it when the page is already showing).
+function Window:ToggleTarget()
+  local f = self:Ensure()
+  if f:IsShown() and self.view == "target" then
+    f:Hide()
+    return
+  end
+  if f:IsShown() then
+    self:ShowPage("target")
+  else
+    self.pendingPage = "target"
+    f:Show()
+  end
 end
 
 -- Manual donation form (donation target only).
@@ -1339,10 +1373,7 @@ function Window:Refresh()
     end
   end
 
-  local showTarget = Fundraiser.Config.TARGET_UI
-    and event
-    and Roles.IsDonationTarget(event, Roster:GetPlayerName())
-  if showTarget then
+  if Fundraiser:CanOpenTargetUi() then
     f.targetBtn:Show()
   else
     f.targetBtn:Hide()
