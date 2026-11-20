@@ -199,6 +199,9 @@ local function deps(opts)
     getPlayerRankIndex = function()
       return opts.rank
     end,
+    getDonorRankIndex = function(name)
+      return opts.donorRanks and opts.donorRanks[name] or nil
+    end,
     canEditMotd = function()
       return opts.canEdit ~= false
     end,
@@ -283,6 +286,43 @@ do
   local n, nerr = UC.SetMotd(deps({ event = nil, rank = 0 }))
   assert_eq(n, nil, "motd uc: no event")
   assert_eq(nerr, "no_event", "motd uc: no event reason")
+end
+
+-- Scenario: rank 0 donations stay in the total but not in the top contributor
+do
+  local o = { event = event, rows = rows, rank = 1, donorRanks = { ["Bob Bob"] = 0, ["Amy Amy"] = 3 } }
+  assert_eq(
+    UC.PrepareMotd(deps(o)),
+    "Fundraiser Raid Fund: 5g/5000g (0%). Top contributor: Amy Amy!",
+    "leaderboard: rank 0 donor skipped, total unchanged"
+  )
+  local all0 = { event = event, rows = rows, rank = 1, donorRanks = { ["Bob Bob"] = 0, ["Amy Amy"] = 0 } }
+  assert_eq(
+    UC.PrepareMotd(deps(all0)),
+    "Fundraiser Raid Fund: 5g/5000g (0%).",
+    "leaderboard: only rank 0 donors means no top contributor"
+  )
+  local unknown = { event = event, rows = rows, rank = 1 }
+  assert_eq(
+    UC.PrepareMotd(deps(unknown)),
+    "Fundraiser Raid Fund: 5g/5000g (0%). Top contributor: Bob Bob!",
+    "leaderboard: unknown rank still counts"
+  )
+  local saved = Fundraiser.Config.LEADERBOARD_EXCLUDED_RANK
+  Fundraiser.Config.LEADERBOARD_EXCLUDED_RANK = nil
+  assert_eq(
+    UC.PrepareMotd(deps(o)),
+    "Fundraiser Raid Fund: 5g/5000g (0%). Top contributor: Bob Bob!",
+    "leaderboard: exclusion off"
+  )
+  Fundraiser.Config.LEADERBOARD_EXCLUDED_RANK = saved
+  local top = LV.TopContributors(rows, {
+    skip = function(name)
+      return name == "Amy Amy"
+    end,
+  })
+  assert_eq(#top, 1, "top: skip drops that donor")
+  assert_eq(top[1].name, "Bob Bob", "top: the rest remains")
 end
 
 -- Scenario: manual donation on the donation target

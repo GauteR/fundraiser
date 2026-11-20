@@ -95,6 +95,9 @@ function Ledger:Deps()
     getPlayerRankIndex = function()
       return Roster:GetPlayerRankIndex()
     end,
+    getDonorRankIndex = function(name)
+      return Roster:RankIndexOfName(name)
+    end,
     setContributions = function(list)
       Store:SetContributions(list)
     end,

@@ -100,6 +100,9 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua) for feature flags and comp
 | `LEDGER` | `true` | Target logging + officer ledger UI |
 | `TARGET_UI` | `true` | Donation-target page (bag scan, AH / vendor actions) |
 | `TARGET_AUTO_DOCK` | `true` | Show the Target panel beside the auction house while it is open (donation target only) |
+| `TARGET_AUTO_OPEN_VENDOR` | `true` | Open the main window on the Target page, beside the vendor window, when a vendor opens (donation target only); it closes with the vendor |
+| `LEDGER_AUTO_OPEN_MAILBOX` | `true` | Open the main window on the ledger, beside the mail window, when the mailbox opens (ledger viewers only); it closes with the mailbox |
+| `LEADERBOARD_EXCLUDED_RANK` | `0` | Donations from this guild rank index (0 = Guild Master) count towards the total but not as top contributor; `nil` counts everyone |
 | `AH_ASSIST` | `true` | AH/vendor actions from target UI |
 | `TSM_PRICE_SOURCE` | `"DBMinBuyout"` | TSM price key for min AH reference |
 | `DEBUG` | `true` | Solo sim: `/fundraiser debug …` (not in Options) |

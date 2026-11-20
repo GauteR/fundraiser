@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The main window opens by itself on the Target page when you talk to a vendor (donation target only) and on the ledger when you open the mailbox (officers and the donation target). It attaches to the right side of the vendor or mail window, like the Target panel beside the auction house, and closes with that window, unless you moved it or went to another page. `Config.TARGET_AUTO_OPEN_VENDOR` and `Config.LEDGER_AUTO_OPEN_MAILBOX` turn them off.
 - The Target panel opens by itself beside the auction house (docked to its right side) on the donation-target character and goes back to the main window when the auction house closes. `Config.TARGET_AUTO_DOCK` turns it off.
 - The docked Target panel goes beside the right-most visible auction window, so it does not cover Auctionator's price history window when that is docked to the auction house. `Config.TARGET_DOCK_ANCHORS` lists the frame names it considers; add another addon's auction window there by name.
 - Selected stack card on the Target page: item icon (with tooltip) and name in its quality colour, the stack size with the recommendation in its group colour, and a label / value grid for the vendor and AH values and the price source, with the recommended value highlighted.
@@ -37,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Addon settings from the admin window now opens Settings → AddOns → Fundraiser (uses saved category ID before the panel-name overwrite).
 
 ### Changed
+- Donations from guild rank 0 (the Guild Master) still count towards the total but no longer make someone the top contributor in the guild MOTD. `Config.LEADERBOARD_EXCLUDED_RANK` sets the rank (`nil` counts everyone). Donors who are not in the guild roster count.
 - Removed the "Open target page" button from the Home page: the Target menu entry (and `/fundraiser target`, and the panel beside the auction house) is the way in.
 - The Target page replaces the separate "Target inbox assist" window and scans bags instead of the mailbox (the mailbox cannot be open at the auctioneer); empty the mailbox the normal way first. The Home Target button and `/fundraiser target` now both go through the donation-target check.
 - Auction posting now uses the modern Forever auction house API (`C_AuctionHouse` `PostItem` / `PostCommodity`) and needs the auction house to be open; the old `StartAuction` path is gone. `Config.AH_DURATION` is now the Forever duration index (1 = 2h, 2 = 8h, 3 = 24h) and defaults to 24h (index 3).

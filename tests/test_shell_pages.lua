@@ -46,6 +46,41 @@ do
   assert_eq(SP.Allowed("unknown", { officer = true }), false, "unknown needs: hidden")
 end
 
+-- Scenario: the shell opens by itself at a vendor (Target page) and at the mailbox (ledger)
+do
+  local cfg = { TARGET_AUTO_OPEN_VENDOR = true, LEDGER_AUTO_OPEN_MAILBOX = true }
+  local target = { officer = false, ledger = true, target = true }
+  assert_eq(SP.AutoOpen("vendor", cfg, target), "target", "auto open: vendor opens the Target page")
+  assert_eq(SP.AutoOpen("mailbox", cfg, target), "ledger", "auto open: mailbox opens the ledger")
+  assert_eq(SP.AutoOpen("vendor", cfg, { officer = true, ledger = true, target = false }), nil, "auto open: vendor needs target access")
+  assert_eq(SP.AutoOpen("mailbox", cfg, { officer = false, ledger = false, target = false }), nil, "auto open: mailbox needs ledger access")
+  assert_eq(SP.AutoOpen("vendor", { TARGET_AUTO_OPEN_VENDOR = false }, target), nil, "auto open: vendor flag off")
+  assert_eq(SP.AutoOpen("mailbox", { LEDGER_AUTO_OPEN_MAILBOX = false }, target), nil, "auto open: mailbox flag off")
+  assert_eq(SP.AutoOpen("vendor", nil, target), nil, "auto open: no config counts as off")
+  assert_eq(SP.AutoOpen("bank", cfg, target), nil, "auto open: unknown trigger")
+  assert_eq(SP.AutoOpen("vendor", cfg, nil), nil, "auto open: unknown access")
+end
+
+-- Scenario: the window attaches to the vendor / mail frame it was opened for
+do
+  local cfg = { TARGET_AUTO_OPEN_VENDOR = true, LEDGER_AUTO_OPEN_MAILBOX = true }
+  local access = { ledger = true, target = true }
+  local _, anchor = SP.AutoOpen("vendor", cfg, access)
+  assert_eq(anchor, "MerchantFrame", "anchor: vendor window")
+  _, anchor = SP.AutoOpen("mailbox", cfg, access)
+  assert_eq(anchor, "MailFrame", "anchor: mail window")
+  assert_eq(select("#", SP.AutoOpen("vendor", {}, access)), 1, "anchor: nothing to open, nothing to anchor")
+end
+
+-- Scenario: the window closes with the window it was opened for, and only then
+do
+  local auto = { trigger = "vendor", page = "target" }
+  assert_eq(SP.ShouldAutoClose(auto, "vendor", "target"), true, "auto close: vendor closed, still on the page")
+  assert_eq(SP.ShouldAutoClose(auto, "mailbox", "target"), false, "auto close: other window closed")
+  assert_eq(SP.ShouldAutoClose(auto, "vendor", "ledger"), false, "auto close: player moved on to another page")
+  assert_eq(SP.ShouldAutoClose(nil, "vendor", "target"), false, "auto close: window was opened by the player")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)
