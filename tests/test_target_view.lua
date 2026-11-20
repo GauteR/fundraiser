@@ -122,6 +122,66 @@ do
   assert_eq(TV.Key(row(2, 7, "A", "ah")), "2:7", "key: bag and slot")
 end
 
+-- Scenario: the note shown next to a row says why it is left out of bulk actions
+do
+  assert_eq(TV.RowNote({ group = "auction", skipped = true, belowMin = true }), "skipped", "note: skipped wins")
+  assert_eq(TV.RowNote({ group = "auction", belowMin = true }), "below_min", "note: below the minimum")
+  assert_eq(TV.RowNote({ group = "price" }), "needs_price", "note: no price yet")
+  assert_eq(TV.RowNote({ group = "vendor" }), nil, "note: a normal row has none")
+end
+
+-- Scenario: status lines are coloured by what happened
+do
+  assert_eq(TV.StatusKind("CHAT_TARGET_POSTED"), "ok", "status: posted")
+  assert_eq(TV.StatusKind("CHAT_TARGET_VENDOR_OK"), "ok", "status: sold")
+  assert_eq(TV.StatusKind("TARGET_BULK_DONE_FMT"), "ok", "status: bulk done")
+  assert_eq(TV.StatusKind("TARGET_BULK_PROGRESS_FMT"), "info", "status: bulk progress")
+  assert_eq(TV.StatusKind("CHAT_TARGET_POST_FAILED"), "error", "status: failure")
+  assert_eq(TV.StatusKind("CHAT_TARGET_OPEN_AH"), "error", "status: needs the auction house")
+  assert_eq(TV.StatusKind("TARGET_BULK_STOPPED_FMT"), "error", "status: bulk stopped")
+  assert_eq(TV.StatusKind(nil), "info", "status: nothing")
+end
+
+-- Scenario: the dock goes beside the right-most visible auction window
+do
+  assert_eq(
+    TV.PickAnchor({
+      { name = "AuctionHouseFrame", right = 900, shown = true },
+      { name = "AuctionFrame", right = nil, shown = false },
+      { name = "AuctionatorItemHistoryFrame", right = 1200, shown = true },
+    }),
+    "AuctionatorItemHistoryFrame",
+    "anchor: the window furthest to the right wins"
+  )
+  assert_eq(
+    TV.PickAnchor({
+      { name = "AuctionHouseFrame", right = 900, shown = true },
+      { name = "AuctionatorItemHistoryFrame", right = 1200, shown = false },
+    }),
+    "AuctionHouseFrame",
+    "anchor: hidden windows are ignored"
+  )
+  assert_eq(
+    TV.PickAnchor({
+      { name = "A", right = 900, shown = true },
+      { name = "B", right = 900, shown = true },
+    }),
+    "A",
+    "anchor: a tie keeps the first (listed first = preferred)"
+  )
+  assert_eq(TV.PickAnchor({ { name = "A", right = nil, shown = true } }), "A", "anchor: unknown edge still counts")
+  assert_eq(TV.PickAnchor({}), nil, "anchor: nothing to anchor to")
+end
+
+-- Scenario: skipping a stack moves the selection to the next one and stops at the end
+do
+  assert_eq(TV.AfterSkip(1, 3), 2, "after skip: next stack")
+  assert_eq(TV.AfterSkip(2, 3), 3, "after skip: next stack again")
+  assert_eq(TV.AfterSkip(3, 3), 3, "after skip: the last stack stays selected")
+  assert_eq(TV.AfterSkip(1, 1), 1, "after skip: a single stack stays selected")
+  assert_eq(TV.AfterSkip(0, 0), 0, "after skip: an empty list selects nothing")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)

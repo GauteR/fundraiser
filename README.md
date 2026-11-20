@@ -13,7 +13,7 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 
 ## Features
 
-- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `ADMIN_UI`, `END_EVENT`, `LEDGER`, `TARGET_UI`, `AH_ASSIST`, `DEBUG`
+- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `ADMIN_UI`, `END_EVENT`, `LEDGER`, `TARGET_UI`, `TARGET_AUTO_DOCK`, `AH_ASSIST`, `DEBUG`
 - Officer-published event: name, **First Last** mail target, required fundraising goal (gold), optional goal note, per-event reminder interval
 - Mailbox reminder for members (beside the mail window) until mail is sent to the target
 - Ledger writes on the **donation-target** only (incoming mail money/items, each item mail as one row that later auction and vendor sales fill with their net proceeds, + **all** AH sales + manual donations from the **Add donation** menu page, which officers can also use); every client stores/relays the mesh; officers + target view in UI
@@ -69,7 +69,7 @@ With `Config.DEBUG = true`:
 1. Set **Defaults** under Settings -> AddOns -> Fundraiser (or **Settings** in the left menu of the admin window): default reminder interval and global min admin rank (rank index <= this may manage).
 2. Officers: `/fundraiser` opens the admin status dashboard (event, progress toward goal, ledger status, raised chart; install presence is under Settings -> AddOns -> Fundraiser). Press **New event** (+), fill fields including **Goal (gold)** (required; per-event interval overrides the default) -> **Publish event** (target = dedicated fundraiser alt). Publishing a new event **archives** the previous event+ledger locally and clears the active ledger. Press **End event** (-) to archive and clear the active campaign for the guild without creating a replacement. Members get a chat refusal if they open `/fundraiser`.
 3. Members open the mailbox to see the reminder when due; mailing the target clears the interval.
-4. On the target alt: empty the mailbox the normal way, open the auction house or a vendor, then open **Target** in the main window (or `/fundraiser target`) -> select a stack -> Post AH / Vendor; AH sales also hit the ledger. The page scans bags only. Other characters get no Target menu entry and cannot open the page.
+4. On the target alt: empty the mailbox the normal way, then open the auction house: the Target panel docks to its right side automatically (or open **Target** in the main window / `/fundraiser target` at a vendor) -> select a stack -> Post AH / Vendor; AH sales also hit the ledger. The page scans bags only. Other characters get no Target menu entry and cannot open the page.
 
 Close windows with the frame X or Escape (`UISpecialFrames`).
 
@@ -99,6 +99,7 @@ Edit [`fundraiser/Config.lua`](fundraiser/Config.lua) for feature flags and comp
 | `ADMIN_UI` | `true` | Main window |
 | `LEDGER` | `true` | Target logging + officer ledger UI |
 | `TARGET_UI` | `true` | Donation-target page (bag scan, AH / vendor actions) |
+| `TARGET_AUTO_DOCK` | `true` | Show the Target panel beside the auction house while it is open (donation target only) |
 | `AH_ASSIST` | `true` | AH/vendor actions from target UI |
 | `TSM_PRICE_SOURCE` | `"DBMinBuyout"` | TSM price key for min AH reference |
 | `DEBUG` | `true` | Solo sim: `/fundraiser debug …` (not in Options) |

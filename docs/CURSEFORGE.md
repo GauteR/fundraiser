@@ -19,7 +19,7 @@ Use a character dedicated only to that role — do not mix personal AH there.
 
 ## Features
 
-- Admin window status dashboard: event card, progress toward goal, ledger status, raised-over-time chart; New event (+) and End event (-) on the event card; Settings / Target shortcuts
+- Admin window status dashboard: event card, progress toward goal, ledger status, raised-over-time chart; New event (+) and End event (-) on the event card
 - Publish a fundraiser event (name, Forever First Last mail target, required goal in gold, optional note, reminder interval); end an active campaign (archive + guild wipe) without publishing a replacement
 - Mailbox reminder until mail is sent to the donation target
 - One window with a left menu (Home / Ledger / Settings) and top-bar buttons (+ new event, - end event, refresh). Ledger page (`/fundraiser ledger`, menu entry or the admin ledger card): scrollable donation rows, total, previous campaigns as summary lines, and a **Set MOTD** menu entry for the guild message (raised vs goal + top contributor)
@@ -44,7 +44,7 @@ Use a character dedicated only to that role — do not mix personal AH there.
 1. Officers: Settings -> AddOns -> Fundraiser for default interval and min admin rank, then `/fundraiser` -> **New event** -> set fields (target = dedicated fundraiser alt; **Goal (gold)** required; interval overrides the default) -> **Publish event**. Use **End event** to archive and clear the active campaign for the guild without creating a new one.
 2. Members keep the addon installed; open the mailbox to see reminders when due.
 3. Send mail to the designated target to clear the current reminder window.
-4. On the target alt: empty the mailbox, then open **Target** in the main window (or `/fundraiser target`) at the auction house or a vendor to post or sell stacks from your bags. Officers see the ledger when they log in; any online member with the addon can help relay mesh data.
+4. On the target alt: empty the mailbox, then open the auction house: the Target panel docks beside it automatically. At a vendor, open **Target** in the main window (or `/fundraiser target`) to sell stacks from your bags. Officers see the ledger when they log in; any online member with the addon can help relay mesh data.
 
 ## Slash
 

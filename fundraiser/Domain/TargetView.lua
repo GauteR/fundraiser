@@ -136,3 +136,66 @@ function TargetView.Move(index, delta, count)
   end
   return ((index - 1 + delta) % count) + 1
 end
+
+-- Why a row is left out of bulk actions: "skipped", "below_min", "needs_price", or nil.
+function TargetView.RowNote(entry)
+  if entry.skipped then
+    return "skipped"
+  end
+  if entry.belowMin then
+    return "below_min"
+  end
+  if entry.group == "price" then
+    return "needs_price"
+  end
+  return nil
+end
+
+local OK_KEYS = {
+  CHAT_TARGET_POSTED = true,
+  CHAT_TARGET_VENDOR_OK = true,
+  TARGET_BULK_DONE_FMT = true,
+}
+
+local INFO_KEYS = {
+  TARGET_BULK_PROGRESS_FMT = true,
+}
+
+-- Colour class of a status line: "ok", "info" or "error".
+function TargetView.StatusKind(key)
+  if key == nil or INFO_KEYS[key] then
+    return "info"
+  end
+  if OK_KEYS[key] then
+    return "ok"
+  end
+  return "error"
+end
+
+-- Which auction window the dock goes beside: the visible one furthest to the right, so the dock
+-- never covers another auction window (Blizzard's, or an addon's side panel). candidates:
+-- { { name, right (screen x of the right edge, may be nil), shown } } in order of preference;
+-- a tie keeps the first. Returns the name, or nil when none is shown.
+function TargetView.PickAnchor(candidates)
+  local best, bestRight
+  for _, c in ipairs(candidates or {}) do
+    if c.shown then
+      local right = tonumber(c.right) or -math.huge
+      if best == nil or right > bestRight then
+        best, bestRight = c.name, right
+      end
+    end
+  end
+  return best
+end
+
+-- Selection after a stack is skipped: the next stack, or the same one at the end of the list.
+function TargetView.AfterSkip(index, count)
+  if count < 1 then
+    return 0
+  end
+  if index < count then
+    return index + 1
+  end
+  return count
+end
