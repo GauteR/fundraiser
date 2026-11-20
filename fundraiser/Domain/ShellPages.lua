@@ -19,7 +19,9 @@ end
 -- Page the shell opens by itself when the player starts a window: "vendor" (a merchant opens)
 -- gives the Target page, "mailbox" (the mailbox opens) gives the ledger. Returns the page and
 -- the name of the client frame the shell attaches to (right side), or nil when the matching
--- Config flag is off or the player may not use that page. cfg: Config table; access as below.
+-- Config flag is off, the player is not the donation target (every other character, officers
+-- included, keeps the normal vendor and mailbox), or the player may not use that page.
+-- cfg: Config table; access as below.
 local AUTO_OPEN = {
   vendor = { flag = "TARGET_AUTO_OPEN_VENDOR", page = "target", anchor = "MerchantFrame" },
   mailbox = { flag = "LEDGER_AUTO_OPEN_MAILBOX", page = "ledger", anchor = "MailFrame" },
@@ -30,7 +32,7 @@ function ShellPages.AutoOpen(trigger, cfg, access)
   if not rule or not cfg or cfg[rule.flag] ~= true then
     return nil
   end
-  if not access or access[rule.page] ~= true then
+  if not access or access.target ~= true or access[rule.page] ~= true then
     return nil
   end
   return rule.page, rule.anchor

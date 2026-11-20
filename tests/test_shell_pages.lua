@@ -61,6 +61,17 @@ do
   assert_eq(SP.AutoOpen("vendor", cfg, nil), nil, "auto open: unknown access")
 end
 
+-- Scenario: only the donation target gets the pop-ups; an officer on another character does not
+do
+  local cfg = { TARGET_AUTO_OPEN_VENDOR = true, LEDGER_AUTO_OPEN_MAILBOX = true }
+  local officer = { officer = true, ledger = true, target = false }
+  assert_eq(SP.AutoOpen("mailbox", cfg, officer), nil, "target only: officer's mailbox stays normal")
+  assert_eq(SP.AutoOpen("vendor", cfg, officer), nil, "target only: officer's vendor stays normal")
+  local noLedger = { officer = false, ledger = false, target = true }
+  assert_eq(SP.AutoOpen("mailbox", cfg, noLedger), nil, "target only: no ledger access, no ledger page")
+  assert_eq(SP.AutoOpen("mailbox", cfg, { officer = false, ledger = true, target = true }), "ledger", "target only: target gets the ledger")
+end
+
 -- Scenario: the window attaches to the vendor / mail frame it was opened for
 do
   local cfg = { TARGET_AUTO_OPEN_VENDOR = true, LEDGER_AUTO_OPEN_MAILBOX = true }
