@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Target page rows: the item tooltip no longer shows another item when the bag changed since the scan (it falls back to the item link), a row whose icon is not available shows a question mark instead of a blank, and an open tooltip is closed when the list is rebuilt under the cursor.
+- Target page: **Post to AH** is disabled unless the auction house is open, and **Vendor** is disabled unless a vendor window is open (they followed only the stack before), and both update when the window opens or closes.
 - Posting a stack to the auction house no longer reports "Could not start auction" when the client did create the auction; only an error in the post call counts as a failure, and its text is shown.
 - The donation-target check failed on Forever because `UnitName` and `UnitFullName` return the first name and the last name as two separate values, so the player never matched a "First Last" event target. The player name now comes from `GetUnitName("player", true)` (full name), joining the two values when it is missing.
 - Addon settings from the admin window now opens Settings → AddOns → Fundraiser (uses saved category ID before the panel-name overwrite).

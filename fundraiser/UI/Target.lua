@@ -380,6 +380,12 @@ function Target:Attach(shell)
       Target:Refresh()
     else
       Target:UpdateBulk()
+      -- The window frame may not be shown/hidden yet when its event fires: check again next frame.
+      if C_Timer and C_Timer.After then
+        C_Timer.After(0, function()
+          Target:UpdateBulk()
+        end)
+      end
     end
   end)
 
@@ -519,16 +525,7 @@ function Target:ShowSelected()
   else
     f.skipBtn:Enable()
   end
-  if row.auctionable then
-    f.postBtn:Enable()
-  else
-    f.postBtn:Disable()
-  end
-  if row.vendorUnit then
-    f.vendorBtn:Enable()
-  else
-    f.vendorBtn:Disable()
-  end
+  self:UpdateActions()
 end
 
 -- Rescan the bags and rebuild the lists; the selection follows its stack when it is still there.
@@ -636,12 +633,33 @@ local function windowsOpen()
   return { ahOpen = AP.IsAuctionHouseOpen(), merchantOpen = AP.IsMerchantOpen() }
 end
 
+-- Post to AH / Vendor on the selected stack: enabled only while that window is open.
+function Target:UpdateActions()
+  local f = self.frame
+  local entry = self:Selected()
+  if not f or not entry then
+    return
+  end
+  local state = TV().ActionState(entry.row, windowsOpen())
+  if state.post then
+    f.postBtn:Enable()
+  else
+    f.postBtn:Disable()
+  end
+  if state.vendor then
+    f.vendorBtn:Enable()
+  else
+    f.vendorBtn:Disable()
+  end
+end
+
 -- Button captions and enabled state from the current view and any running Post all.
 function Target:UpdateBulk()
   local f = self.frame
   if not f or not self.view then
     return
   end
+  self:UpdateActions()
   local BP = Fundraiser.Domain.BulkPlan
   local env = windowsOpen()
   local post = BP.Describe(self.view, "auction", env)

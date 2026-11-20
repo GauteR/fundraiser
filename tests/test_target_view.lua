@@ -197,6 +197,26 @@ do
   assert_eq(TV.TooltipSource({}, nil), "name", "tooltip: nothing known falls back to the name")
 end
 
+-- Scenario: Post to AH / Vendor on the selected stack need their window open
+do
+  local both = { auctionable = true, vendorUnit = 5 }
+  local st = TV.ActionState(both, { ahOpen = false, merchantOpen = false })
+  assert_eq(st.post, false, "actions: no auction house, no posting")
+  assert_eq(st.vendor, false, "actions: no vendor, no selling")
+  st = TV.ActionState(both, { ahOpen = true, merchantOpen = false })
+  assert_eq(st.post, true, "actions: auction house open enables posting")
+  assert_eq(st.vendor, false, "actions: auction house open does not enable selling")
+  st = TV.ActionState(both, { ahOpen = false, merchantOpen = true })
+  assert_eq(st.post, false, "actions: vendor open does not enable posting")
+  assert_eq(st.vendor, true, "actions: vendor open enables selling")
+  st = TV.ActionState({ auctionable = false, vendorUnit = nil }, { ahOpen = true, merchantOpen = true })
+  assert_eq(st.post, false, "actions: a stack that cannot be auctioned stays disabled")
+  assert_eq(st.vendor, false, "actions: a stack without a vendor price stays disabled")
+  st = TV.ActionState(both, nil)
+  assert_eq(st.post, false, "actions: unknown windows count as closed (post)")
+  assert_eq(st.vendor, false, "actions: unknown windows count as closed (vendor)")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)

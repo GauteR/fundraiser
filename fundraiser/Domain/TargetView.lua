@@ -164,6 +164,17 @@ function TargetView.TooltipSource(row, slotItemId)
   return "name"
 end
 
+-- Which per-stack actions the selected stack allows: { post, vendor }. Posting needs the auction
+-- house open and an auctionable stack; selling needs a vendor open and a vendor price.
+-- env: { ahOpen, merchantOpen } (nil counts as closed).
+function TargetView.ActionState(row, env)
+  env = env or {}
+  return {
+    post = row.auctionable == true and env.ahOpen == true,
+    vendor = row.vendorUnit ~= nil and env.merchantOpen == true,
+  }
+end
+
 local OK_KEYS = {
   CHAT_TARGET_POSTED = true,
   CHAT_TARGET_VENDOR_OK = true,
