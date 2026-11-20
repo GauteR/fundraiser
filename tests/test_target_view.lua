@@ -182,6 +182,21 @@ do
   assert_eq(TV.AfterSkip(0, 0), 0, "after skip: an empty list selects nothing")
 end
 
+-- Scenario: the row tooltip uses the bag slot only while that slot still holds the scanned item
+do
+  local row = { bag = 0, slot = 3, itemId = 2589, link = "|cffffffff|Hitem:2589|h[Linen Cloth]|h|r", name = "Linen Cloth" }
+  assert_eq(TV.TooltipSource(row, 2589), "bag", "tooltip: slot still holds the item")
+  assert_eq(TV.TooltipSource(row, 2592), "link", "tooltip: slot now holds another item, use the link")
+  assert_eq(TV.TooltipSource(row, nil), "link", "tooltip: empty slot, use the link")
+  assert_eq(
+    TV.TooltipSource({ bag = 0, slot = 3, itemId = 2589, name = "Linen Cloth" }, nil),
+    "name",
+    "tooltip: no link left, use the name"
+  )
+  assert_eq(TV.TooltipSource({ link = row.link, itemId = 2589 }, nil), "link", "tooltip: row without a slot uses the link")
+  assert_eq(TV.TooltipSource({}, nil), "name", "tooltip: nothing known falls back to the name")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)

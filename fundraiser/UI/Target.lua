@@ -112,15 +112,35 @@ function Target:ShowItemTooltip(owner, row)
   if not GameTooltip then
     return
   end
+  local slotItemId
+  if row.bag and row.slot and C_Container and C_Container.GetContainerItemInfo then
+    local info = C_Container.GetContainerItemInfo(row.bag, row.slot)
+    slotItemId = info and info.itemID or nil
+  end
+  local source = TV().TooltipSource(row, GameTooltip.SetBagItem and slotItemId or nil)
   GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-  if row.bag and row.slot and GameTooltip.SetBagItem then
+  if source == "bag" then
     GameTooltip:SetBagItem(row.bag, row.slot)
-  elseif row.link then
+  elseif source == "link" and GameTooltip.SetHyperlink then
     GameTooltip:SetHyperlink(row.link)
   else
     GameTooltip:SetText(row.name or "?")
   end
   GameTooltip:Show()
+end
+
+-- Drop a tooltip that belongs to this page (the list changed under the cursor).
+function Target:HideItemTooltip()
+  local f = self.frame
+  if GameTooltip and f and GameTooltip:IsShown() and GameTooltip:GetOwner() then
+    local owner = GameTooltip:GetOwner()
+    for _, r in ipairs(f.rows) do
+      if owner == r then
+        GameTooltip:Hide()
+        return
+      end
+    end
+  end
 end
 
 function Target:Attach(shell)
@@ -393,6 +413,8 @@ function Target:UpdateRows()
   if not f then
     return
   end
+  -- Rows are reused: a tooltip left open would describe a different stack after a rebuild.
+  self:HideItemTooltip()
   FauxScrollFrame_Update(f.scroll, #self.items, ROWS, ROW_H)
   local offset = FauxScrollFrame_GetOffset(f.scroll)
   for i = 1, ROWS do
@@ -419,10 +441,8 @@ function Target:UpdateRows()
       local row = entry.row
       r.entry = entry
       local icon = row.itemId and C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(row.itemId)
-      if icon then
-        r.icon:SetTexture(icon)
-        r.icon:Show()
-      end
+      r.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+      r.icon:Show()
       r.text:SetText(row.name or "?")
       r.text:SetTextColor(1, 1, 1)
       r.qty:SetText(tostring(row.count or 1))

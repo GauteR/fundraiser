@@ -151,6 +151,19 @@ function TargetView.RowNote(entry)
   return nil
 end
 
+-- What the row tooltip is built from: "bag" (the slot, only while it still holds the scanned
+-- item, since bags may have changed since the scan), else "link", else "name".
+-- slotItemId: the item id currently in row.bag / row.slot (nil when empty or unknown).
+function TargetView.TooltipSource(row, slotItemId)
+  if row.bag and row.slot and slotItemId ~= nil and slotItemId == row.itemId then
+    return "bag"
+  end
+  if row.link then
+    return "link"
+  end
+  return "name"
+end
+
 local OK_KEYS = {
   CHAT_TARGET_POSTED = true,
   CHAT_TARGET_VENDOR_OK = true,
