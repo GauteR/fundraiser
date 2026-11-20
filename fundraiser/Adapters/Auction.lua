@@ -80,17 +80,16 @@ function Auction:OnSystemMessage(msg)
   self:RecordSale(item, copper)
 end
 
-function Auction:RecordSale(item, copper)
+-- gross: the sale price from the chat message. The ledger gets the net (after the AH cut),
+-- on the donated item's row when there is one, else on a row of its own.
+function Auction:RecordSale(item, gross)
   local Store = Fundraiser.Adapters.Store
-  local event = Store:GetEvent()
-  if not event then
-    return
-  end
   local Roster = Fundraiser.Adapters.Roster
   local UC = Fundraiser.Application.UseCases
-  local t = now()
-  local id = string.format("ah:%s:%d:%d", tostring(item), copper, t)
-  UC.AppendLedgerEntry({
+  local ItemLots = Fundraiser.Domain.ItemLots
+  local name, qty = ItemLots.ParseCount(item)
+  local net = ItemLots.AfterCut(gross, Fundraiser.Config and Fundraiser.Config.AH_CUT_FRACTION)
+  local written = UC.RecordSale({
     getEvent = function()
       return Store:GetEvent()
     end,
@@ -100,22 +99,26 @@ function Auction:RecordSale(item, copper)
     setContributions = function(list)
       Store:SetContributions(list)
     end,
+    getLots = function()
+      return Store:GetLots()
+    end,
+    setLots = function(list)
+      Store:SetLots(list)
+    end,
     broadcastLedgerEntry = function(entry)
       Fundraiser.Adapters.ThinGuildSync:BroadcastLedgerEntry(entry)
     end,
   }, {
-    id = id,
-    kind = "ah",
-    name = "AH",
-    detail = item,
-    copper = copper,
-    eventId = event.id,
-    at = t,
+    item = name,
+    qty = qty,
+    proceeds = net,
+    at = now(),
+    ownRow = true,
   }, { name = Roster:GetPlayerName() })
 
-  if DEFAULT_CHAT_FRAME then
+  if written and #written > 0 and DEFAULT_CHAT_FRAME then
     DEFAULT_CHAT_FRAME:AddMessage(
-      Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("CHAT_AH_LOGGED", item, Fundraiser.FormatCopper(copper))
+      Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("CHAT_AH_LOGGED", name, Fundraiser.FormatCopper(net))
     )
   end
 end

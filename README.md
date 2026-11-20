@@ -16,7 +16,7 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 - Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `ADMIN_UI`, `END_EVENT`, `LEDGER`, `TARGET_UI`, `AH_ASSIST`, `DEBUG`
 - Officer-published event: name, **First Last** mail target, required fundraising goal (gold), optional goal note, per-event reminder interval
 - Mailbox reminder for members (beside the mail window) until mail is sent to the target
-- Ledger writes on the **donation-target** only (incoming mail money/items + **all** AH sales + manual donations from the **Add donation** menu page, which officers can also use); every client stores/relays the mesh; officers + target view in UI
+- Ledger writes on the **donation-target** only (incoming mail money/items, each item mail as one row that later sales fill with their net proceeds, + **all** AH sales + manual donations from the **Add donation** menu page, which officers can also use); every client stores/relays the mesh; officers + target view in UI
 - Target page (`/fundraiser target`, **Target** in the main window menu, donation-target character only): scans your bags, splits stacks into **Auction**, **Vendor** and **Needs price** lists from TSM -> Auctionator -> manual prices, one action per selected stack, or **Post all** / **Sell all** for a whole list (confirmed; stacks below the minimum value or marked **Skip** are left out)
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST` / `RESET`) — see [`docs/SYNC.md`](docs/SYNC.md)
 - Publishing a new event archives the previous event + ledger locally and clears the active ledger

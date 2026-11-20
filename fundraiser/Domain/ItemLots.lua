@@ -28,6 +28,25 @@ function ItemLots.ItemKey(text)
   return displayName(text):lower()
 end
 
+-- Item name and quantity from sale text such as "Linen Cloth x20" or "Linen Cloth (20)".
+-- Returns the name and the quantity (nil when the text carries none).
+function ItemLots.ParseCount(text)
+  local name = displayName(text)
+  local base, qty = name:match("^(.-)%s+x(%d+)$")
+  if not base then
+    base, qty = name:match("^(.-)%s*%((%d+)%)$")
+  end
+  if base and base ~= "" then
+    return base, tonumber(qty)
+  end
+  return name, nil
+end
+
+-- Proceeds after the auction house cut (fraction, for example 0.05), rounded to the copper.
+function ItemLots.AfterCut(gross, cut)
+  return math.floor((tonumber(gross) or 0) * (1 - (tonumber(cut) or 0)) + 0.5)
+end
+
 -- Add quantity for an item on a ledger row (same row and item merge).
 function ItemLots.Add(lots, fields)
   local key = ItemLots.ItemKey(fields.item)
