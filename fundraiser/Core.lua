@@ -230,6 +230,9 @@ eventFrame:SetScript("OnEvent", function(_, event)
   if Fundraiser.UI and Fundraiser.UI.Target and Fundraiser.UI.Target.Initialize then
     Fundraiser.UI.Target:Initialize()
   end
+  if Fundraiser.UI and Fundraiser.UI.WindowAutoOpen then
+    Fundraiser.UI.WindowAutoOpen:Initialize()
+  end
 
   if Fundraiser.Adapters.Roster then
     Fundraiser.Adapters.Roster:Request()

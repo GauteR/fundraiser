@@ -75,23 +75,31 @@ function LedgerView.ArchiveSummaries(archives)
 end
 
 -- Sum copper per character (normalised name), highest first (equal sums: name ascending).
-function LedgerView.TopContributors(rows)
+-- opts.skip(name): true leaves that character out of the list (asked once per character).
+function LedgerView.TopContributors(rows, opts)
   local byKey, list = {}, {}
   if type(rows) ~= "table" then
     return list
   end
+  local skip = opts and opts.skip
   local R = Roles()
   for _, r in ipairs(rows) do
     local key = R.NormalizeName(r.name)
     if key then
       local entry = byKey[key]
-      if not entry then
-        entry = { key = key, name = R.DisplayName(r.name), copper = 0, count = 0 }
+      if entry == nil then
+        if skip and skip(r.name) then
+          entry = false
+        else
+          entry = { key = key, name = R.DisplayName(r.name), copper = 0, count = 0 }
+          list[#list + 1] = entry
+        end
         byKey[key] = entry
-        list[#list + 1] = entry
       end
-      entry.copper = entry.copper + num(r.copper)
-      entry.count = entry.count + 1
+      if entry then
+        entry.copper = entry.copper + num(r.copper)
+        entry.count = entry.count + 1
+      end
     end
   end
   table.sort(list, function(a, b)

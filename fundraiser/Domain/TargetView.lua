@@ -151,6 +151,30 @@ function TargetView.RowNote(entry)
   return nil
 end
 
+-- What the row tooltip is built from: "bag" (the slot, only while it still holds the scanned
+-- item, since bags may have changed since the scan), else "link", else "name".
+-- slotItemId: the item id currently in row.bag / row.slot (nil when empty or unknown).
+function TargetView.TooltipSource(row, slotItemId)
+  if row.bag and row.slot and slotItemId ~= nil and slotItemId == row.itemId then
+    return "bag"
+  end
+  if row.link then
+    return "link"
+  end
+  return "name"
+end
+
+-- Which per-stack actions the selected stack allows: { post, vendor }. Posting needs the auction
+-- house open and an auctionable stack; selling needs a vendor open and a vendor price.
+-- env: { ahOpen, merchantOpen } (nil counts as closed).
+function TargetView.ActionState(row, env)
+  env = env or {}
+  return {
+    post = row.auctionable == true and env.ahOpen == true,
+    vendor = row.vendorUnit ~= nil and env.merchantOpen == true,
+  }
+end
+
 local OK_KEYS = {
   CHAT_TARGET_POSTED = true,
   CHAT_TARGET_VENDOR_OK = true,

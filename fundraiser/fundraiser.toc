@@ -42,4 +42,5 @@ UI/Reminder.lua
 UI/Window.lua
 UI/Ledger.lua
 UI/Target.lua
+UI/WindowAutoOpen.lua
 UI/Options.lua

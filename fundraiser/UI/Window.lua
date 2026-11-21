@@ -227,6 +227,11 @@ function Window:Ensure()
   f:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
     Window.userMoved = true
+    -- Moved by hand: it no longer belongs to the vendor / mail frame and stays open.
+    Window.autoOpened, Window.attached, Window.savedPoint = nil, false, nil
+  end)
+  f:HookScript("OnHide", function()
+    Window:OnShellHidden()
   end)
   f:Hide()
   if f.TitleText then
@@ -822,6 +827,60 @@ function Window:ShowTarget()
   f.pageTitle:SetText(Fundraiser:T("NAV_TARGET"))
   self:UpdateNav()
   Fundraiser.UI.Target:Open()
+end
+
+-- Put the shell to the right of a client frame (the vendor or mail window), like the Target
+-- panel beside the auction house. A position the player chose is kept and comes back later.
+function Window:AttachTo(anchor)
+  local f = self.frame
+  if not (f and anchor) then
+    return
+  end
+  if self.userMoved and not self.attached then
+    self.savedPoint = { f:GetPoint(1) }
+  end
+  f:ClearAllPoints()
+  f:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 2, 0)
+  f:SetClampedToScreen(true)
+  self.attached = true
+end
+
+-- The shell was hidden by any means: forget what opened it and undo the attachment.
+function Window:OnShellHidden()
+  local f = self.frame
+  if self.attached and f and self.savedPoint then
+    f:ClearAllPoints()
+    f:SetPoint(unpack(self.savedPoint))
+  end
+  self.autoOpened, self.attached, self.savedPoint = nil, false, nil
+end
+
+-- Open the shell on a page and keep it open when that page is already showing (unlike the
+-- Toggle* functions). Used when a vendor or the mailbox opens: `trigger` ("vendor" / "mailbox")
+-- and `anchorName` (a client frame) make it attach beside that window and close with it. A shell
+-- the player already has open is only switched to the page, not moved.
+function Window:OpenPage(page, trigger, anchorName)
+  local f = self:Ensure()
+  if f:IsShown() then
+    if self.view ~= page then
+      self:ShowPage(page)
+    end
+    return
+  end
+  self.pendingPage = page
+  f:Show()
+  if trigger then
+    self:AttachTo(anchorName and _G[anchorName])
+    self.autoOpened = { trigger = trigger, page = self.view }
+  end
+end
+
+-- A vendor / the mailbox closed: close the shell when it was opened for that window.
+function Window:CloseFor(trigger)
+  local f = self.frame
+  if f and f:IsShown() and ShellPages.ShouldAutoClose(self.autoOpened, trigger, self.view) then
+    f:Hide()
+  end
 end
 
 -- Open the shell on the target page (or close it when the page is already showing).

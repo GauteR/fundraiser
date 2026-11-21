@@ -513,7 +513,16 @@ function UC.PrepareMotd(deps)
   end
   local LV = Domain().LedgerView
   local view = UC.GetLedgerView(deps)
-  local top = LV.TopContributors(view.active.rows)[1]
+  -- Donors of the excluded guild rank (rank 0, the guild master) stay in the total but are not
+  -- the "top contributor". Unknown ranks (not in the guild roster) count.
+  local excluded = Fundraiser.Config and Fundraiser.Config.LEADERBOARD_EXCLUDED_RANK
+  local skip
+  if excluded ~= nil and deps.getDonorRankIndex then
+    skip = function(name)
+      return deps.getDonorRankIndex(name) == excluded
+    end
+  end
+  local top = LV.TopContributors(view.active.rows, { skip = skip })[1]
   return LV.MotdText(event, view.active.total, top)
 end
 

@@ -20,6 +20,14 @@ Fundraiser.Config = {
   -- tabs live inside AuctionHouseFrame; its price history window can dock to the right of it.
   -- Add another addon's auction window here by its frame name (find it with /fstack).
   TARGET_DOCK_ANCHORS = { "AuctionHouseFrame", "AuctionFrame", "AuctionatorItemHistoryFrame" },
+  -- Donation target: open the main window on the Target page when a vendor opens.
+  TARGET_AUTO_OPEN_VENDOR = true,
+  -- Ledger viewers: open the main window on the ledger when the mailbox opens.
+  LEDGER_AUTO_OPEN_MAILBOX = true,
+  -- Leaderboard (top contributor in the MOTD): donations from characters of this guild rank
+  -- index (0 = Guild Master) still count towards the total but not as a contributor.
+  -- nil counts everyone.
+  LEADERBOARD_EXCLUDED_RANK = 0,
   AH_ASSIST = true,
   -- Solo in-game simulation: /fundraiser debug …
   DEBUG = true,
