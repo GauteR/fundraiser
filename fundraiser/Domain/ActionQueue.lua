@@ -15,7 +15,7 @@ function ActionQueue.New(items, step)
   for i, item in ipairs(items or {}) do
     copy[i] = item
   end
-  return setmetatable({ items = copy, step = step, next = 1, stopped = false }, ActionQueue)
+  return setmetatable({ items = copy, step = step, next = 1, stopped = false, cancelled = false }, ActionQueue)
 end
 
 function ActionQueue:Total()
@@ -35,11 +35,23 @@ function ActionQueue:Stopped()
 end
 
 function ActionQueue:Finished()
-  return not self.stopped and self:Remaining() == 0
+  return not self.stopped and not self.cancelled and self:Remaining() == 0
+end
+
+-- Abandon the rest of the run (the caller left, e.g. the auction house closed).
+function ActionQueue:Cancel()
+  self.cancelled = true
+end
+
+function ActionQueue:Cancelled()
+  return self.cancelled
 end
 
 -- Run one step. Returns ok, reasonKey, item.
 function ActionQueue:Next()
+  if self.cancelled then
+    return false, "cancelled"
+  end
   if self.stopped then
     return false, "stopped"
   end
@@ -59,7 +71,7 @@ end
 -- Run up to maxSteps steps; returns how many succeeded. Stops on the first failure.
 function ActionQueue:Run(maxSteps)
   local ran = 0
-  while ran < maxSteps and not self.stopped and self:Remaining() > 0 do
+  while ran < maxSteps and not self.stopped and not self.cancelled and self:Remaining() > 0 do
     local ok = self:Next()
     if not ok then
       break

@@ -84,6 +84,16 @@ do
   assert_eq(BP.Progress(failing), "stopped", "progress: stopped after a failure")
 end
 
+-- Scenario: a cancelled queue is its own state
+do
+  local q = Queue.New({ "a", "b" }, function()
+    return true
+  end)
+  q:Next()
+  q:Cancel()
+  assert_eq(BP.Progress(q), "cancelled", "progress: cancelled mid-run")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)
