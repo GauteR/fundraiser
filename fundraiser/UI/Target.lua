@@ -750,16 +750,29 @@ end
 
 function Target:RunPost()
   local queue = self.postQueue
+  -- The queue is a snapshot from confirm time: drop stacks that have left the bags since.
+  local dropped = queue:Prune(TV().StillInBags(Fundraiser.Adapters.BagAssist:Scan()))
+  local skippedNote = dropped > 0 and (Fundraiser:T("TARGET_BULK_SKIPPED_FMT", dropped) .. " ") or ""
+  if queue:Remaining() == 0 then
+    -- Every stack that was left is gone: the run is over, not failed.
+    if dropped > 0 then
+      self:SetStatus("TARGET_BULK_DONE_FMT", skippedNote .. Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done()))
+    end
+    self:UpdateBulk()
+    return
+  end
   local ok, reason = queue:Next()
-  local f = self.frame
   if not ok then
-    self:SetStatus("TARGET_BULK_STOPPED_FMT", stoppedText(queue, reason))
+    self:SetStatus("TARGET_BULK_STOPPED_FMT", skippedNote .. stoppedText(queue, reason))
   elseif queue:Finished() then
-    self:SetStatus("TARGET_BULK_DONE_FMT", Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done()))
+    self:SetStatus(
+      "TARGET_BULK_DONE_FMT",
+      skippedNote .. Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done())
+    )
   else
     self:SetStatus(
       "TARGET_BULK_PROGRESS_FMT",
-      Fundraiser:T("TARGET_BULK_PROGRESS_FMT", queue:Done(), queue:Total(), queue:Remaining())
+      skippedNote .. Fundraiser:T("TARGET_BULK_PROGRESS_FMT", queue:Done(), queue:Total(), queue:Remaining())
     )
   end
   self:UpdateBulk()

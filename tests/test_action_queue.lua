@@ -115,6 +115,59 @@ do
   assert_eq(q:Run(5), 0, "cancel: Run does nothing")
 end
 
+-- Scenario: pruning drops left-over items the caller no longer wants, never posted ones
+do
+  local q = Queue.New({ "a", "b", "c", "d" }, function()
+    return true
+  end)
+  q:Next()
+  local dropped = q:Prune(function(item)
+    return item ~= "a" and item ~= "c"
+  end)
+  assert_eq(dropped, 1, "prune: only the left-over item c is dropped")
+  assert_eq(q:Done(), 1, "prune: posted items stay done")
+  assert_eq(q:Total(), 3, "prune: total shrinks")
+  assert_eq(q:Remaining(), 2, "prune: remaining shrinks")
+  local _, _, item = q:Next()
+  assert_eq(item, "b", "prune: next item is the one after the posted stack")
+  _, _, item = q:Next()
+  assert_eq(item, "d", "prune: dropped item is skipped")
+  assert_eq(q:Finished(), true, "prune: finishes after the last kept item")
+end
+
+-- Scenario: pruning everything that is left finishes the run instead of failing it
+do
+  local q = Queue.New({ "a", "b" }, function()
+    return true
+  end)
+  q:Next()
+  assert_eq(q:Prune(function()
+    return false
+  end), 1, "prune all: drops what was left")
+  assert_eq(q:Finished(), true, "prune all: finished")
+  assert_eq(q:Stopped(), false, "prune all: not a failure")
+end
+
+-- Scenario: pruning does nothing after a cancel or a failed step
+do
+  local q = Queue.New({ "a", "b" }, function()
+    return true
+  end)
+  q:Cancel()
+  assert_eq(q:Prune(function()
+    return false
+  end), 0, "prune: no-op after cancel")
+  assert_eq(q:Total(), 2, "prune: cancelled queue unchanged")
+  local s = Queue.New({ "a", "b" }, function()
+    return false, "X"
+  end)
+  s:Next()
+  assert_eq(s:Prune(function()
+    return false
+  end), 0, "prune: no-op after a stop")
+  assert_eq(s:Remaining(), 2, "prune: stopped queue unchanged")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)

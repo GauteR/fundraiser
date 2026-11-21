@@ -217,6 +217,19 @@ do
   assert_eq(st.vendor, false, "actions: unknown windows count as closed (vendor)")
 end
 
+-- Scenario: a queued stack survives a re-scan only while its slot still holds the same item
+do
+  local scan = {
+    { bag = 0, slot = 1, itemId = 100 },
+    { bag = 0, slot = 2, itemId = 200 },
+  }
+  local keep = TV.StillInBags(scan)
+  assert_eq(keep({ row = { bag = 0, slot = 1, itemId = 100 } }), true, "rescan: same slot and item stays")
+  assert_eq(keep({ row = { bag = 0, slot = 2, itemId = 999 } }), false, "rescan: other item in the slot is dropped")
+  assert_eq(keep({ row = { bag = 1, slot = 1, itemId = 100 } }), false, "rescan: empty slot is dropped")
+  assert_eq(TV.StillInBags(nil)({ row = { bag = 0, slot = 1, itemId = 100 } }), false, "rescan: no scan keeps nothing")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)
