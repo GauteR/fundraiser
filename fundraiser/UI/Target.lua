@@ -520,10 +520,10 @@ function Target:ShowSelected()
   end
   f.manualPrice:SetText(row.ahUnit and tostring(row.ahUnit) or "")
   f.skipBtn:SetText(Fundraiser:T(entry.skipped and "BTN_INCLUDE" or "BTN_SKIP"))
-  if entry.group == "price" then
-    f.skipBtn:Disable()
-  else
+  if TV().CanSkip(entry) then
     f.skipBtn:Enable()
+  else
+    f.skipBtn:Disable()
   end
   self:UpdateActions()
 end
@@ -580,7 +580,7 @@ end
 
 function Target:ToggleSkip()
   local entry = self:Selected()
-  if not entry or entry.group == "price" then
+  if not entry or not TV().CanSkip(entry) then
     return
   end
   local skipping = not entry.skipped
@@ -640,7 +640,7 @@ function Target:UpdateActions()
   if not f or not entry then
     return
   end
-  local state = TV().ActionState(entry.row, windowsOpen())
+  local state = TV().ActionState(entry.row, windowsOpen(), entry.belowMin)
   if state.post then
     f.postBtn:Enable()
   else

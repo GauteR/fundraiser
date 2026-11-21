@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - End event (-) on the admin event card: archives the campaign, clears active event+ledger, broadcasts `RESET campaign` (`Config.END_EVENT`).
 
 ### Fixed
+- Target page: a stack worth less than the minimum value (`Config.MIN_STACK_VALUE_COPPER`) can no longer be posted or sold from its own **Post to AH** / **Vendor** buttons, and **Skip** is disabled for it (it is already left out of Post all and Sell all). ([#54](https://github.com/GauteR/fundraiser/issues/54))
 - Target page rows: the item tooltip no longer shows another item when the bag changed since the scan (it falls back to the item link), a row whose icon is not available shows a question mark instead of a blank, and an open tooltip is closed when the list is rebuilt under the cursor.
 - Target page: **Post to AH** is disabled unless the auction house is open, and **Vendor** is disabled unless a vendor window is open (they followed only the stack before), and both update when the window opens or closes.
 - Posting a stack to the auction house no longer reports "Could not start auction" when the client did create the auction; only an error in the post call counts as a failure, and its text is shown.

@@ -217,6 +217,26 @@ do
   assert_eq(st.vendor, false, "actions: unknown windows count as closed (vendor)")
 end
 
+-- Scenario: a stack below the minimum value cannot be posted or sold from the page
+do
+  local both = { auctionable = true, vendorUnit = 5 }
+  local open = { ahOpen = true, merchantOpen = true }
+  local st = TV.ActionState(both, open, true)
+  assert_eq(st.post, false, "below min: posting stays disabled")
+  assert_eq(st.vendor, false, "below min: selling stays disabled")
+  st = TV.ActionState(both, open, false)
+  assert_eq(st.post, true, "above min: posting is enabled")
+  assert_eq(st.vendor, true, "above min: selling is enabled")
+end
+
+-- Scenario: Skip only applies to stacks that could join a bulk action
+do
+  assert_eq(TV.CanSkip({ group = "auction" }), true, "skip: a normal auction stack")
+  assert_eq(TV.CanSkip({ group = "vendor", skipped = true }), true, "skip: a skipped stack can be included again")
+  assert_eq(TV.CanSkip({ group = "price" }), false, "skip: needs-price stacks are never in bulk")
+  assert_eq(TV.CanSkip({ group = "auction", belowMin = true }), false, "skip: below the minimum is already left out")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)
