@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The Ledger page updates by itself while it is open: donations recorded from mail (money and items), sale proceeds and rows relayed by the guild show up without closing and reopening the window. `Config.LEDGER_AUTO_REFRESH` turns it off. ([#55](https://github.com/GauteR/fundraiser/issues/55))
 - The main window opens by itself on the Target page when you talk to a vendor (donation target only) and on the ledger when you open the mailbox. Only on the donation target: every other character, officers included, keeps the normal vendor and mailbox (with the mailbox reminder). It attaches to the right side of the vendor or mail window, like the Target panel beside the auction house, and closes with that window, unless you moved it or went to another page. `Config.TARGET_AUTO_OPEN_VENDOR` and `Config.LEDGER_AUTO_OPEN_MAILBOX` turn them off.
 - The Target panel opens by itself beside the auction house (docked to its right side) on the donation-target character and goes back to the main window when the auction house closes. `Config.TARGET_AUTO_DOCK` turns it off.
 - The docked Target panel goes beside the right-most visible auction window, so it does not cover Auctionator's price history window when that is docked to the auction house. `Config.TARGET_DOCK_ANCHORS` lists the frame names it considers; add another addon's auction window there by name.
