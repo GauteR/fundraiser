@@ -663,7 +663,7 @@ function Target:UpdateBulk()
   local BP = Fundraiser.Domain.BulkPlan
   local env = windowsOpen()
   local post = BP.Describe(self.view, "auction", env)
-  if BP.Progress(self.postQueue) == "running" then
+  if BP.Progress(self.postQueue) == "running" and env.ahOpen then
     f.postAllBtn:SetText(Fundraiser:T("BTN_POST_NEXT_FMT", self.postQueue:Remaining()))
     f.postAllBtn:Enable()
   else
@@ -722,7 +722,7 @@ end
 function Target:BulkClick(group)
   local BP = Fundraiser.Domain.BulkPlan
   local f = self.frame
-  if group == "auction" and BP.Progress(self.postQueue) == "running" then
+  if group == "auction" and BP.Progress(self.postQueue) == "running" and windowsOpen().ahOpen then
     self:RunPost()
     return
   end
@@ -750,19 +750,48 @@ end
 
 function Target:RunPost()
   local queue = self.postQueue
+  -- The queue is a snapshot from confirm time: drop stacks that have left the bags since.
+  local dropped = queue:Prune(TV().StillInBags(Fundraiser.Adapters.BagAssist:Scan()))
+  local skippedNote = dropped > 0 and (Fundraiser:T("TARGET_BULK_SKIPPED_FMT", dropped) .. " ") or ""
+  if queue:Remaining() == 0 then
+    -- Every stack that was left is gone: the run is over, not failed.
+    if dropped > 0 then
+      self:SetStatus("TARGET_BULK_DONE_FMT", skippedNote .. Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done()))
+    end
+    self:UpdateBulk()
+    return
+  end
   local ok, reason = queue:Next()
-  local f = self.frame
   if not ok then
-    self:SetStatus("TARGET_BULK_STOPPED_FMT", stoppedText(queue, reason))
+    self:SetStatus("TARGET_BULK_STOPPED_FMT", skippedNote .. stoppedText(queue, reason))
   elseif queue:Finished() then
-    self:SetStatus("TARGET_BULK_DONE_FMT", Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done()))
+    self:SetStatus(
+      "TARGET_BULK_DONE_FMT",
+      skippedNote .. Fundraiser:T("TARGET_BULK_DONE_FMT", queue:Done())
+    )
   else
     self:SetStatus(
       "TARGET_BULK_PROGRESS_FMT",
-      Fundraiser:T("TARGET_BULK_PROGRESS_FMT", queue:Done(), queue:Total(), queue:Remaining())
+      skippedNote .. Fundraiser:T("TARGET_BULK_PROGRESS_FMT", queue:Done(), queue:Total(), queue:Remaining())
     )
   end
   self:UpdateBulk()
+end
+
+-- The auction house closed: abandon a running Post all so it cannot stay stuck on "Post next".
+function Target:CancelPost()
+  local queue = self.postQueue
+  if Fundraiser.Domain.BulkPlan.Progress(queue) ~= "running" then
+    return
+  end
+  queue:Cancel()
+  if self.frame then
+    self:SetStatus(
+      "TARGET_BULK_CANCELLED_FMT",
+      Fundraiser:T("TARGET_BULK_CANCELLED_FMT", queue:Done(), queue:Total())
+    )
+    self:UpdateBulk()
+  end
 end
 
 function Target:RunSell(queue)
@@ -903,17 +932,23 @@ function Target:Initialize()
     return
   end
   local cfg = Fundraiser.Config or {}
-  if not (cfg.TARGET_UI and cfg.TARGET_AUTO_DOCK) then
+  if not cfg.TARGET_UI then
     return
   end
   local ev = CreateFrame("Frame", "FundraiserTargetDockEvents")
-  ev:RegisterEvent("AUCTION_HOUSE_SHOW")
   ev:RegisterEvent("AUCTION_HOUSE_CLOSED")
+  if cfg.TARGET_AUTO_DOCK then
+    ev:RegisterEvent("AUCTION_HOUSE_SHOW")
+  end
   ev:SetScript("OnEvent", function(_, event)
     if event == "AUCTION_HOUSE_SHOW" then
       Target:Dock()
     else
-      Target:Undock()
+      -- Moving away from the auction house ends a running Post all, docked or not.
+      Target:CancelPost()
+      if cfg.TARGET_AUTO_DOCK then
+        Target:Undock()
+      end
     end
   end)
   self.initialized = true

@@ -24,10 +24,13 @@ function BulkPlan.Describe(view, group, env)
   return result
 end
 
--- "idle" (no run), "running" (work left), "stopped" (a step failed) or "done".
+-- "idle" (no run), "running" (work left), "stopped" (a step failed), "cancelled" or "done".
 function BulkPlan.Progress(queue)
   if not queue then
     return "idle"
+  end
+  if queue:Cancelled() then
+    return "cancelled"
   end
   if queue:Stopped() then
     return "stopped"

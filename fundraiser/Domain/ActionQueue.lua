@@ -15,7 +15,7 @@ function ActionQueue.New(items, step)
   for i, item in ipairs(items or {}) do
     copy[i] = item
   end
-  return setmetatable({ items = copy, step = step, next = 1, stopped = false }, ActionQueue)
+  return setmetatable({ items = copy, step = step, next = 1, stopped = false, cancelled = false }, ActionQueue)
 end
 
 function ActionQueue:Total()
@@ -35,11 +35,47 @@ function ActionQueue:Stopped()
 end
 
 function ActionQueue:Finished()
-  return not self.stopped and self:Remaining() == 0
+  return not self.stopped and not self.cancelled and self:Remaining() == 0
+end
+
+-- Abandon the rest of the run (the caller left, e.g. the auction house closed).
+function ActionQueue:Cancel()
+  self.cancelled = true
+end
+
+function ActionQueue:Cancelled()
+  return self.cancelled
+end
+
+-- Drop the items not yet run for which keep(item) is false (for example stacks that left the
+-- bags since the queue was built). Returns how many were dropped. Posted items stay counted.
+-- Does nothing once the run was cancelled or a step failed.
+function ActionQueue:Prune(keep)
+  if self.cancelled or self.stopped then
+    return 0
+  end
+  local kept = {}
+  for i = 1, self.next - 1 do
+    kept[#kept + 1] = self.items[i]
+  end
+  local dropped = 0
+  for i = self.next, #self.items do
+    local item = self.items[i]
+    if keep(item) then
+      kept[#kept + 1] = item
+    else
+      dropped = dropped + 1
+    end
+  end
+  self.items = kept
+  return dropped
 end
 
 -- Run one step. Returns ok, reasonKey, item.
 function ActionQueue:Next()
+  if self.cancelled then
+    return false, "cancelled"
+  end
   if self.stopped then
     return false, "stopped"
   end
@@ -59,7 +95,7 @@ end
 -- Run up to maxSteps steps; returns how many succeeded. Stops on the first failure.
 function ActionQueue:Run(maxSteps)
   local ran = 0
-  while ran < maxSteps and not self.stopped and self:Remaining() > 0 do
+  while ran < maxSteps and not self.stopped and not self.cancelled and self:Remaining() > 0 do
     local ok = self:Next()
     if not ok then
       break

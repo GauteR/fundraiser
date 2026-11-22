@@ -104,6 +104,19 @@ function TargetView.BulkEntries(view, group)
   return out
 end
 
+-- keep(entry) for ActionQueue:Prune: true while a fresh bag scan still has the queued stack's
+-- item in the same bag and slot. rows: BagAssist scan rows ({ bag, slot, itemId }).
+function TargetView.StillInBags(rows)
+  local ids = {}
+  for _, r in ipairs(rows or {}) do
+    ids[TargetView.Key(r)] = r.itemId
+  end
+  return function(entry)
+    local id = ids[TargetView.Key(entry.row)]
+    return id ~= nil and id == entry.row.itemId
+  end
+end
+
 -- Every stack in selection order: auction, vendor, then needs price.
 function TargetView.Flatten(view)
   local out = {}
@@ -193,6 +206,8 @@ local OK_KEYS = {
 
 local INFO_KEYS = {
   TARGET_BULK_PROGRESS_FMT = true,
+  TARGET_BULK_CANCELLED_FMT = true,
+  TARGET_BULK_SKIPPED_FMT = true,
 }
 
 -- Colour class of a status line: "ok", "info" or "error".

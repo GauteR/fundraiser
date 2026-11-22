@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Target page: a stack worth less than the minimum value (`Config.MIN_STACK_VALUE_COPPER`) can no longer be posted or sold from its own **Post to AH** / **Vendor** buttons, and **Skip** is disabled for it (it is already left out of Post all and Sell all). ([#54](https://github.com/GauteR/fundraiser/issues/54))
+- Target page: a running **Post all** re-scans your bags before each "Post next" and skips stacks that are no longer there (sold, mailed or moved), instead of stopping the run on them. The status line says how many were skipped; if nothing is left the run ends as done.
+- Target page: a running **Post all** is cancelled when you close the auction house (or walk away from it), instead of staying on "Post next" with no way out. The status line shows how many stacks were posted, and **Post all** starts a fresh run when you reopen the auction house.
 - Target page rows: the item tooltip no longer shows another item when the bag changed since the scan (it falls back to the item link), a row whose icon is not available shows a question mark instead of a blank, and an open tooltip is closed when the list is rebuilt under the cursor.
 - Target page: **Post to AH** is disabled unless the auction house is open, and **Vendor** is disabled unless a vendor window is open (they followed only the stack before), and both update when the window opens or closes.
 - Posting a stack to the auction house no longer reports "Could not start auction" when the client did create the auction; only an error in the post call counts as a failure, and its text is shown.
