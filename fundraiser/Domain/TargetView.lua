@@ -179,13 +179,23 @@ end
 
 -- Which per-stack actions the selected stack allows: { post, vendor }. Posting needs the auction
 -- house open and an auctionable stack; selling needs a vendor open and a vendor price.
--- env: { ahOpen, merchantOpen } (nil counts as closed).
-function TargetView.ActionState(row, env)
+-- env: { ahOpen, merchantOpen } (nil counts as closed). belowMin: the stack is worth less than the
+-- minimum value, so neither action is offered.
+function TargetView.ActionState(row, env, belowMin)
   env = env or {}
+  if belowMin then
+    return { post = false, vendor = false }
+  end
   return {
     post = row.auctionable == true and env.ahOpen == true,
     vendor = row.vendorUnit ~= nil and env.merchantOpen == true,
   }
+end
+
+-- Whether Skip applies to the entry: not for needs-price stacks (never in bulk) nor for stacks
+-- below the minimum value (already left out).
+function TargetView.CanSkip(entry)
+  return entry.group ~= "price" and not entry.belowMin
 end
 
 local OK_KEYS = {
