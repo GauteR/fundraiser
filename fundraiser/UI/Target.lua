@@ -50,6 +50,7 @@ local COLOR_STATUS = {
 local WINDOW_EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "MERCHANT_SHOW", "MERCHANT_CLOSED" }
 -- Selected-stack card geometry.
 local SEL_ICON = 32
+local IGNORE_BTN_W = 100
 local SEL_GRID_Y = -68
 local SEL_LINE_H = 14
 local SEL_LABEL_W = 110
@@ -297,7 +298,8 @@ function Target:Attach(shell)
   sel.iconBtn = iconBtn
   sel.name = sel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   sel.name:SetPoint("TOPLEFT", iconBtn, "TOPRIGHT", 8, -1)
-  sel.name:SetWidth(CARD_W - 2 * CARD_PAD - SEL_ICON - 8)
+  -- Leave room for the Ignore button at the top right of the card.
+  sel.name:SetWidth(CARD_W - 2 * CARD_PAD - SEL_ICON - 8 - IGNORE_BTN_W - 8)
   sel.name:SetJustifyH("LEFT")
   sel.name:SetWordWrap(false)
   sel.sub = sel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -365,9 +367,9 @@ function Target:Attach(shell)
   f.skipBtn = skipBtn
 
   -- Ignore: keeps every stack of the selected item out of Post all / Sell all for good.
-  local ignoreBtn = CreateFrame("Button", "FundraiserTargetIgnore", detail, "UIPanelButtonTemplate")
-  ignoreBtn:SetSize(100, 24)
-  ignoreBtn:SetPoint("RIGHT", skipBtn, "LEFT", -8, 0)
+  local ignoreBtn = CreateFrame("Button", "FundraiserTargetIgnore", sel, "UIPanelButtonTemplate")
+  ignoreBtn:SetSize(IGNORE_BTN_W, 22)
+  ignoreBtn:SetPoint("TOPRIGHT", -CARD_PAD, -24)
   ignoreBtn:SetText(Fundraiser:T("BTN_IGNORE"))
   ignoreBtn:SetScript("OnClick", function()
     Target:ToggleIgnore()
