@@ -241,14 +241,52 @@ end
 -- Scenario: a queued stack survives a re-scan only while its slot still holds the same item
 do
   local scan = {
-    { bag = 0, slot = 1, itemId = 100 },
-    { bag = 0, slot = 2, itemId = 200 },
+    { bag = 0, slot = 1, itemId = 100, count = 5, advice = "ah", ahNet = 500 },
+    { bag = 0, slot = 2, itemId = 200, count = 1, advice = "ah", ahNet = 90 },
   }
-  local keep = TV.StillInBags(scan)
-  assert_eq(keep({ row = { bag = 0, slot = 1, itemId = 100 } }), true, "rescan: same slot and item stays")
-  assert_eq(keep({ row = { bag = 0, slot = 2, itemId = 999 } }), false, "rescan: other item in the slot is dropped")
-  assert_eq(keep({ row = { bag = 1, slot = 1, itemId = 100 } }), false, "rescan: empty slot is dropped")
-  assert_eq(TV.StillInBags(nil)({ row = { bag = 0, slot = 1, itemId = 100 } }), false, "rescan: no scan keeps nothing")
+  local function queued(bag, slot, itemId, count)
+    return { row = { bag = bag, slot = slot, itemId = itemId, count = count }, group = "auction" }
+  end
+  local keep = TV.Reconcile(scan, { minValue = 0 })
+  assert_eq(keep(queued(0, 1, 100, 5)), true, "rescan: same slot, item and size stays")
+  assert_eq(keep(queued(0, 2, 999, 1)), false, "rescan: other item in the slot is dropped")
+  assert_eq(keep(queued(1, 1, 100, 5)), false, "rescan: empty slot is dropped")
+  assert_eq(TV.Reconcile(nil)(queued(0, 1, 100, 5)), false, "rescan: no scan keeps nothing")
+end
+
+-- Scenario: a stack whose size changed after the scan is re-priced from the fresh scan
+do
+  local scan = { { bag = 0, slot = 1, itemId = 100, count = 3, advice = "ah", vendorTotal = 30, ahNet = 300 } }
+  local keep = TV.Reconcile(scan, { minValue = 100 })
+  local result = keep({ row = { bag = 0, slot = 1, itemId = 100, count = 5 }, group = "auction" })
+  assert_eq(type(result), "table", "reprice: a changed size gives a replacement entry")
+  assert_eq(result.row.count, 3, "reprice: replacement has the actual count")
+  assert_eq(result.value, 300, "reprice: value follows the new count")
+  assert_eq(result.bulk, true, "reprice: still allowed in a bulk action")
+end
+
+-- Scenario: a re-priced stack is dropped when it falls below the minimum or changes group
+do
+  local small = { { bag = 0, slot = 1, itemId = 100, count = 1, advice = "ah", ahNet = 40 } }
+  assert_eq(
+    TV.Reconcile(small, { minValue = 100 })({ row = { bag = 0, slot = 1, itemId = 100, count = 5 }, group = "auction" }),
+    false,
+    "reprice: below the minimum is dropped"
+  )
+  local flipped = { { bag = 0, slot = 1, itemId = 100, count = 3, advice = "vendor", vendorTotal = 900 } }
+  assert_eq(
+    TV.Reconcile(flipped, { minValue = 0 })({ row = { bag = 0, slot = 1, itemId = 100, count = 5 }, group = "auction" }),
+    false,
+    "reprice: a stack that is no longer an auction stack is dropped"
+  )
+  local ignoredScan = { { bag = 0, slot = 1, itemId = 100, count = 3, advice = "ah", ahNet = 300 } }
+  assert_eq(
+    TV.Reconcile(ignoredScan, { minValue = 0, ignored = { [100] = true } })(
+      { row = { bag = 0, slot = 1, itemId = 100, count = 5 }, group = "auction" }
+    ),
+    false,
+    "reprice: an item ignored since is dropped"
+  )
 end
 
 -- Scenario: ignored items stay listed but leave bulk actions, for every stack of the item

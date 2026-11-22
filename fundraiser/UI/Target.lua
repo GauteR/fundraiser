@@ -814,9 +814,16 @@ end
 
 function Target:RunPost()
   local queue = self.postQueue
-  -- The queue is a snapshot from confirm time: drop stacks that have left the bags since.
-  local dropped = queue:Prune(TV().StillInBags(Fundraiser.Adapters.BagAssist:Scan()))
-  local skippedNote = dropped > 0 and (Fundraiser:T("TARGET_BULK_SKIPPED_FMT", dropped) .. " ") or ""
+  -- The queue is a snapshot from confirm time: drop stacks that have left the bags or no longer
+  -- qualify since, and re-price the ones whose size changed.
+  local dropped, repriced = queue:Prune(TV().Reconcile(Fundraiser.Adapters.BagAssist:Scan(), self:ViewOpts()))
+  local skippedNote = ""
+  if dropped > 0 then
+    skippedNote = skippedNote .. Fundraiser:T("TARGET_BULK_SKIPPED_FMT", dropped) .. " "
+  end
+  if repriced > 0 then
+    skippedNote = skippedNote .. Fundraiser:T("TARGET_BULK_REPRICED_FMT", repriced) .. " "
+  end
   if queue:Remaining() == 0 then
     -- Every stack that was left is gone: the run is over, not failed.
     if dropped > 0 then
