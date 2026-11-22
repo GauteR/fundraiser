@@ -13,6 +13,8 @@ Fundraiser.Config = {
   -- Admin window: end active campaign (archive + guild wipe) without publishing a new event.
   END_EVENT = true,
   LEDGER = true,
+  -- Redraw the open Ledger page when a row is recorded (mail, sale, AH, guild sync).
+  LEDGER_AUTO_REFRESH = true,
   TARGET_UI = true,
   -- Donation target: show the Target panel beside the auction house while it is open.
   TARGET_AUTO_DOCK = true,

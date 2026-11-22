@@ -125,9 +125,19 @@ function Store:SetLots(list)
   self.db.lots = list or {}
 end
 
+-- Listeners run after every SetContributions (mail, sales, AH, guild sync, manual rows).
+local contributionListeners = {}
+
+function Store:OnContributionsChanged(fn)
+  contributionListeners[#contributionListeners + 1] = fn
+end
+
 function Store:SetContributions(list)
   self.db = self.db or self:Load()
   self.db.contributions = list or {}
+  for _, fn in ipairs(contributionListeners) do
+    fn()
+  end
 end
 
 function Store:GetPresence()

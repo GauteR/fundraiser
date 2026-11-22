@@ -270,6 +270,9 @@ function Ledger:Attach(shell)
   end
 
   self.frame = f
+  Fundraiser.Adapters.Store:OnContributionsChanged(function()
+    Ledger:RefreshIfVisible()
+  end)
   self:AttachDonation(shell)
   return f
 end
@@ -532,6 +535,29 @@ function Ledger:Refresh()
 
   self:UpdateRows()
   self:UpdateMenu()
+end
+
+-- Called whenever ledger rows change. Redraws the page only while it is on screen, and folds a
+-- burst of changes (a mailbox full of donations) into one refresh on the next frame.
+function Ledger:RefreshIfVisible()
+  if not (Fundraiser.Config and Fundraiser.Config.LEDGER_AUTO_REFRESH) then
+    return
+  end
+  if self.pendingRefresh or not self.frame or not self.frame:IsVisible() then
+    return
+  end
+  self.pendingRefresh = true
+  local function run()
+    self.pendingRefresh = nil
+    if self.frame and self.frame:IsVisible() then
+      self:Refresh()
+    end
+  end
+  if C_Timer and C_Timer.After then
+    C_Timer.After(0, run)
+  else
+    run()
+  end
 end
 
 function Ledger:ConfirmSetMotd()
