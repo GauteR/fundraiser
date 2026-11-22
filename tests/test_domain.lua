@@ -595,6 +595,27 @@ do
   assert_eq(Fundraiser.Domain.SaleAdvice.Recommend(nil, nil, 1, 0.05), "manual", "manual when no prices")
 end
 
+-- Scenario: the auction deposit lowers the AH net and can turn the advice to vendor
+do
+  local R = Fundraiser.Domain.SaleAdvice.Recommend
+  -- 1 x 100 AH, 5% cut: net 95; vendor 90 loses without a deposit, wins with a deposit of 10
+  local advice, vendorTotal, ahNet = R(90, 100, 1, 0.05)
+  assert_eq(advice, "ah", "deposit: AH wins without a deposit")
+  advice, vendorTotal, ahNet = R(90, 100, 1, 0.05, 10)
+  assert_eq(advice, "vendor", "deposit: vendor wins once the deposit is counted")
+  assert_eq(ahNet, 85, "deposit: AH net is reduced by the deposit")
+  assert_eq(vendorTotal, 90, "deposit: vendor total is unchanged")
+  assert_eq(select(3, R(90, 100, 1, 0.05, 0)), 95, "deposit: zero changes nothing")
+  assert_eq(select(3, R(90, 100, 1, 0.05, nil)), 95, "deposit: nil changes nothing")
+  -- A deposit larger than the proceeds leaves nothing: net is clamped to 0, vendor wins
+  advice, vendorTotal, ahNet = R(5, 100, 1, 0.05, 500)
+  assert_eq(ahNet, 0, "deposit: net never goes below zero")
+  assert_eq(advice, "vendor", "deposit: vendor when the deposit eats the AH proceeds")
+  -- Without a vendor price the AH stays the only option, whatever the deposit
+  advice = R(nil, 100, 1, 0.05, 500)
+  assert_eq(advice, "ah", "deposit: AH stays when there is no vendor price")
+end
+
 -- Scenario: FormatCopper embeds MoneyIcons (fallback when GetCoinTextureString is absent)
 do
   -- Given a stub CreateFrame so Core.lua can load under pure Lua

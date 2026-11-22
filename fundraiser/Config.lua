@@ -47,6 +47,8 @@ Fundraiser.Config = {
   -- Forever auction duration index: 1 = 2h, 2 = 8h, 3 = 24h.
   AH_DURATION = 3,
   AH_UNDERCUT_COPPER = 0,
+  -- Sale advice: subtract the auction deposit (counted as lost) from the AH net value.
+  AH_DEPOSIT_IN_ADVICE = true,
   -- Target page: stacks worth less than this (copper, value of the recommended action)
   -- stay listed but are left out of Post all / Sell all.
   MIN_STACK_VALUE_COPPER = 100,

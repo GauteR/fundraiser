@@ -40,8 +40,36 @@ local function itemName(info)
   return link or tostring(info.itemID)
 end
 
+-- Auction deposit (copper) for posting the whole stack at the configured duration, or nil when
+-- the flag is off or the client gives none. Items need the location, commodities the item id.
+function BagAssist.DepositFor(location, itemId, count)
+  local cfg = Fundraiser.Config
+  if cfg and cfg.AH_DEPOSIT_IN_ADVICE == false then
+    return nil
+  end
+  local api = C_AuctionHouse
+  if not api then
+    return nil
+  end
+  local duration = Fundraiser.Adapters.AuctionPost and Fundraiser.Adapters.AuctionPost.DurationIndex()
+    or tonumber(cfg and cfg.AH_DURATION) or 3
+  local commodity = api.GetItemCommodityStatus and Enum and Enum.ItemCommodityStatus
+    and api.GetItemCommodityStatus(location) == Enum.ItemCommodityStatus.Commodity
+  local ok, deposit
+  if commodity and api.CalculateCommodityDeposit then
+    ok, deposit = pcall(api.CalculateCommodityDeposit, itemId, duration, count)
+  elseif api.CalculateItemDeposit then
+    ok, deposit = pcall(api.CalculateItemDeposit, location, duration, count)
+  end
+  deposit = ok and tonumber(deposit) or nil
+  if deposit and deposit > 0 then
+    return math.floor(deposit)
+  end
+  return nil
+end
+
 -- Returns an array of { bag, slot, itemId, link, name, count, auctionable, vendorUnit, ahUnit,
--- source, advice, vendorTotal, ahNet }, ordered by bag then slot.
+-- source, advice, vendorTotal, ahNet, deposit }, ordered by bag then slot.
 function BagAssist:Scan()
   local rows = {}
   if not (C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerItemInfo) then
@@ -63,7 +91,8 @@ function BagAssist:Scan()
         local ahUnit = auctionable and Pricing:GetUnitAhPrice(itemId) or nil
         -- Worth listing when it can be sold somewhere, or posted at a manual price.
         if vendorUnit or ahUnit or auctionable then
-          local advice, vendorTotal, ahNet = SaleAdvice.Recommend(vendorUnit, ahUnit, count, cut)
+          local deposit = ahUnit and BagAssist.DepositFor(location, itemId, count) or nil
+          local advice, vendorTotal, ahNet = SaleAdvice.Recommend(vendorUnit, ahUnit, count, cut, deposit)
           rows[#rows + 1] = {
             bag = bag,
             slot = slot,
@@ -78,6 +107,7 @@ function BagAssist:Scan()
             advice = advice,
             vendorTotal = vendorTotal,
             ahNet = ahNet,
+            deposit = deposit,
           }
         end
       end
