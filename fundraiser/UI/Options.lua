@@ -286,6 +286,89 @@ local function ConfirmAction(dialogKey, textKey, onAccept)
   onAccept()
 end
 
+local function EditBoxOf(dialog)
+  return dialog.editBox or dialog.EditBox
+end
+
+local function Say(key, ...)
+  if DEFAULT_CHAT_FRAME then
+    DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T(key, ...))
+  end
+end
+
+-- Show the ignore list as one copyable line (Ctrl+C) in a popup edit box.
+local function ShowIgnoreExport()
+  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+  local TP = Fundraiser.Domain.TargetPrefs
+  if not (Store and TP and StaticPopupDialogs and StaticPopup_Show) then
+    return
+  end
+  local text = TP.Export(Store:GetTargetPrefs())
+  StaticPopupDialogs["FUNDRAISER_IGNORE_EXPORT"] = {
+    text = Fundraiser:T("OPTIONS_IGNORED_EXPORT_TEXT"),
+    button1 = CLOSE or OKAY or "Close",
+    hasEditBox = 1,
+    editBoxWidth = 340,
+    maxLetters = 0,
+    OnShow = function(self)
+      local box = EditBoxOf(self)
+      box:SetText(text)
+      box:HighlightText()
+      box:SetFocus()
+    end,
+    EditBoxOnEscapePressed = function(self)
+      self:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = 1,
+    hideOnEscape = 1,
+    preferredIndex = 3,
+  }
+  StaticPopup_Show("FUNDRAISER_IGNORE_EXPORT")
+end
+
+-- Ask for an export string (paste with Ctrl+V) and merge it into the ignore list.
+local function ShowIgnoreImport(panel)
+  if not (StaticPopupDialogs and StaticPopup_Show) then
+    return
+  end
+  StaticPopupDialogs["FUNDRAISER_IGNORE_IMPORT"] = {
+    text = Fundraiser:T("OPTIONS_IGNORED_IMPORT_TEXT"),
+    button1 = Fundraiser:T("OPTIONS_IGNORED_IMPORT"),
+    button2 = CANCEL or "Cancel",
+    hasEditBox = 1,
+    editBoxWidth = 340,
+    maxLetters = 0,
+    OnShow = function(self)
+      EditBoxOf(self):SetFocus()
+    end,
+    OnAccept = function(self)
+      local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+      local TP = Fundraiser.Domain.TargetPrefs
+      local prefs = Store:GetTargetPrefs()
+      local ok, info = TP.Import(prefs, EditBoxOf(self):GetText())
+      if not ok then
+        Say("OPTIONS_IGNORED_IMPORT_BAD")
+        return
+      end
+      Store:SetTargetPrefs(prefs)
+      Say("OPTIONS_IGNORED_IMPORT_DONE_FMT", info.added, info.known, info.rejected)
+      RefreshPanel(panel)
+      if Fundraiser.UI.Target and Fundraiser.UI.Target.Refresh then
+        Fundraiser.UI.Target:Refresh()
+      end
+    end,
+    EditBoxOnEscapePressed = function(self)
+      self:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = 1,
+    hideOnEscape = 1,
+    preferredIndex = 3,
+  }
+  StaticPopup_Show("FUNDRAISER_IGNORE_IMPORT")
+end
+
 local function AfterLocalDataChange(panel)
   if Fundraiser.UI and Fundraiser.UI.Window and Fundraiser.UI.Window.Refresh then
     Fundraiser.UI.Window:Refresh()
@@ -689,6 +772,19 @@ function Options:Initialize()
     panel.ignoredMore = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     panel.ignoredMore:SetPoint("TOPLEFT", 24, y)
     y = y - 22
+    local exportButton = CreateFrame("Button", "FundraiserOptionsIgnoreExport", content, "UIPanelButtonTemplate")
+    exportButton:SetSize(140, 24)
+    exportButton:SetPoint("TOPLEFT", 16, y)
+    exportButton:SetText(Fundraiser:T("OPTIONS_IGNORED_EXPORT"))
+    exportButton:SetScript("OnClick", ShowIgnoreExport)
+    local importButton = CreateFrame("Button", "FundraiserOptionsIgnoreImport", content, "UIPanelButtonTemplate")
+    importButton:SetSize(140, 24)
+    importButton:SetPoint("LEFT", exportButton, "RIGHT", 8, 0)
+    importButton:SetText(Fundraiser:T("OPTIONS_IGNORED_IMPORT"))
+    importButton:SetScript("OnClick", function()
+      ShowIgnoreImport(panel)
+    end)
+    y = y - 32
   end
   y = y - 8
 
