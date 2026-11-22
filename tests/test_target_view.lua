@@ -280,23 +280,42 @@ end
 
 -- Scenario: item names take the colour of their quality, else the default
 do
-  local default = { 1, 1, 1 }
-  local function colorFn(q)
-    return q / 10, 0.5, 0.25
+    local default = { 1, 1, 1 }
+    local function colorFn(q)
+        return q / 10, 0.5, 0.25
+    end
+    local r, g, b = TV.NameColor(3, colorFn, default)
+    assert_eq(r, 0.3, "name colour: quality red")
+    assert_eq(g, 0.5, "name colour: quality green")
+    assert_eq(b, 0.25, "name colour: quality blue")
+
+    r, g, b = TV.NameColor(nil, colorFn, default)
+    assert_eq(r .. g .. b, "111", "name colour: uncached item uses the default")
+
+    r, g, b = TV.NameColor(3, nil, default)
+    assert_eq(r .. g .. b, "111", "name colour: no colour function uses the default")
+
+    r, g, b = TV.NameColor(3, function() end, default)
+    assert_eq(r .. g .. b, "111", "name colour: colour function without a result uses the default")
+end
+
+-- Scenario: with the profit threshold on, a stack's cost basis counts against the minimum value
+do
+  local function build(enabled, costBasis)
+    Fundraiser.Config.PROFIT_THRESHOLD_ENABLED = enabled
+    local a = row(0, 1, "Silk", "vendor", 500, nil)
+    a.costBasis = costBasis
+    local view = TV.Build({ a }, { minValue = 100 })
+    return view.groups.vendor.entries[1]
   end
-  local r, g, b = TV.NameColor(3, colorFn, default)
-  assert_eq(r, 0.3, "name colour: quality red")
-  assert_eq(g, 0.5, "name colour: quality green")
-  assert_eq(b, 0.25, "name colour: quality blue")
 
-  r, g, b = TV.NameColor(nil, colorFn, default)
-  assert_eq(r .. g .. b, "111", "name colour: uncached item uses the default")
-
-  r, g, b = TV.NameColor(3, nil, default)
-  assert_eq(r .. g .. b, "111", "name colour: no colour function uses the default")
-
-  r, g, b = TV.NameColor(3, function() end, default)
-  assert_eq(r .. g .. b, "111", "name colour: colour function without a result uses the default")
+  assert_eq(Fundraiser.Config.PROFIT_THRESHOLD_ENABLED, false, "profit threshold: off by default")
+  assert_eq(build(false, 450).belowMin, false, "profit threshold off: cost basis is ignored")
+  assert_eq(build(true, 450).belowMin, true, "profit threshold on: profit 50 is below the minimum 100")
+  assert_eq(build(true, 450).bulk, false, "profit threshold on: below-minimum profit leaves bulk actions")
+  assert_eq(build(true, 300).belowMin, false, "profit threshold on: profit 200 clears the minimum")
+  assert_eq(build(true, nil).belowMin, false, "profit threshold on: no cost basis falls back to the value")
+  Fundraiser.Config.PROFIT_THRESHOLD_ENABLED = false
 end
 
 if failed > 0 then
