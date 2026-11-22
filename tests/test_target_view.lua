@@ -278,6 +278,27 @@ do
   assert_eq(TV.RowNote(view.groups.vendor.entries[1]), "ignored", "ignored: note beats skipped")
 end
 
+-- Scenario: item names take the colour of their quality, else the default
+do
+  local default = { 1, 1, 1 }
+  local function colorFn(q)
+    return q / 10, 0.5, 0.25
+  end
+  local r, g, b = TV.NameColor(3, colorFn, default)
+  assert_eq(r, 0.3, "name colour: quality red")
+  assert_eq(g, 0.5, "name colour: quality green")
+  assert_eq(b, 0.25, "name colour: quality blue")
+
+  r, g, b = TV.NameColor(nil, colorFn, default)
+  assert_eq(r .. g .. b, "111", "name colour: uncached item uses the default")
+
+  r, g, b = TV.NameColor(3, nil, default)
+  assert_eq(r .. g .. b, "111", "name colour: no colour function uses the default")
+
+  r, g, b = TV.NameColor(3, function() end, default)
+  assert_eq(r .. g .. b, "111", "name colour: colour function without a result uses the default")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)
