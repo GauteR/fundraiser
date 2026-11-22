@@ -50,6 +50,9 @@ Fundraiser.Config = {
   -- Target page: stacks worth less than this (copper, value of the recommended action)
   -- stay listed but are left out of Post all / Sell all.
   MIN_STACK_VALUE_COPPER = 100,
+  -- Target page: when true, a stack's row.costBasis (copper, optional) is subtracted from its value
+  -- before the minimum above is applied. Donated items have no cost basis yet, so this stays off.
+  PROFIT_THRESHOLD_ENABLED = false,
 
   -- Addon message prefix (max 16 characters on Classic-era clients).
   COMM_PREFIX = "Fundraiser",

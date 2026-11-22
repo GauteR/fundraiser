@@ -39,7 +39,8 @@ local function defaultMinValue()
 end
 
 -- rows: array of { bag, slot, name, advice, vendorTotal, ahNet }.
--- opts.minValue: copper; stacks below it stay listed but leave bulk actions.
+-- opts.minValue: copper; stacks below it stay listed but leave bulk actions. With
+-- Config.PROFIT_THRESHOLD_ENABLED the compared amount is value - row.costBasis (when set).
 -- opts.skipped: set of TargetView.Key(row) the player excluded from bulk actions (session only).
 -- opts.ignored: set of item ids the player ignores for good (every stack of the item).
 function TargetView.Build(rows, opts)
@@ -48,6 +49,7 @@ function TargetView.Build(rows, opts)
   if minValue == nil then
     minValue = defaultMinValue()
   end
+  local profitOn = Fundraiser.Config and Fundraiser.Config.PROFIT_THRESHOLD_ENABLED == true
   local skipped = opts.skipped or {}
   local ignored = opts.ignored or {}
   local view = { groups = {} }
@@ -59,7 +61,11 @@ function TargetView.Build(rows, opts)
     local group = groupOf(row)
     local value = TargetView.Value(row)
     local key = TargetView.Key(row)
-    local belowMin = value ~= nil and value < minValue
+    local measured = value
+    if profitOn and value ~= nil and tonumber(row.costBasis) then
+      measured = value - row.costBasis
+    end
+    local belowMin = measured ~= nil and measured < minValue
     local isSkipped = skipped[key] == true
     local isIgnored = row.itemId ~= nil and ignored[row.itemId] == true
     local entry = {
