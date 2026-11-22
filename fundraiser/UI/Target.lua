@@ -95,6 +95,12 @@ local function TV()
   return Fundraiser.Domain.TargetView
 end
 
+-- r, g, b of the stack's item name: its quality colour, else default while the item is uncached.
+local function itemNameColor(row, default)
+  local quality = row.itemId and C_Item and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(row.itemId)
+  return TV().NameColor(quality, C_Item and C_Item.GetItemQualityColor, default)
+end
+
 -- Flat list the scroll frame renders: a header per non-empty group, then its stacks.
 local function buildItems(view)
   local items = {}
@@ -488,7 +494,7 @@ function Target:UpdateRows()
       r.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
       r.icon:Show()
       r.text:SetText(row.name or "?")
-      r.text:SetTextColor(1, 1, 1)
+      r.text:SetTextColor(itemNameColor(row, { 1, 1, 1 }))
       r.qty:SetText(tostring(row.count or 1))
       r.value:SetText(money(entry.value))
       local note = TV().RowNote(entry)
@@ -526,12 +532,7 @@ function Target:ShowSelected()
   sel.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
   sel.iconBtn.row = row
   sel.name:SetText(row.name or "?")
-  local quality = row.itemId and C_Item and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(row.itemId)
-  local r, g, b = 1, 0.82, 0
-  if quality and C_Item.GetItemQualityColor then
-    r, g, b = C_Item.GetItemQualityColor(quality)
-  end
-  sel.name:SetTextColor(r, g, b)
+  sel.name:SetTextColor(itemNameColor(row, { 1, 0.82, 0 }))
   -- Recommendation in the colour of its group, next to the stack size.
   local gc = COLOR_GROUP[entry.group] or COLOR_GROUP.vendor
   local advice = Fundraiser:T("TARGET_ADVICE_" .. string.upper(row.advice or "manual"))

@@ -154,6 +154,18 @@ function TargetView.Move(index, delta, count)
   return ((index - 1 + delta) % count) + 1
 end
 
+-- Colour of an item name: the item quality colour, or default ({ r, g, b }) when the quality is
+-- unknown (item not cached yet) or colorFn (quality -> r, g, b) is missing or gives nothing.
+function TargetView.NameColor(quality, colorFn, default)
+  if quality ~= nil and colorFn then
+    local r, g, b = colorFn(quality)
+    if r ~= nil then
+      return r, g, b
+    end
+  end
+  return default[1], default[2], default[3]
+end
+
 -- Why a row is left out of bulk actions: "ignored", "skipped", "below_min", "needs_price", or nil.
 function TargetView.RowNote(entry)
   if entry.ignored then
