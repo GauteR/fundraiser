@@ -13,7 +13,7 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 
 ## Features
 
-- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `ADMIN_UI`, `END_EVENT`, `LEDGER`, `LEDGER_AUTO_REFRESH`, `TARGET_UI`, `TARGET_AUTO_DOCK`, `AH_ASSIST`, `DEBUG`
+- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `ADMIN_UI`, `END_EVENT`, `LEDGER`, `LEDGER_AUTO_REFRESH`, `TARGET_UI`, `TARGET_PREFS`, `TARGET_AUTO_DOCK`, `AH_ASSIST`, `DEBUG`
 - Officer-published event: name, **First Last** mail target, required fundraising goal (gold), optional goal note, per-event reminder interval
 - Mailbox reminder for members (beside the mail window) until mail is sent to the target
 - Ledger writes on the **donation-target** only (incoming mail money/items, each item mail as one row that later auction and vendor sales fill with their net proceeds, + **all** AH sales + manual donations from the **Add donation** menu page, which officers can also use); the open ledger page updates as rows arrive; every client stores/relays the mesh; officers + target view in UI
@@ -84,7 +84,7 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 | Danger zone (admin) | Separated by a rule; local reset/clear actions; **Broadcast reset** sends guild `RESET\|all` (requires `COMM` + `RESET_SYNC`, rank-gated on receive). Hidden without admin access. |
 | Open Fundraiser | Shown only when your rank may manage fundraisers |
 
-Defaults are stored in `FundraiserDB.settings` and overlaid onto `Config` at load. Forever may not restore SavedVariables after a cold start — re-apply in Options if needed. `DEBUG` stays in `Config.lua` only.
+Defaults are stored in `FundraiserDB.settings` and overlaid onto `Config` at load. Forever may not restore SavedVariables after a cold start — re-apply in Options if needed. The same goes for the target page preferences (`FundraiserDB.target`: ignored items and minimum stack value, `Config.TARGET_PREFS`); without them the config minimum applies. `DEBUG` stays in `Config.lua` only.
 
 ## Configuration
 

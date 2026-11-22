@@ -16,6 +16,9 @@ Fundraiser.Config = {
   -- Redraw the open Ledger page when a row is recorded (mail, sale, AH, guild sync).
   LEDGER_AUTO_REFRESH = true,
   TARGET_UI = true,
+  -- Donation target: persistent per-item ignore list and minimum stack value (FundraiserDB.target).
+  -- Forever may not restore SavedVariables after a cold start: the config minimum is the fallback.
+  TARGET_PREFS = true,
   -- Donation target: show the Target panel beside the auction house while it is open.
   TARGET_AUTO_DOCK = true,
   -- Global frame names the dock may sit beside (the right-most visible one wins). Auctionator's
