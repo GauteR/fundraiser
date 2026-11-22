@@ -96,6 +96,25 @@ do
   assert_eq(#items, 2, "input: list is left alone")
 end
 
+-- Scenario: cancelling ends the run, keeps progress, and is not a failure or a finish
+do
+  local q = Queue.New({ "a", "b", "c" }, function()
+    return true
+  end)
+  q:Next()
+  assert_eq(q:Cancelled(), false, "cancel: not cancelled at first")
+  q:Cancel()
+  assert_eq(q:Cancelled(), true, "cancel: cancelled after Cancel")
+  assert_eq(q:Done(), 1, "cancel: keeps what was done")
+  assert_eq(q:Remaining(), 2, "cancel: keeps what is left")
+  assert_eq(q:Finished(), false, "cancel: not finished")
+  assert_eq(q:Stopped(), false, "cancel: not a failure stop")
+  local ok, reason = q:Next()
+  assert_eq(ok, false, "cancel: no further steps")
+  assert_eq(reason, "cancelled", "cancel: says why")
+  assert_eq(q:Run(5), 0, "cancel: Run does nothing")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)
