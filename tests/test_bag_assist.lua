@@ -111,6 +111,68 @@ do
   assert_eq(r.name, "Name of item:100", "scan: name from the item info")
 end
 
+-- Scenario: the auction deposit of an AH-priced stack lowers its AH net and can flip the advice
+do
+  reset()
+  ahPrices[100] = 1000
+  vendorPrices[100] = 940
+  put(0, 1, item(100, 1))
+  C_AuctionHouse.CalculateItemDeposit = function(location, duration, quantity)
+    assert_eq(location.bag, 0, "deposit: item deposit asks for the stack's location")
+    assert_eq(duration, 3, "deposit: uses the configured duration index")
+    assert_eq(quantity, 1, "deposit: uses the stack size")
+    return 60
+  end
+  local r = BA:Scan()[1]
+  assert_eq(r.deposit, 60, "deposit: carried on the row")
+  assert_eq(r.ahNet, 890, "deposit: AH net is after cut and deposit")
+  assert_eq(r.advice, "vendor", "deposit: vendor wins once the deposit is counted")
+
+  -- commodities use the item id
+  reset()
+  ahPrices[100] = 1000
+  Enum.ItemCommodityStatus = { Item = 1, Commodity = 2 }
+  C_AuctionHouse.GetItemCommodityStatus = function()
+    return 2
+  end
+  C_AuctionHouse.CalculateCommodityDeposit = function(itemId, duration, quantity)
+    assert_eq(itemId, 100, "deposit: commodity deposit asks for the item id")
+    return quantity * 10
+  end
+  put(0, 1, item(100, 5))
+  r = BA:Scan()[1]
+  assert_eq(r.deposit, 50, "deposit: commodity deposit for the whole stack")
+end
+
+-- Scenario: no deposit when the flag is off, the API is missing, or there is no AH price
+do
+  reset()
+  ahPrices[100] = 1000
+  vendorPrices[100] = 940
+  put(0, 1, item(100, 1))
+  C_AuctionHouse.CalculateItemDeposit = function()
+    return 60
+  end
+  Fundraiser.Config.AH_DEPOSIT_IN_ADVICE = false
+  local r = BA:Scan()[1]
+  assert_eq(r.deposit, nil, "flag off: no deposit on the row")
+  assert_eq(r.advice, "ah", "flag off: advice as before")
+  Fundraiser.Config.AH_DEPOSIT_IN_ADVICE = true
+  C_AuctionHouse.CalculateItemDeposit = nil
+  r = BA:Scan()[1]
+  assert_eq(r.deposit, nil, "no API: no deposit on the row")
+  assert_eq(r.ahNet, 950, "no API: AH net is after the cut only")
+  C_AuctionHouse.CalculateItemDeposit = function()
+    error("boom")
+  end
+  assert_eq(BA:Scan()[1].deposit, nil, "erroring API: no deposit, scan survives")
+  C_AuctionHouse.CalculateItemDeposit = function()
+    return 60
+  end
+  ahPrices[100] = nil
+  assert_eq(BA:Scan()[1].deposit, nil, "no AH price: no deposit lookup")
+end
+
 -- Scenario: scans cover every bag and come back in bag/slot order
 do
   reset()
