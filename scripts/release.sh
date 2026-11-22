@@ -164,6 +164,7 @@ if [[ $SKIP_TESTS -eq 0 ]]; then
   lua tests/test_admin_summary.lua
   lua tests/test_release_meta.lua
   lua tests/test_target_view.lua
+  lua tests/test_target_prefs.lua
   lua tests/test_action_queue.lua
   lua tests/test_auction_post.lua
   lua tests/test_bag_assist.lua

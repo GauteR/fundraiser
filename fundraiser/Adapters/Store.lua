@@ -1,4 +1,5 @@
 -- Local cache (SavedVariables FundraiserDB) with cold-start tolerant defaults.
+-- target: persistent target page prefs (ignore list, min stack value).
 -- settings: Options overlays for reminder interval + min admin rank (applied onto Config).
 -- archives: capped history of replaced events (publish / remote EVENT with new id).
 -- resetEpoch: monotonic counter bumped on ledger/all wipe; stamped on HELLO/LEDGER/DIGEST/RESET.
@@ -19,6 +20,8 @@ local function emptyDb()
     presence = {},
     reminder = {},
     settings = {},
+    -- Target page preferences (Domain/TargetPrefs.lua): ignored item ids + min stack value.
+    target = {},
     archives = {},
     resetEpoch = 0,
   }
@@ -68,6 +71,7 @@ function Store:Load()
   db.presence = db.presence or {}
   db.reminder = db.reminder or {}
   db.settings = db.settings or {}
+  db.target = db.target or {}
   db.archives = db.archives or {}
   db.resetEpoch = tonumber(db.resetEpoch) or 0
   self.db = db
@@ -98,6 +102,24 @@ function Store:SetSettings(raw)
   self.db.settings = normalized
   self:ApplySettingsToConfig()
   return normalized
+end
+
+-- Target page preferences, always a clean table (see Domain/TargetPrefs.lua).
+function Store:GetTargetPrefs()
+  self.db = self.db or self:Load()
+  local TP = Fundraiser.Domain and Fundraiser.Domain.TargetPrefs
+  if TP then
+    self.db.target = TP.Normalize(self.db.target)
+  end
+  return self.db.target
+end
+
+-- Persist prefs after changing the table GetTargetPrefs returned (or a new one).
+function Store:SetTargetPrefs(prefs)
+  self.db = self.db or self:Load()
+  local TP = Fundraiser.Domain and Fundraiser.Domain.TargetPrefs
+  self.db.target = TP and TP.Normalize(prefs) or {}
+  return self.db.target
 end
 
 function Store:GetEvent()

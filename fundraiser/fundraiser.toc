@@ -20,6 +20,7 @@ Domain/Reminder.lua
 Domain/Ledger.lua
 Domain/ItemLots.lua
 Domain/SaleAdvice.lua
+Domain/TargetPrefs.lua
 Domain/TargetView.lua
 Domain/ActionQueue.lua
 Domain/ShellPages.lua

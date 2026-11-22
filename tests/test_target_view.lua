@@ -250,6 +250,33 @@ do
   assert_eq(TV.StillInBags(nil)({ row = { bag = 0, slot = 1, itemId = 100 } }), false, "rescan: no scan keeps nothing")
 end
 
+-- Scenario: ignored items stay listed but leave bulk actions, for every stack of the item
+do
+  local a = row(0, 1, "Silk", "vendor", 500, nil)
+  a.itemId = 4306
+  local b = row(0, 2, "Silk", "vendor", 400, nil)
+  b.itemId = 4306
+  local c = row(0, 3, "Wool", "vendor", 300, nil)
+  c.itemId = 2592
+  local view = TV.Build({ a, b, c }, { minValue = 0, ignored = { [4306] = true } })
+  local g = view.groups.vendor
+  assert_eq(#g.entries, 3, "ignored: all stacks stay listed")
+  assert_eq(g.entries[1].ignored, true, "ignored: first Silk stack flagged")
+  assert_eq(g.entries[2].ignored, true, "ignored: second Silk stack flagged")
+  assert_eq(g.entries[3].ignored, false, "ignored: other item not flagged")
+  assert_eq(g.bulkCount, 1, "ignored: only the other item is in bulk")
+  assert_eq(g.bulkTotal, 300, "ignored: bulk total leaves ignored stacks out")
+  assert_eq(TV.RowNote(g.entries[1]), "ignored", "ignored: row note")
+end
+
+-- Scenario: an ignored stack that is also skipped reports the ignore first
+do
+  local a = row(0, 1, "Silk", "vendor", 500, nil)
+  a.itemId = 4306
+  local view = TV.Build({ a }, { minValue = 0, ignored = { [4306] = true }, skipped = { ["0:1"] = true } })
+  assert_eq(TV.RowNote(view.groups.vendor.entries[1]), "ignored", "ignored: note beats skipped")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)

@@ -40,7 +40,8 @@ end
 
 -- rows: array of { bag, slot, name, advice, vendorTotal, ahNet }.
 -- opts.minValue: copper; stacks below it stay listed but leave bulk actions.
--- opts.skipped: set of TargetView.Key(row) the player excluded from bulk actions.
+-- opts.skipped: set of TargetView.Key(row) the player excluded from bulk actions (session only).
+-- opts.ignored: set of item ids the player ignores for good (every stack of the item).
 function TargetView.Build(rows, opts)
   opts = opts or {}
   local minValue = opts.minValue
@@ -48,6 +49,7 @@ function TargetView.Build(rows, opts)
     minValue = defaultMinValue()
   end
   local skipped = opts.skipped or {}
+  local ignored = opts.ignored or {}
   local view = { groups = {} }
   for _, name in ipairs(GROUPS) do
     view.groups[name] = { entries = {}, total = 0, bulkCount = 0, bulkTotal = 0 }
@@ -59,6 +61,7 @@ function TargetView.Build(rows, opts)
     local key = TargetView.Key(row)
     local belowMin = value ~= nil and value < minValue
     local isSkipped = skipped[key] == true
+    local isIgnored = row.itemId ~= nil and ignored[row.itemId] == true
     local entry = {
       row = row,
       key = key,
@@ -66,7 +69,8 @@ function TargetView.Build(rows, opts)
       value = value,
       belowMin = belowMin,
       skipped = isSkipped,
-      bulk = group ~= "price" and not belowMin and not isSkipped,
+      ignored = isIgnored,
+      bulk = group ~= "price" and not belowMin and not isSkipped and not isIgnored,
     }
     local g = view.groups[group]
     g.entries[#g.entries + 1] = entry
@@ -150,8 +154,11 @@ function TargetView.Move(index, delta, count)
   return ((index - 1 + delta) % count) + 1
 end
 
--- Why a row is left out of bulk actions: "skipped", "below_min", "needs_price", or nil.
+-- Why a row is left out of bulk actions: "ignored", "skipped", "below_min", "needs_price", or nil.
 function TargetView.RowNote(entry)
+  if entry.ignored then
+    return "ignored"
+  end
   if entry.skipped then
     return "skipped"
   end
