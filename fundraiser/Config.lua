@@ -38,7 +38,7 @@ Fundraiser.Config = {
   DEBUG = true,
 
   ADDON_NAME = "Fundraiser",
-  VERSION = "0.1.0",
+  VERSION = "1.0.0-rc1",
   SLASH_COMMAND = "/fundraiser",
 
   -- TSM custom price for "lowest" AH reference (fallback: Auctionator, then manual).
