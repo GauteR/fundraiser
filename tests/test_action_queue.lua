@@ -135,6 +135,27 @@ do
   assert_eq(q:Finished(), true, "prune: finishes after the last kept item")
 end
 
+-- Scenario: a left-over item can be replaced instead of dropped (re-priced), posted ones stay
+do
+  local q = Queue.New({ "a", "b", "c" }, function()
+    return true
+  end)
+  q:Next()
+  local dropped, changed = q:Prune(function(item)
+    if item == "a" then
+      return { "never" }
+    elseif item == "b" then
+      return "b2"
+    end
+    return false
+  end)
+  assert_eq(dropped, 1, "replace: c is dropped")
+  assert_eq(changed, 1, "replace: only the left-over b counts as changed")
+  assert_eq(q:Total(), 2, "replace: total shrinks by the dropped item")
+  local _, _, item = q:Next()
+  assert_eq(item, "b2", "replace: the next step gets the replacement")
+end
+
 -- Scenario: pruning everything that is left finishes the run instead of failing it
 do
   local q = Queue.New({ "a", "b" }, function()

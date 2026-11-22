@@ -47,28 +47,33 @@ function ActionQueue:Cancelled()
   return self.cancelled
 end
 
--- Drop the items not yet run for which keep(item) is false (for example stacks that left the
--- bags since the queue was built). Returns how many were dropped. Posted items stay counted.
--- Does nothing once the run was cancelled or a step failed.
+-- Review the items not yet run: keep(item) returns false/nil to drop one (for example a stack that
+-- left the bags since the queue was built), true to keep it, or another value to replace it (for
+-- example a re-priced stack). Returns how many were dropped and how many were replaced. Posted
+-- items stay counted. Does nothing once the run was cancelled or a step failed.
 function ActionQueue:Prune(keep)
   if self.cancelled or self.stopped then
-    return 0
+    return 0, 0
   end
   local kept = {}
   for i = 1, self.next - 1 do
     kept[#kept + 1] = self.items[i]
   end
-  local dropped = 0
+  local dropped, changed = 0, 0
   for i = self.next, #self.items do
     local item = self.items[i]
-    if keep(item) then
+    local verdict = keep(item)
+    if verdict == true then
       kept[#kept + 1] = item
+    elseif verdict then
+      kept[#kept + 1] = verdict
+      changed = changed + 1
     else
       dropped = dropped + 1
     end
   end
   self.items = kept
-  return dropped
+  return dropped, changed
 end
 
 -- Run one step. Returns ok, reasonKey, item.

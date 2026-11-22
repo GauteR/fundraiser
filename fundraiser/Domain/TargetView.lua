@@ -114,16 +114,30 @@ function TargetView.BulkEntries(view, group)
   return out
 end
 
--- keep(entry) for ActionQueue:Prune: true while a fresh bag scan still has the queued stack's
--- item in the same bag and slot. rows: BagAssist scan rows ({ bag, slot, itemId }).
-function TargetView.StillInBags(rows)
-  local ids = {}
+-- keep(entry) for ActionQueue:Prune, from a fresh bag scan (rows: BagAssist scan rows):
+-- false when the queued stack's slot no longer holds its item; true when the stack is unchanged;
+-- a replacement entry when its size changed (re-priced from the fresh row). A re-priced stack is
+-- dropped (false) when it would no longer join the same bulk action: below the minimum value,
+-- ignored since, or recommended for another group. opts as for TargetView.Build.
+function TargetView.Reconcile(rows, opts)
+  local fresh = {}
   for _, r in ipairs(rows or {}) do
-    ids[TargetView.Key(r)] = r.itemId
+    fresh[TargetView.Key(r)] = r
   end
   return function(entry)
-    local id = ids[TargetView.Key(entry.row)]
-    return id ~= nil and id == entry.row.itemId
+    local r = fresh[TargetView.Key(entry.row)]
+    if r == nil or r.itemId ~= entry.row.itemId then
+      return false
+    end
+    if r.count == entry.row.count then
+      return true
+    end
+    local view = TargetView.Build({ r }, opts)
+    local repriced = view.groups[entry.group].entries[1]
+    if repriced == nil or not repriced.bulk then
+      return false
+    end
+    return repriced
   end
 end
 
@@ -233,6 +247,7 @@ local INFO_KEYS = {
   TARGET_BULK_PROGRESS_FMT = true,
   TARGET_BULK_CANCELLED_FMT = true,
   TARGET_BULK_SKIPPED_FMT = true,
+  TARGET_BULK_REPRICED_FMT = true,
 }
 
 -- Colour class of a status line: "ok", "info" or "error".

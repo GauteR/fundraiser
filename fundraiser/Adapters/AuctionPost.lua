@@ -74,7 +74,12 @@ function AuctionPost:PostStack(row, unitPrice)
     return false, "CHAT_TARGET_NOT_AUCTIONABLE"
   end
 
-  local count = tonumber(row.count) or 1
+  -- Post what the slot holds now: the stack may have changed since the scan.
+  local info = C_Container.GetContainerItemInfo(row.bag, row.slot)
+  if not info or (row.itemId and info.itemID ~= row.itemId) then
+    return false, "CHAT_TARGET_ITEM_NOT_IN_BAGS"
+  end
+  local count = tonumber(info.stackCount) or tonumber(row.count) or 1
   local plan = self.PostPlan(unitPrice, count, Fundraiser.Config and Fundraiser.Config.AH_UNDERCUT_COPPER)
   local duration = self.DurationIndex()
   local commodity = C_AuctionHouse.GetItemCommodityStatus(location) == Enum.ItemCommodityStatus.Commodity

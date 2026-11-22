@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - End event (-) on the admin event card: archives the campaign, clears active event+ledger, broadcasts `RESET campaign` (`Config.END_EVENT`).
 
 ### Fixed
+- Post all: a stack whose size changed after the scan (partly sold, merged) is re-priced from a fresh scan and posted with its actual size; it is skipped when it is then below the minimum value, ignored, or no longer an auction stack. Posting a single stack also uses the size the slot holds now. The status line says how many stacks were re-priced. ([#64](https://github.com/GauteR/fundraiser/issues/64))
 - Target page: a stack worth less than the minimum value (`Config.MIN_STACK_VALUE_COPPER`) can no longer be posted or sold from its own **Post to AH** / **Vendor** buttons, and **Skip** is disabled for it (it is already left out of Post all and Sell all). ([#54](https://github.com/GauteR/fundraiser/issues/54))
 - Target page: a running **Post all** re-scans your bags before each "Post next" and skips stacks that are no longer there (sold, mailed or moved), instead of stopping the run on them. The status line says how many were skipped; if nothing is left the run ends as done.
 - Target page: a running **Post all** is cancelled when you close the auction house (or walk away from it), instead of staying on "Post next" with no way out. The status line shows how many stacks were posted, and **Post all** starts a fresh run when you reopen the auction house.

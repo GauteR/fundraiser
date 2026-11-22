@@ -120,6 +120,28 @@ do
   assert_eq(AP.PostPlan(1, 1, 0).unit, 1, "plan: minimum one copper")
 end
 
+-- Scenario: the actual stack size in the slot is posted, not the size from the scan
+do
+  reset()
+  C_Container.GetContainerItemInfo = function()
+    return { itemID = 100, stackCount = 3 }
+  end
+  local ok, key, count, buyout = AP:PostStack(stack({ count = 5 }), 200)
+  assert_eq(ok, true, "size changed: posted")
+  assert_eq(key, "CHAT_TARGET_POSTED", "size changed: posted key")
+  assert_eq(count, 3, "size changed: actual count is reported")
+  assert_eq(buyout, 600, "size changed: buyout follows the actual count")
+  assert_eq(world.posts[1].qty, 3, "size changed: actual count is posted")
+  reset()
+  C_Container.GetContainerItemInfo = function()
+    return { itemID = 999, stackCount = 3 }
+  end
+  local ok2, key2 = AP:PostStack(stack(), 200)
+  assert_eq(ok2, false, "other item in the slot: refused")
+  assert_eq(key2, "CHAT_TARGET_ITEM_NOT_IN_BAGS", "other item in the slot: reason")
+  assert_eq(#world.posts, 0, "other item in the slot: nothing posted")
+end
+
 -- Scenario: a missing price is refused before anything is posted
 do
   reset()
