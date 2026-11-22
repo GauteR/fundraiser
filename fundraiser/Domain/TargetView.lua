@@ -202,7 +202,7 @@ end
 -- Whether Skip applies to the entry: not for needs-price stacks (never in bulk) nor for stacks
 -- below the minimum value (already left out).
 function TargetView.CanSkip(entry)
-  return entry.group ~= "price" and not entry.belowMin
+  return entry.group ~= "price" and not entry.belowMin and not entry.ignored
 end
 
 local OK_KEYS = {

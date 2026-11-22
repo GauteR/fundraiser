@@ -21,6 +21,9 @@ local CONTENT_WIDTH = 560
 local LABEL_WIDTH = 280
 -- X of right-hand value/control column on status and edit rows.
 local CONTROL_X = 320
+-- Ignored items list: rows shown before "+N more".
+local MAX_IGNORED_ROWS = 8
+local COPPER_PER_GOLD = 10000
 
 local function GetMeta(field, fallback)
   local value
@@ -213,6 +216,33 @@ local function RefreshPanel(panel)
     panel.rankBox:SetText(tostring(settings.defaultMinAdminRank or 0))
   end
 
+  local TP = Fundraiser.Domain and Fundraiser.Domain.TargetPrefs
+  if panel.minValueBox and TP and Store and Store.GetTargetPrefs then
+    local prefs = Store:GetTargetPrefs()
+    panel.minValueBox:SetText(prefs.minValue and tostring(prefs.minValue / COPPER_PER_GOLD) or "")
+    local list = TP.IgnoredList(prefs)
+    for i = 1, MAX_IGNORED_ROWS do
+      local row, item = panel.ignoredRows[i], list[i]
+      if item then
+        row.itemId = item.itemId
+        row.label:SetText(item.name ~= "" and item.name or ("#" .. item.itemId))
+        row:Show()
+      else
+        row:Hide()
+      end
+    end
+    if #list == 0 then
+      panel.ignoredEmpty:Show()
+    else
+      panel.ignoredEmpty:Hide()
+    end
+    if #list > MAX_IGNORED_ROWS then
+      panel.ignoredMore:SetText(Fundraiser:T("OPTIONS_IGNORED_MORE_FMT", #list - MAX_IGNORED_ROWS))
+    else
+      panel.ignoredMore:SetText("")
+    end
+  end
+
   if panel.openButton then
     if canOpen then
       panel.openButton:Show()
@@ -285,6 +315,24 @@ local function ApplySettingsFromPanel(panel)
   })
   if err and DEFAULT_CHAT_FRAME then
     DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_SAVE_FAILED", tostring(err)))
+  end
+  local TP = Fundraiser.Domain and Fundraiser.Domain.TargetPrefs
+  if TP and panel.minValueBox and Store.GetTargetPrefs and Store.SetTargetPrefs then
+    local prefs = Store:GetTargetPrefs()
+    local text = panel.minValueBox:GetText() or ""
+    -- Empty clears the override (the config minimum applies again). Input is gold.
+    local gold = tonumber(text)
+    local ok
+    if text:match("^%s*$") then
+      ok = TP.SetMinValue(prefs, nil)
+    elseif gold then
+      ok = TP.SetMinValue(prefs, gold * COPPER_PER_GOLD)
+    end
+    if ok then
+      Store:SetTargetPrefs(prefs)
+    elseif DEFAULT_CHAT_FRAME then
+      DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_SAVE_FAILED", "bad_min_value"))
+    end
   end
   RefreshPanel(panel)
 end
@@ -590,6 +638,58 @@ function Options:Initialize()
     "MinRank",
     y
   )
+  panel.ignoredRows = {}
+  if Fundraiser.Domain.TargetPrefs and Fundraiser.Domain.TargetPrefs.Enabled(Fundraiser.Config) then
+    panel.minValueBox, y = AddEditRow(
+      content,
+      Fundraiser:T("OPTIONS_LABEL_TARGET_MIN_VALUE"),
+      "OPTIONS_TIP_TARGET_MIN_TITLE",
+      "OPTIONS_TIP_TARGET_MIN_BODY",
+      "TargetMinValue",
+      y
+    )
+    y = y - 8
+
+    y = AddSectionHeader(content, Fundraiser:T("OPTIONS_SECTION_IGNORED"), y)
+    panel.ignoredEmpty = content:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+    panel.ignoredEmpty:SetPoint("TOPLEFT", 24, y)
+    panel.ignoredEmpty:SetText(Fundraiser:T("OPTIONS_IGNORED_EMPTY"))
+    for i = 1, MAX_IGNORED_ROWS do
+      local row = CreateFrame("Frame", nil, content)
+      row:SetSize(CONTENT_WIDTH - 32, 22)
+      row:SetPoint("TOPLEFT", 16, y - (i - 1) * 24)
+      row.bg = row:CreateTexture(nil, "BACKGROUND")
+      row.bg:SetAllPoints()
+      row.bg:SetColorTexture(1, 1, 1, 0.04)
+      row.label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+      row.label:SetPoint("LEFT", 8, 0)
+      row.label:SetWidth(LABEL_WIDTH)
+      row.label:SetJustifyH("LEFT")
+      local remove = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+      remove:SetSize(90, 20)
+      remove:SetPoint("LEFT", CONTROL_X - 16, 0)
+      remove:SetText(Fundraiser:T("OPTIONS_IGNORED_REMOVE"))
+      remove:SetScript("OnClick", function()
+        local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+        local TP = Fundraiser.Domain.TargetPrefs
+        if Store and row.itemId then
+          local prefs = Store:GetTargetPrefs()
+          TP.Unignore(prefs, row.itemId)
+          Store:SetTargetPrefs(prefs)
+        end
+        RefreshPanel(panel)
+        if Fundraiser.UI.Target and Fundraiser.UI.Target.Refresh then
+          Fundraiser.UI.Target:Refresh()
+        end
+      end)
+      row:Hide()
+      panel.ignoredRows[i] = row
+    end
+    y = y - MAX_IGNORED_ROWS * 24
+    panel.ignoredMore = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    panel.ignoredMore:SetPoint("TOPLEFT", 24, y)
+    y = y - 22
+  end
   y = y - 8
 
   -- Safe actions under Defaults: Apply for everyone; Open Fundraiser for admins.

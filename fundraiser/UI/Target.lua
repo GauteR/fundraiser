@@ -50,6 +50,7 @@ local COLOR_STATUS = {
 local WINDOW_EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "MERCHANT_SHOW", "MERCHANT_CLOSED" }
 -- Selected-stack card geometry.
 local SEL_ICON = 32
+local IGNORE_BTN_W = 100
 local SEL_GRID_Y = -68
 local SEL_LINE_H = 14
 local SEL_LABEL_W = 110
@@ -63,6 +64,31 @@ local function money(copper)
     return "-"
   end
   return Fundraiser.FormatCopper(copper)
+end
+
+local function Prefs()
+  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+  return Store and Store.GetTargetPrefs and Store:GetTargetPrefs() or nil
+end
+
+local function PrefsDomain()
+  return Fundraiser.Domain and Fundraiser.Domain.TargetPrefs
+end
+
+local function PrefsOn()
+  local TP = PrefsDomain()
+  return TP ~= nil and TP.Enabled(Fundraiser.Config)
+end
+
+-- Build options shared by every view build: session skips plus the saved ignore list and minimum.
+function Target:ViewOpts()
+  local opts = { skipped = self.skipped }
+  local TP, prefs = PrefsDomain(), Prefs()
+  if TP and prefs and PrefsOn() then
+    opts.ignored = TP.IgnoredSet(prefs, Fundraiser.Config)
+    opts.minValue = TP.EffectiveMinValue(prefs, Fundraiser.Config)
+  end
+  return opts
 end
 
 local function TV()
@@ -272,7 +298,8 @@ function Target:Attach(shell)
   sel.iconBtn = iconBtn
   sel.name = sel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   sel.name:SetPoint("TOPLEFT", iconBtn, "TOPRIGHT", 8, -1)
-  sel.name:SetWidth(CARD_W - 2 * CARD_PAD - SEL_ICON - 8)
+  -- Leave room for the Ignore button at the top right of the card.
+  sel.name:SetWidth(CARD_W - 2 * CARD_PAD - SEL_ICON - 8 - IGNORE_BTN_W - 8)
   sel.name:SetJustifyH("LEFT")
   sel.name:SetWordWrap(false)
   sel.sub = sel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -338,6 +365,17 @@ function Target:Attach(shell)
     Target:ToggleSkip()
   end)
   f.skipBtn = skipBtn
+
+  -- Ignore: keeps every stack of the selected item out of Post all / Sell all for good.
+  local ignoreBtn = CreateFrame("Button", "FundraiserTargetIgnore", sel, "UIPanelButtonTemplate")
+  ignoreBtn:SetSize(IGNORE_BTN_W, 22)
+  ignoreBtn:SetPoint("TOPRIGHT", -CARD_PAD, -24)
+  ignoreBtn:SetText(Fundraiser:T("BTN_IGNORE"))
+  ignoreBtn:SetScript("OnClick", function()
+    Target:ToggleIgnore()
+  end)
+  ignoreBtn:SetShown(PrefsOn())
+  f.ignoreBtn = ignoreBtn
 
   -- Bulk actions under the cards. Both confirm first and stop on the first failure.
   local bulkY = -(34 + LIST_CARD_H + CARD_GAP + DETAIL_CARD_H + 8)
@@ -477,6 +515,7 @@ function Target:ShowSelected()
     f.postBtn:Disable()
     f.vendorBtn:Disable()
     f.skipBtn:Disable()
+    f.ignoreBtn:Disable()
     return
   end
   local row = entry.row
@@ -525,6 +564,13 @@ function Target:ShowSelected()
   else
     f.skipBtn:Disable()
   end
+  f.ignoreBtn:SetShown(PrefsOn())
+  f.ignoreBtn:SetText(Fundraiser:T(entry.ignored and "BTN_UNIGNORE" or "BTN_IGNORE"))
+  if row.itemId then
+    f.ignoreBtn:Enable()
+  else
+    f.ignoreBtn:Disable()
+  end
   self:UpdateActions()
 end
 
@@ -536,14 +582,14 @@ function Target:Refresh()
   end
   if not Fundraiser:CanOpenTargetUi() then
     self.items, self.flat, self.selectedIndex, self.selectedKey = {}, {}, 0, nil
-    self.view = TV().Build({}, { skipped = self.skipped })
+    self.view = TV().Build({}, self:ViewOpts())
     self:UpdateRows()
     self:ShowSelected()
     self:UpdateBulk()
     return
   end
   local rows = Fundraiser.Adapters.BagAssist:Scan()
-  local view = TV().Build(rows, { skipped = self.skipped })
+  local view = TV().Build(rows, self:ViewOpts())
   self.view = view
   self.items = buildItems(view)
   self.flat = TV().Flatten(view)
@@ -576,6 +622,23 @@ function Target:Act(action)
     self:SetStatus(key, statusText(key, a, b))
   end
   -- BAG_UPDATE_DELAYED rescans when the bag actually changes.
+end
+
+-- Ignore or unignore the selected item (saved; applies to every stack of it).
+function Target:ToggleIgnore()
+  local entry = self:Selected()
+  local TP, Store = PrefsDomain(), Fundraiser.Adapters and Fundraiser.Adapters.Store
+  if not (entry and entry.row.itemId and TP and Store and PrefsOn()) then
+    return
+  end
+  local prefs = Store:GetTargetPrefs()
+  if TP.IsIgnored(prefs, entry.row.itemId) then
+    TP.Unignore(prefs, entry.row.itemId)
+  else
+    TP.Ignore(prefs, entry.row.itemId, entry.row.name)
+  end
+  Store:SetTargetPrefs(prefs)
+  self:Refresh()
 end
 
 function Target:ToggleSkip()
