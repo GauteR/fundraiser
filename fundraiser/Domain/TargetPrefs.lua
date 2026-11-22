@@ -99,6 +99,62 @@ function TargetPrefs.IgnoredList(prefs)
   return list
 end
 
+-- One-line text form of the ignore list for copying between characters: "FR1:<id>=<name>;..."
+-- (names percent-escaped for % ; = and control characters), ordered by item id.
+local EXPORT_PREFIX = "FR1:"
+
+local function escapeName(name)
+  return (tostring(name):gsub("[%%;=%c]", function(c)
+    return string.format("%%%02X", c:byte())
+  end))
+end
+
+local function unescapeName(text)
+  return (text:gsub("%%(%x%x)", function(hex)
+    return string.char(tonumber(hex, 16))
+  end))
+end
+
+function TargetPrefs.Export(prefs)
+  local ids = {}
+  for id in pairs(prefs and prefs.ignored or {}) do
+    ids[#ids + 1] = id
+  end
+  table.sort(ids)
+  local parts = {}
+  for _, id in ipairs(ids) do
+    parts[#parts + 1] = string.format("%d=%s", id, escapeName(prefs.ignored[id]))
+  end
+  return EXPORT_PREFIX .. table.concat(parts, ";")
+end
+
+-- Merge an exported string into prefs: new items are added, items already ignored keep their name.
+-- Returns true, { added, known, rejected } (rejected = malformed entries, skipped); or false,
+-- "bad_format" and changes nothing when the text is not an export string.
+function TargetPrefs.Import(prefs, text)
+  if type(text) ~= "string" then
+    return false, "bad_format"
+  end
+  text = text:match("^%s*(.-)%s*$")
+  if text:sub(1, #EXPORT_PREFIX) ~= EXPORT_PREFIX then
+    return false, "bad_format"
+  end
+  local info = { added = 0, known = 0, rejected = 0 }
+  for entry in text:sub(#EXPORT_PREFIX + 1):gmatch("[^;]+") do
+    local idText, name = entry:match("^(%d+)=(.*)$")
+    local id = idText and validItemId(idText)
+    if not id then
+      info.rejected = info.rejected + 1
+    elseif prefs.ignored[id] ~= nil then
+      info.known = info.known + 1
+    else
+      prefs.ignored[id] = unescapeName(name)
+      info.added = info.added + 1
+    end
+  end
+  return true, info
+end
+
 -- Set the override in copper; nil clears it. Returns false (and changes nothing) for bad input.
 function TargetPrefs.SetMinValue(prefs, copper)
   if copper == nil then

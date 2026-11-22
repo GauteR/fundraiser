@@ -82,6 +82,53 @@ do
   assert_eq(TP.EffectiveMinValue(p, {}), 0, "min: zero when config has none")
 end
 
+-- Scenario: the ignore list exports to one line and imports back (round trip)
+do
+  local p = TP.Normalize(nil)
+  TP.Ignore(p, 7, "Silk Cloth")
+  TP.Ignore(p, 12, "Odd; name = 100% (weird)")
+  local text = TP.Export(p)
+  assert_eq(text:sub(1, 4), "FR1:", "export: versioned prefix")
+  assert_eq(text:find("\n", 1, true), nil, "export: one line")
+  local q = TP.Normalize(nil)
+  local ok, info = TP.Import(q, text)
+  assert_eq(ok, true, "import: accepted")
+  assert_eq(info.added, 2, "import: both items added")
+  assert_eq(info.rejected, 0, "import: nothing rejected")
+  assert_eq(q.ignored[7], "Silk Cloth", "import: name restored")
+  assert_eq(q.ignored[12], "Odd; name = 100% (weird)", "import: special characters survive")
+  assert_eq(TP.Export(TP.Normalize(nil)), "FR1:", "export: empty list")
+end
+
+-- Scenario: import merges with the existing list and keeps its names
+do
+  local p = TP.Normalize(nil)
+  TP.Ignore(p, 7, "My name")
+  local ok, info = TP.Import(p, "FR1:7=Other name;9=Wool")
+  assert_eq(ok, true, "merge: accepted")
+  assert_eq(info.added, 1, "merge: only the new item is added")
+  assert_eq(info.known, 1, "merge: the existing item is counted as known")
+  assert_eq(p.ignored[7], "My name", "merge: existing name is kept")
+  assert_eq(p.ignored[9], "Wool", "merge: new item is in the list")
+end
+
+-- Scenario: invalid entries are rejected and counted; an invalid string changes nothing
+do
+  local p = TP.Normalize(nil)
+  local ok, info = TP.Import(p, "  FR1:5=Linen;abc=Bad;-3=Neg;0=Zero;;6=Wool;5=Linen again  ")
+  assert_eq(ok, true, "invalid entries: valid ones still import")
+  assert_eq(info.added, 2, "invalid entries: valid ones added")
+  assert_eq(info.rejected, 3, "invalid entries: bad ids are counted")
+  assert_eq(p.ignored[5], "Linen", "invalid entries: first duplicate wins")
+  local before = TP.Export(p)
+  for _, bad in ipairs({ "", "hello", "FR2:5=Linen", 42 }) do
+    local ok2, why = TP.Import(p, bad)
+    assert_eq(ok2, false, "bad string rejected: " .. tostring(bad))
+    assert_eq(why, "bad_format", "bad string reason: " .. tostring(bad))
+  end
+  assert_eq(TP.Export(p), before, "bad strings leave the list unchanged")
+end
+
 -- Scenario: the feature flag turns the prefs off
 do
   local p = TP.Normalize(nil)
