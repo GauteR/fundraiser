@@ -235,6 +235,7 @@ do
   assert_eq(TV.CanSkip({ group = "vendor", skipped = true }), true, "skip: a skipped stack can be included again")
   assert_eq(TV.CanSkip({ group = "price" }), false, "skip: needs-price stacks are never in bulk")
   assert_eq(TV.CanSkip({ group = "auction", belowMin = true }), false, "skip: below the minimum is already left out")
+  assert_eq(TV.CanSkip({ group = "auction", ignored = true }), false, "skip: ignored items are already left out")
 end
 
 -- Scenario: a queued stack survives a re-scan only while its slot still holds the same item

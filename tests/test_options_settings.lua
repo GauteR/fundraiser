@@ -8,6 +8,7 @@ dofile(repo .. "/fundraiser/Locale/enUS.lua")
 dofile(repo .. "/fundraiser/Domain/Rank.lua")
 dofile(repo .. "/fundraiser/Domain/Roles.lua")
 dofile(repo .. "/fundraiser/Domain/Settings.lua")
+dofile(repo .. "/fundraiser/Domain/TargetPrefs.lua")
 dofile(repo .. "/fundraiser/Adapters/Store.lua")
 
 local failed = 0
@@ -300,6 +301,31 @@ do
   assert_eq(Store:GetSettings().defaultMinAdminRank, 1, "reset settings rank fall back")
   assert_eq(Fundraiser.Config.DEFAULT_REMINDER_INTERVAL, 86400, "reset restores config interval")
   assert_eq(Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK, 1, "reset restores config rank")
+end
+
+-- Scenario: target prefs persist in the Store and ResetAll clears them
+do
+  -- Given a fresh Store
+  Store:ResetAll()
+  local TP = Fundraiser.Domain.TargetPrefs
+  -- When ignoring an item and setting a minimum, then saving
+  local prefs = Store:GetTargetPrefs()
+  TP.Ignore(prefs, 4306, "Silk Cloth")
+  TP.SetMinValue(prefs, 2500)
+  Store:SetTargetPrefs(prefs)
+  -- Then reading back gives the same values
+  local back = Store:GetTargetPrefs()
+  assert_eq(TP.IsIgnored(back, 4306), true, "target prefs: ignore kept")
+  assert_eq(back.minValue, 2500, "target prefs: min value kept")
+  -- And garbage in the saved table is repaired on read
+  Store.db.target = { ignored = { [0] = "bad" }, minValue = "x" }
+  assert_eq(next(Store:GetTargetPrefs().ignored), nil, "target prefs: garbage dropped")
+  -- And ResetAll clears them
+  TP.Ignore(back, 1, "A")
+  Store:SetTargetPrefs(back)
+  Store:ResetAll()
+  assert_eq(next(Store:GetTargetPrefs().ignored), nil, "target prefs: reset clears ignore list")
+  assert_eq(Store:GetTargetPrefs().minValue, nil, "target prefs: reset clears min value")
 end
 
 if failed > 0 then
