@@ -78,7 +78,8 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 | Control | Meaning |
 | --- | --- |
 | Help | Short pitch: fund guild and group events |
-| Status | **Only backup** checkbox (saved at once: no mailbox reminder; shown as Only backup in Online installs) and Settings-style rows: addon enabled, guild, active event, admin access, installed count |
+| Only backup | Checkbox above Status (saved at once): no mailbox reminder; shown as Only backup in Online installs |
+| Status | Settings-style rows: addon enabled, guild, active event, admin access, installed count |
 | Online installs | Scrollable table (name / status / version from HELLO) |
 | Defaults | Default reminder interval (hours) and min admin rank; Apply saves to `FundraiserDB.settings` |
 | Danger zone (admin) | Separated by a rule; local reset/clear actions; **Broadcast reset** sends guild `RESET\|all` (requires `COMM` + `RESET_SYNC`, rank-gated on receive). Hidden without admin access. |

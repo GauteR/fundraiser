@@ -490,25 +490,37 @@ end
 
 -- "Only backup" checkbox: saves at once (no Apply needed) and tells guild peers via HELLO.
 -- Rank/interval are re-saved from the stored values so unapplied edits are not committed.
-local function AddCheckRow(parent, labelText, tipTitle, tipBody, nameSuffix, y)
-  local row = CreateFrame("Frame", nil, parent)
-  row:SetSize(CONTENT_WIDTH - 32, 26)
-  row:SetPoint("TOPLEFT", 16, y)
-  row.bg = row:CreateTexture(nil, "BACKGROUND")
-  row.bg:SetAllPoints()
-  row.bg:SetColorTexture(1, 1, 1, 0.04)
+local function AddCheckRow(parent, labelText, descText, tipTitle, tipBody, nameSuffix, y)
+  -- Callout box (not a grid row): gold accent bar, checkbox, bold label, grey description.
+  local box = CreateFrame("Frame", nil, parent)
+  box:SetSize(CONTENT_WIDTH - 32, 52)
+  box:SetPoint("TOPLEFT", 16, y)
+  box.bg = box:CreateTexture(nil, "BACKGROUND")
+  box.bg:SetAllPoints()
+  box.bg:SetColorTexture(1, 0.82, 0, 0.08)
+  box.accent = box:CreateTexture(nil, "BORDER")
+  box.accent:SetPoint("TOPLEFT")
+  box.accent:SetPoint("BOTTOMLEFT")
+  box.accent:SetWidth(3)
+  box.accent:SetColorTexture(1, 0.82, 0, 0.9)
 
-  local label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  label:SetPoint("LEFT", 8, 0)
-  label:SetWidth(LABEL_WIDTH)
+  local check = CreateFrame("CheckButton", "FundraiserOptions" .. nameSuffix, box, "UICheckButtonTemplate")
+  check:SetSize(28, 28)
+  check:SetPoint("LEFT", 12, 0)
+  AttachTooltip(check, tipTitle, tipBody)
+
+  local label = box:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  label:SetPoint("TOPLEFT", check, "TOPRIGHT", 6, -2)
   label:SetJustifyH("LEFT")
   label:SetText(labelText)
-  AttachTooltip(row, tipTitle, tipBody)
 
-  local check = CreateFrame("CheckButton", "FundraiserOptions" .. nameSuffix, row, "UICheckButtonTemplate")
-  check:SetSize(24, 24)
-  check:SetPoint("LEFT", CONTROL_X - 16, 0)
-  return check, y - 28
+  local desc = box:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  desc:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -3)
+  desc:SetWidth(CONTENT_WIDTH - 100)
+  desc:SetJustifyH("LEFT")
+  desc:SetTextColor(0.7, 0.7, 0.7)
+  desc:SetText(descText)
+  return check, y - 60
 end
 
 local function SaveBackupOnly(checked)
@@ -724,11 +736,11 @@ function Options:Initialize()
   help:SetText(Fundraiser:T("OPTIONS_HELP"))
   y = y - 36
 
-  y = AddSectionHeader(content, Fundraiser:T("OPTIONS_SECTION_STATUS"), y)
   if Fundraiser.Config and Fundraiser.Config.BACKUP_ONLY_OPTION == true then
     panel.backupCheck, y = AddCheckRow(
       content,
       Fundraiser:T("OPTIONS_LABEL_BACKUP_ONLY"),
+      Fundraiser:T("OPTIONS_DESC_BACKUP_ONLY"),
       "OPTIONS_TIP_BACKUP_ONLY_TITLE",
       "OPTIONS_TIP_BACKUP_ONLY_BODY",
       "BackupOnly",
@@ -738,6 +750,7 @@ function Options:Initialize()
       SaveBackupOnly(self:GetChecked())
     end)
   end
+  y = AddSectionHeader(content, Fundraiser:T("OPTIONS_SECTION_STATUS"), y)
   panel.enabledValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_ENABLED"), y)
   panel.guildValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_GUILD"), y)
   panel.eventValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_EVENT"), y)
