@@ -239,9 +239,9 @@ L.OPTIONS_INSTALL_EMPTY = "No online guild members."
 L.OPTIONS_LABEL_DEFAULT_INTERVAL = "Default reminder interval (hours)"
 L.OPTIONS_LABEL_BACKUP_ONLY = "Only backup"
 L.OPTIONS_DESC_BACKUP_ONLY = "Help back up the guild data without taking part: no mailbox reminders."
-L.OPTIONS_TIP_BACKUP_ONLY_TITLE = "Only backup"
+L.OPTIONS_TIP_BACKUP_ONLY_TITLE = "Disable notifications"
 L.OPTIONS_TIP_BACKUP_ONLY_BODY =
-  "Keep Fundraiser installed to help back up the guild data without taking part. The mailbox reminder popup stops, and officers see you as Only backup."
+  "Disable the notifications. All contributions still count, but you won't be notified about having to donate."
 L.OPTIONS_LABEL_MIN_ADMIN_RANK = "Min admin rank (0 = GM, 1 = rank below GM)"
 L.OPTIONS_TIP_INTERVAL_TITLE = "Default reminder interval"
 L.OPTIONS_TIP_INTERVAL_BODY =
