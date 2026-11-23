@@ -73,6 +73,9 @@ local function StatusLocaleKey(status)
   if status == "installed" then
     return "OPTIONS_INSTALL_STATUS_INSTALLED"
   end
+  if status == "backup" then
+    return "OPTIONS_INSTALL_STATUS_BACKUP"
+  end
   if status == "stale" then
     return "OPTIONS_INSTALL_STATUS_STALE"
   end
@@ -161,7 +164,7 @@ local function RefreshPanel(panel)
     guildName = Roster:GetGuildName()
   end
   local canOpen = Fundraiser.CanOpenAdminUi and Fundraiser:CanOpenAdminUi() or false
-  local installOnline, installInstalled = 0, 0
+  local installOnline, installInstalled, installBackup = 0, 0, 0
   local installRows = {}
   if guildName and SettingsDomain and SettingsDomain.CountOnlineInstalls and Roster and Roster.GetMembers then
     if Roster.Request then
@@ -173,6 +176,7 @@ local function RefreshPanel(panel)
     local counts = SettingsDomain.CountOnlineInstalls(Roster:GetMembers(), presence, now, stale)
     installOnline = counts.online
     installInstalled = counts.installed
+    installBackup = counts.backup or 0
     installRows = counts.rows or {}
   end
   local info = {
@@ -183,6 +187,7 @@ local function RefreshPanel(panel)
     canOpenAdmin = canOpen,
     installOnline = installOnline,
     installInstalled = installInstalled,
+    installBackup = installBackup,
   }
   local status = SettingsDomain and SettingsDomain.BuildStatus and SettingsDomain.BuildStatus(info) or {}
 
@@ -201,6 +206,15 @@ local function RefreshPanel(panel)
   if panel.installSummaryValue then
     if status.installKey then
       panel.installSummaryValue:SetText(Fundraiser:T(status.installKey))
+    elseif (status.installBackup or 0) > 0 then
+      panel.installSummaryValue:SetText(
+        Fundraiser:T(
+          "OPTIONS_STATUS_INSTALL_BACKUP_FMT",
+          status.installInstalled or 0,
+          status.installOnline or 0,
+          status.installBackup
+        )
+      )
     else
       panel.installSummaryValue:SetText(
         Fundraiser:T("OPTIONS_STATUS_INSTALL_FMT", status.installInstalled or 0, status.installOnline or 0)
@@ -214,6 +228,9 @@ local function RefreshPanel(panel)
     local settings = Store:GetSettings()
     panel.intervalBox:SetText(tostring((settings.defaultReminderInterval or 86400) / 3600))
     panel.rankBox:SetText(tostring(settings.defaultMinAdminRank or 0))
+    if panel.backupCheck then
+      panel.backupCheck:SetChecked(settings.backupOnly == true)
+    end
   end
 
   local TP = Fundraiser.Domain and Fundraiser.Domain.TargetPrefs
@@ -395,6 +412,7 @@ local function ApplySettingsFromPanel(panel)
   local _, err = Store:SetSettings({
     defaultReminderInterval = seconds,
     defaultMinAdminRank = rank,
+    backupOnly = panel.backupCheck and (panel.backupCheck:GetChecked() == true),
   })
   if err and DEFAULT_CHAT_FRAME then
     DEFAULT_CHAT_FRAME:AddMessage(Fundraiser:T("CHAT_PREFIX") .. Fundraiser:T("OPTIONS_SAVE_FAILED", tostring(err)))
@@ -468,6 +486,58 @@ local function AddEditRow(parent, labelText, tipTitle, tipBody, nameSuffix, y)
   box:SetPoint("LEFT", CONTROL_X - 16, 0)
   box:SetAutoFocus(false)
   return box, y - 28
+end
+
+-- "Only backup" checkbox: saves at once (no Apply needed) and tells guild peers via HELLO.
+-- Rank/interval are re-saved from the stored values so unapplied edits are not committed.
+local function AddCheckRow(parent, labelText, descText, tipTitle, tipBody, nameSuffix, y)
+  -- Callout box (not a grid row): gold accent bar, checkbox, bold label, grey description.
+  local box = CreateFrame("Frame", nil, parent)
+  box:SetSize(CONTENT_WIDTH - 32, 52)
+  box:SetPoint("TOPLEFT", 16, y)
+  box.bg = box:CreateTexture(nil, "BACKGROUND")
+  box.bg:SetAllPoints()
+  box.bg:SetColorTexture(1, 0.82, 0, 0.08)
+  box.accent = box:CreateTexture(nil, "BORDER")
+  box.accent:SetPoint("TOPLEFT")
+  box.accent:SetPoint("BOTTOMLEFT")
+  box.accent:SetWidth(3)
+  box.accent:SetColorTexture(1, 0.82, 0, 0.9)
+
+  local check = CreateFrame("CheckButton", "FundraiserOptions" .. nameSuffix, box, "UICheckButtonTemplate")
+  check:SetSize(28, 28)
+  check:SetPoint("LEFT", 12, 0)
+  AttachTooltip(check, tipTitle, tipBody)
+
+  local label = box:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  label:SetPoint("TOPLEFT", check, "TOPRIGHT", 6, -2)
+  label:SetJustifyH("LEFT")
+  label:SetText(labelText)
+
+  local desc = box:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  desc:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -3)
+  desc:SetWidth(CONTENT_WIDTH - 100)
+  desc:SetJustifyH("LEFT")
+  desc:SetTextColor(0.7, 0.7, 0.7)
+  desc:SetText(descText)
+  return check, y - 60
+end
+
+local function SaveBackupOnly(checked)
+  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+  if not Store or not Store.SetSettings then
+    return
+  end
+  local current = Store:GetSettings()
+  Store:SetSettings({
+    defaultReminderInterval = current.defaultReminderInterval,
+    defaultMinAdminRank = current.defaultMinAdminRank,
+    backupOnly = checked == true,
+  })
+  local Sync = Fundraiser.Adapters and Fundraiser.Adapters.ThinGuildSync
+  if Sync and Sync.BroadcastHello then
+    Sync:BroadcastHello()
+  end
 end
 
 local function NotifyOpenFailed()
@@ -666,6 +736,20 @@ function Options:Initialize()
   help:SetText(Fundraiser:T("OPTIONS_HELP"))
   y = y - 36
 
+  if Fundraiser.Config and Fundraiser.Config.BACKUP_ONLY_OPTION == true then
+    panel.backupCheck, y = AddCheckRow(
+      content,
+      Fundraiser:T("OPTIONS_LABEL_BACKUP_ONLY"),
+      Fundraiser:T("OPTIONS_DESC_BACKUP_ONLY"),
+      "OPTIONS_TIP_BACKUP_ONLY_TITLE",
+      "OPTIONS_TIP_BACKUP_ONLY_BODY",
+      "BackupOnly",
+      y
+    )
+    panel.backupCheck:SetScript("OnClick", function(self)
+      SaveBackupOnly(self:GetChecked())
+    end)
+  end
   y = AddSectionHeader(content, Fundraiser:T("OPTIONS_SECTION_STATUS"), y)
   panel.enabledValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_ENABLED"), y)
   panel.guildValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_GUILD"), y)

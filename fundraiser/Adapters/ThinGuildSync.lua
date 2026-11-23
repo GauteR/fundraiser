@@ -101,7 +101,8 @@ function Sync:BroadcastHello()
   local Store = Fundraiser.Adapters.Store
   local version = cfg().VERSION or "?"
   local guid = Fundraiser.Adapters.Roster:GetPlayerGUID() or ""
-  return self:Send(Codec.EncodeHello(version, guid, Store:GetResetEpoch()))
+  local backupOnly = Fundraiser.Domain.Settings.IsBackupOnly(cfg())
+  return self:Send(Codec.EncodeHello(version, guid, Store:GetResetEpoch(), backupOnly))
 end
 
 function Sync:BroadcastEvent(event)
@@ -205,10 +206,11 @@ function Sync:OnAddonMessage(prefix, message, channel, sender)
 
   if msg.kind == "HELLO" then
     local key = msg.guid ~= "" and msg.guid or sender
-    Store:SetPresenceEntry(key, { name = sender, guid = msg.guid, version = msg.version, lastHello = t })
+    local backupOnly = msg.backupOnly == true
+    Store:SetPresenceEntry(key, { name = sender, guid = msg.guid, version = msg.version, lastHello = t, backupOnly = backupOnly })
     local full = sender and Fundraiser.Domain.Roles.DisplayName(sender)
     if full then
-      Store:SetPresenceEntry(full, { name = full, guid = msg.guid, version = msg.version, lastHello = t })
+      Store:SetPresenceEntry(full, { name = full, guid = msg.guid, version = msg.version, lastHello = t, backupOnly = backupOnly })
     end
     local remoteEpoch = tonumber(msg.resetEpoch) or 0
     local localEpoch = Store:GetResetEpoch()

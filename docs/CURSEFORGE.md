@@ -21,7 +21,7 @@ Use a character dedicated only to that role — do not mix personal AH there.
 
 - Admin window status dashboard: event card, progress toward goal, ledger status, raised-over-time chart; New event (+) and End event (-) on the event card
 - Publish a fundraiser event (name, Forever First Last mail target, required goal in gold, optional note, reminder interval); end an active campaign (archive + guild wipe) without publishing a replacement
-- Mailbox reminder until mail is sent to the donation target
+- Mailbox reminder until mail is sent to the donation target; an **Only backup** option in Settings turns the reminder off for members who just want to help with backup (officers see them as Only backup)
 - One window with a left menu (Home / Ledger / Settings) and top-bar buttons (+ new event, - end event, refresh). Ledger page (`/fundraiser ledger`, menu entry or the admin ledger card): scrollable donation rows, total, previous campaigns as summary lines, and a **Set MOTD** menu entry for the guild message (raised vs goal + top contributor)
 - The open Ledger page updates by itself as donations arrive from mail, sales or the guild
 - Ledger on the donation target (mail intake with donated items listed on their row, later auction and vendor sales add their net proceeds to that row; all AH sales; officers and the target can add manual donations); guild-wide mesh relay; officer/target view

@@ -1,5 +1,5 @@
 -- Pure helpers for Options defaults and install-presence display.
--- Normalize/ApplyToConfig: defaultReminderInterval (seconds) + defaultMinAdminRank.
+-- Normalize/ApplyToConfig: defaultReminderInterval (seconds) + defaultMinAdminRank + backupOnly.
 -- BuildInstallRows/CountOnlineInstalls/BuildStatus: Options status section (no WoW API).
 Fundraiser = Fundraiser or {}
 Fundraiser.Domain = Fundraiser.Domain or {}
@@ -21,7 +21,16 @@ function Settings.Normalize(raw)
   return {
     defaultReminderInterval = math.floor(interval),
     defaultMinAdminRank = math.floor(rank),
+    backupOnly = raw.backupOnly == true,
   }
+end
+
+-- "Only backup": the feature flag AND the saved choice (Config.BACKUP_ONLY overlay).
+function Settings.IsBackupOnly(config)
+  if type(config) ~= "table" then
+    return false
+  end
+  return config.BACKUP_ONLY_OPTION == true and config.BACKUP_ONLY == true
 end
 
 function Settings.ApplyToConfig(settings, config)
@@ -34,10 +43,11 @@ function Settings.ApplyToConfig(settings, config)
   if settings.defaultMinAdminRank ~= nil then
     config.DEFAULT_MIN_ADMIN_RANK = settings.defaultMinAdminRank
   end
+  config.BACKUP_ONLY = settings.backupOnly == true
 end
 
 -- Online roster rows with install status + HELLO version (best-effort).
--- status: "installed" | "stale" | "missing"
+-- status: "installed" | "backup" (fresh HELLO flagged Only backup) | "stale" | "missing"
 function Settings.BuildInstallRows(roster, presence, now, staleSeconds)
   roster = roster or {}
   presence = presence or {}
@@ -52,7 +62,7 @@ function Settings.BuildInstallRows(roster, presence, now, staleSeconds)
       local version = nil
       if lastHello > 0 then
         if (now - lastHello) <= staleSeconds then
-          status = "installed"
+          status = (p.backupOnly == true) and "backup" or "installed"
         else
           status = "stale"
         end
@@ -74,19 +84,23 @@ function Settings.BuildInstallRows(roster, presence, now, staleSeconds)
 end
 
 -- Count online guild members with a fresh HELLO (best-effort install presence).
+-- Only-backup members are counted in `backup`, not in `installed`.
 function Settings.CountOnlineInstalls(roster, presence, now, staleSeconds)
   local rows = Settings.BuildInstallRows(roster, presence, now, staleSeconds)
-  local installed = 0
+  local installed, backup = 0, 0
   for _, row in ipairs(rows) do
     if row.status == "installed" then
       installed = installed + 1
+    elseif row.status == "backup" then
+      backup = backup + 1
     end
   end
   local online = #rows
   return {
     online = online,
     installed = installed,
-    missing = online - installed,
+    backup = backup,
+    missing = online - installed - backup,
     rows = rows,
   }
 end
@@ -113,6 +127,7 @@ function Settings.BuildStatus(info)
   if info.guildName and info.guildName ~= "" then
     status.installOnline = tonumber(info.installOnline) or 0
     status.installInstalled = tonumber(info.installInstalled) or 0
+    status.installBackup = tonumber(info.installBackup) or 0
   else
     status.installKey = "OPTIONS_STATUS_INSTALL_NONE"
   end

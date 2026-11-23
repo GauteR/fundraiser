@@ -30,6 +30,7 @@ The ledger page (`UI/Ledger.lua`) only reads the local store and `FundraiserDB.a
 | `DIGEST` | Event revision + ledger fingerprint (count/sum/maxAt) |
 | `RESET` | Officer wipe (`all` / `event` / `ledger` / `presence` / `campaign`) + `resetEpoch`; sender rank check; all acceptors wipe locally. `campaign` archives the active event+ledger first, then clears both and bumps epoch. Ended campaign ids stay in local archives and are rejected on `EVENT` re-accept (blocks mesh revival after End event) |
 | (epoch) | `HELLO` / `DIGEST` / `LEDGER` include `resetEpoch` (default 0 for older clients) |
+| (backup) | `HELLO` may carry a trailing `1` when the sender chose **Only backup**; absent = not backup-only (older clients) |
 
 ## Ledger merge
 

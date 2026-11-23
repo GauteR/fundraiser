@@ -437,6 +437,10 @@ function UC.ShouldShowReminder(deps, now)
   local event = deps.getEvent and deps.getEvent() or nil
   local state = deps.getReminderState and deps.getReminderState() or {}
   local me = deps.getPlayerName and deps.getPlayerName() or nil
+  -- "Only backup" members keep the addon for sync and never get the popup.
+  if deps.isBackupOnly and deps.isBackupOnly() then
+    return false, event
+  end
   -- Donation target does not need mailbox reminders about mailing themselves.
   if event and Roles.IsDonationTarget(event, me) then
     return false, event

@@ -33,6 +33,7 @@ local function defaultSettingsFromConfig()
   return {
     defaultReminderInterval = tonumber(cfg.DEFAULT_REMINDER_INTERVAL) or 86400,
     defaultMinAdminRank = tonumber(cfg.DEFAULT_MIN_ADMIN_RANK) or 0,
+    backupOnly = cfg.BACKUP_ONLY_DEFAULT == true,
   }
 end
 
@@ -86,6 +87,7 @@ function Store:GetSettings()
   return {
     defaultReminderInterval = tonumber(stored.defaultReminderInterval) or defaults.defaultReminderInterval,
     defaultMinAdminRank = tonumber(stored.defaultMinAdminRank) or defaults.defaultMinAdminRank,
+    backupOnly = (type(stored.backupOnly) == "boolean") and stored.backupOnly or defaults.backupOnly,
   }
 end
 
@@ -93,6 +95,11 @@ function Store:SetSettings(raw)
   local Settings = Fundraiser.Domain and Fundraiser.Domain.Settings
   if not Settings or not Settings.Normalize then
     return nil, "no_settings"
+  end
+  raw = raw or {}
+  -- A caller that omits backupOnly keeps the current choice.
+  if raw.backupOnly == nil then
+    raw.backupOnly = self:GetSettings().backupOnly
   end
   local normalized, err = Settings.Normalize(raw)
   if not normalized then
