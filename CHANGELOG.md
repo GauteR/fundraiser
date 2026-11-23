@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Ledger: an auction house payout was recorded more than once (extra "Retrieving data" rows). The mail is now recorded only after the client has loaded its real subject. Rows already saved are not removed.
+
 ### Added
 - Target page: **Export list** and **Import list** under Ignored items in Settings -> AddOns -> Fundraiser copy the ignore list to another character as one line of text (`FR1:<itemId>=<name>;...`). Import adds the new items and keeps your current list; invalid entries are skipped and counted, and a string that is not an export changes nothing. Also a way to restore the list if Forever did not keep the saved data. ([#70](https://github.com/GauteR/fundraiser/issues/70))
 - Target page: the vendor-vs-auction advice now counts the auction deposit (for the configured duration) as lost: the AH value of a stack is what the buyout pays after the cut, minus the deposit. A stack can flip to Vendor when the deposit eats the margin. If the client gives no deposit, nothing changes. `Config.AH_DEPOSIT_IN_ADVICE` turns it off. ([#39](https://github.com/GauteR/fundraiser/issues/39))

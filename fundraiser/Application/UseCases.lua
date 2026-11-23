@@ -284,6 +284,16 @@ function UC.RecordSale(deps, sale, actor)
   return written
 end
 
+-- The client lists auction house mail with a placeholder subject until the invoice has
+-- loaded; the real subject follows on a later inbox update. Such a mail must wait, or
+-- the changed subject would give it a second ledger id.
+function UC.IsPlaceholderSubject(subject, placeholder)
+  if subject == nil or subject == "" then
+    return false
+  end
+  return subject == (placeholder or "Retrieving data")
+end
+
 -- Ledger row id for an incoming mail. Without attachments it keeps the old format; item
 -- attachments are appended so two mails from one donor stay separate rows.
 function UC.MailId(sender, subject, money, items)
