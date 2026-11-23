@@ -113,6 +113,9 @@ function MailboxReminder:TryShowReminder()
     getPlayerName = function()
       return Roster:GetPlayerName()
     end,
+    isBackupOnly = function()
+      return Fundraiser.Domain.Settings.IsBackupOnly(Fundraiser.Config)
+    end,
   }
   local should, event = UC.ShouldShowReminder(deps, now)
   if not should or not event then

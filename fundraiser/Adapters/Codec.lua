@@ -1,6 +1,6 @@
 -- Encode/decode thin guild sync payloads (pipe-separated, ASCII-safe).
 -- Wire shapes (fields after kind):
---   HELLO|version|guid|resetEpoch
+--   HELLO|version|guid|resetEpoch[|1 when Only backup]
 --   EVENT|id|name|target|goal|interval|minAdmin|rev|publishedAt|publisher|goalCopper
 --   LEDGER|id|kind|name|detail|eventId|copper|at|resetEpoch
 --   DIGEST|eventRev|ledgerCount|ledgerSum|ledgerMaxAt|resetEpoch
@@ -60,8 +60,13 @@ local function split(payload)
   return parts
 end
 
-function Codec.EncodeHello(version, guid, resetEpoch)
-  return table.concat({ "HELLO", esc(version), esc(guid), tostring(resetEpoch or 0) }, SEP)
+-- backupOnly is an optional 5th field ("1"); older clients ignore it, older senders omit it.
+function Codec.EncodeHello(version, guid, resetEpoch, backupOnly)
+  local parts = { "HELLO", esc(version), esc(guid), tostring(resetEpoch or 0) }
+  if backupOnly then
+    parts[#parts + 1] = "1"
+  end
+  return table.concat(parts, SEP)
 end
 
 function Codec.DecodeHello(payload)
@@ -69,7 +74,13 @@ function Codec.DecodeHello(payload)
   if p[1] ~= "HELLO" then
     return nil
   end
-  return { kind = "HELLO", version = p[2], guid = p[3], resetEpoch = tonumber(p[4]) or 0 }
+  return {
+    kind = "HELLO",
+    version = p[2],
+    guid = p[3],
+    resetEpoch = tonumber(p[4]) or 0,
+    backupOnly = p[5] == "1",
+  }
 end
 
 function Codec.EncodeEvent(event)

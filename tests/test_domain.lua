@@ -139,6 +139,34 @@ do
   assert_true(not should, "no reminder on target")
 end
 
+-- Scenario: Backup-only member never sees mailbox reminder
+do
+  -- Given an active event and a non-target player who opted into "Only backup"
+  local function deps(backupOnly)
+    return {
+      getEvent = function()
+        return ev
+      end,
+      getReminderState = function()
+        return {}
+      end,
+      getPlayerName = function()
+        return "Grunt"
+      end,
+      isBackupOnly = function()
+        return backupOnly
+      end,
+    }
+  end
+  -- When evaluating ShouldShowReminder
+  -- Then backup-only suppresses it and the event is still returned
+  local should, event = UC.ShouldShowReminder(deps(true), 100)
+  assert_true(not should, "no reminder when backup-only")
+  assert_eq(event, ev, "backup-only still returns the event")
+  -- And the same player without the opt-out is reminded as before
+  assert_true(UC.ShouldShowReminder(deps(false), 100), "reminder when not backup-only")
+end
+
 -- Scenario: Ledger merge is id-union; newer same-id wins
 do
   -- Given two distinct rows and a newer revision of the first id
@@ -298,6 +326,14 @@ do
 
   local hello = Codec.Decode(Codec.EncodeHello("0.1.0", "guid", 4))
   assert_eq(hello.resetEpoch, 4, "hello epoch")
+  assert_eq(hello.backupOnly, false, "hello default backupOnly false")
+  local backupHello = Codec.Decode(Codec.EncodeHello("0.1.0", "guid", 4, true))
+  assert_eq(backupHello.backupOnly, true, "hello backupOnly round-trip")
+  assert_eq(backupHello.resetEpoch, 4, "backupOnly hello keeps epoch")
+  -- And a legacy 4-field HELLO (older client) decodes as not backup-only
+  local legacy = Codec.Decode("HELLO|0.0.9|guid|3")
+  assert_eq(legacy.backupOnly, false, "legacy hello is not backup-only")
+  assert_eq(legacy.resetEpoch, 3, "legacy hello epoch")
 end
 
 -- Scenario: AcceptRemoteReset gates on sender admin rank

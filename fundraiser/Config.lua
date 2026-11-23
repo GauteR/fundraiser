@@ -9,6 +9,13 @@ Fundraiser.Config = {
   RESET_SYNC = true,
   -- Reminder popup while the mailbox is open (not bags).
   REMINDER = true,
+  -- "Only backup" Options row: members who keep the addon for backup/sync only (no mailbox
+  -- reminder popup). The choice is also sent in HELLO so officers see "Only backup".
+  -- false hides the row, ignores the saved choice, and stops sending the flag.
+  BACKUP_ONLY_OPTION = true,
+  -- File default for "Only backup" (Forever may not restore SavedVariables after a cold start).
+  -- BACKUP_ONLY is the runtime overlay of the saved choice (see Domain/Settings.lua).
+  BACKUP_ONLY_DEFAULT = false,
   ADMIN_UI = true,
   -- Admin window: end active campaign (archive + guild wipe) without publishing a new event.
   END_EVENT = true,
@@ -76,4 +83,5 @@ Fundraiser.Config = {
 Fundraiser.ConfigFileDefaults = {
   DEFAULT_REMINDER_INTERVAL = Fundraiser.Config.DEFAULT_REMINDER_INTERVAL,
   DEFAULT_MIN_ADMIN_RANK = Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK,
+  BACKUP_ONLY_DEFAULT = Fundraiser.Config.BACKUP_ONLY_DEFAULT,
 }

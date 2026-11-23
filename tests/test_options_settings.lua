@@ -328,6 +328,68 @@ do
   assert_eq(Store:GetTargetPrefs().minValue, nil, "target prefs: reset clears min value")
 end
 
+-- Scenario: backupOnly setting is normalized, persisted, and overlaid on Config
+do
+  Store:ResetAll()
+  -- Given no saved value, the file default applies
+  assert_eq(Store:GetSettings().backupOnly, false, "backupOnly defaults to false")
+  -- When saving backupOnly = true next to valid defaults
+  local saved = Store:SetSettings({ defaultReminderInterval = 3600, defaultMinAdminRank = 1, backupOnly = true })
+  -- Then it is kept, read back, and applied to Config
+  assert_eq(saved.backupOnly, true, "normalize keeps backupOnly")
+  assert_eq(Store:GetSettings().backupOnly, true, "store reads backupOnly")
+  assert_eq(Fundraiser.Config.BACKUP_ONLY, true, "config overlay backupOnly")
+  -- And omitting it on a later save keeps the stored choice
+  Store:SetSettings({ defaultReminderInterval = 7200, defaultMinAdminRank = 1 })
+  assert_eq(Store:GetSettings().backupOnly, true, "omitted backupOnly keeps stored value")
+  -- And a non-boolean value is treated as false
+  assert_eq(Settings.Normalize({ defaultReminderInterval = 60, defaultMinAdminRank = 0, backupOnly = "yes" }).backupOnly, false, "non-boolean backupOnly is false")
+  -- And IsBackupOnly needs both the feature flag and the setting
+  assert_eq(Settings.IsBackupOnly({ BACKUP_ONLY_OPTION = true, BACKUP_ONLY = true }), true, "IsBackupOnly on")
+  assert_eq(Settings.IsBackupOnly({ BACKUP_ONLY_OPTION = false, BACKUP_ONLY = true }), false, "feature flag off wins")
+  assert_eq(Settings.IsBackupOnly({ BACKUP_ONLY_OPTION = true, BACKUP_ONLY = false }), false, "setting off")
+  assert_eq(Settings.IsBackupOnly(nil), false, "nil config")
+  -- And ResetAll returns to the file default
+  Store:ResetAll()
+  assert_eq(Store:GetSettings().backupOnly, false, "reset clears backupOnly")
+  assert_eq(Fundraiser.Config.BACKUP_ONLY, false, "reset clears config overlay")
+end
+
+-- Scenario: backup-only members get their own install status and count
+do
+  local roster = {
+    { name = "A", guid = "g1", online = true },
+    { name = "B", guid = "g2", online = true },
+    { name = "C", guid = "g3", online = true },
+    { name = "D", guid = "g4", online = true },
+    { name = "E", guid = "g5", online = true },
+  }
+  local presence = {
+    g1 = { lastHello = 1000 },
+    g2 = { lastHello = 1000, backupOnly = true },
+    g3 = { lastHello = 100, backupOnly = true },
+    g4 = { lastHello = 1000, backupOnly = true },
+  }
+  -- When building rows at now=1000 with stale window 600s
+  local rows = Settings.BuildInstallRows(roster, presence, 1000, 600)
+  -- Then a fresh backup-only HELLO is "backup", a stale one stays "stale"
+  assert_eq(rows[1].status, "installed", "normal member installed")
+  assert_eq(rows[2].status, "backup", "fresh backup-only is backup")
+  assert_eq(rows[3].status, "stale", "stale backup-only stays stale")
+  assert_eq(rows[4].status, "backup", "second backup-only")
+  assert_eq(rows[5].status, "missing", "no hello is missing")
+  -- And counts keep backup out of installed
+  local counts = Settings.CountOnlineInstalls(roster, presence, 1000, 600)
+  assert_eq(counts.online, 5, "backup counts: online")
+  assert_eq(counts.installed, 1, "backup counts: installed excludes backup")
+  assert_eq(counts.backup, 2, "backup counts: backup")
+  assert_eq(counts.missing, 2, "backup counts: missing = online - installed - backup")
+  -- And the status summary carries the backup number
+  local status = Settings.BuildStatus({ guildName = "G", installOnline = 5, installInstalled = 1, installBackup = 2 })
+  assert_eq(status.installBackup, 2, "status installBackup")
+  assert_eq(Settings.BuildStatus({ guildName = "G" }).installBackup, 0, "status installBackup defaults to 0")
+end
+
 if failed > 0 then
   io.stderr:write(failed .. " failure(s)\n")
   os.exit(1)
