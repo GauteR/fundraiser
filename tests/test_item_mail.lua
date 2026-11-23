@@ -154,6 +154,15 @@ do
   assert_eq(IL.RowDetail(s.lots, s.rows[2].id), "Wool Cloth x5", "two mails: each row lists its own items")
 end
 
+-- Scenario: auction house mail still showing the placeholder subject waits for its real subject
+do
+  assert_eq(UC.IsPlaceholderSubject("Retrieving data"), true, "placeholder: default text")
+  assert_eq(UC.IsPlaceholderSubject("Henter data", "Henter data"), true, "placeholder: localized text")
+  assert_eq(UC.IsPlaceholderSubject("Auction successful: Linen Cloth"), false, "placeholder: real subject")
+  assert_eq(UC.IsPlaceholderSubject(nil), false, "placeholder: missing subject")
+  assert_eq(UC.IsPlaceholderSubject(""), false, "placeholder: empty subject")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)

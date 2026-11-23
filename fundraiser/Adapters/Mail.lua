@@ -164,7 +164,12 @@ function Mail:ScanInbox()
     local _, _, sender, subject, money, CODAmount, _, hasItem = GetInboxHeaderInfo(i)
     money = tonumber(money) or 0
     CODAmount = tonumber(CODAmount) or 0
-    if CODAmount <= 0 and sender and (money > 0 or hasItem) then
+    if
+      CODAmount <= 0
+      and sender
+      and (money > 0 or hasItem)
+      and not UC.IsPlaceholderSubject(subject, _G and _G.RETRIEVING_DATA)
+    then
       local items = hasItem and inboxItems(i) or {}
       local id = UC.MailId(sender, subject, money, items)
       if not self.seenMail[id] then
