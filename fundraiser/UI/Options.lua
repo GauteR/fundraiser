@@ -725,6 +725,19 @@ function Options:Initialize()
   y = y - 36
 
   y = AddSectionHeader(content, Fundraiser:T("OPTIONS_SECTION_STATUS"), y)
+  if Fundraiser.Config and Fundraiser.Config.BACKUP_ONLY_OPTION == true then
+    panel.backupCheck, y = AddCheckRow(
+      content,
+      Fundraiser:T("OPTIONS_LABEL_BACKUP_ONLY"),
+      "OPTIONS_TIP_BACKUP_ONLY_TITLE",
+      "OPTIONS_TIP_BACKUP_ONLY_BODY",
+      "BackupOnly",
+      y
+    )
+    panel.backupCheck:SetScript("OnClick", function(self)
+      SaveBackupOnly(self:GetChecked())
+    end)
+  end
   panel.enabledValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_ENABLED"), y)
   panel.guildValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_GUILD"), y)
   panel.eventValue, y = AddStatusRow(content, Fundraiser:T("OPTIONS_ROW_EVENT"), y)
@@ -779,19 +792,6 @@ function Options:Initialize()
     "MinRank",
     y
   )
-  if Fundraiser.Config and Fundraiser.Config.BACKUP_ONLY_OPTION == true then
-    panel.backupCheck, y = AddCheckRow(
-      content,
-      Fundraiser:T("OPTIONS_LABEL_BACKUP_ONLY"),
-      "OPTIONS_TIP_BACKUP_ONLY_TITLE",
-      "OPTIONS_TIP_BACKUP_ONLY_BODY",
-      "BackupOnly",
-      y
-    )
-    panel.backupCheck:SetScript("OnClick", function(self)
-      SaveBackupOnly(self:GetChecked())
-    end)
-  end
   panel.ignoredRows = {}
   if Fundraiser.Domain.TargetPrefs and Fundraiser.Domain.TargetPrefs.Enabled(Fundraiser.Config) then
     panel.minValueBox, y = AddEditRow(
