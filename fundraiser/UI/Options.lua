@@ -255,12 +255,21 @@ local function RefreshPanel(panel)
   if panel.minValueBox and TP and Store and Store.GetTargetPrefs then
     local prefs = Store:GetTargetPrefs()
     panel.minValueBox:SetText(prefs.minValue and tostring(prefs.minValue / COPPER_PER_GOLD) or "")
-    local list = TP.IgnoredList(prefs)
+    local shared = Store.GetSharedIgnore and Store:GetSharedIgnore() or nil
+    if panel.shareIgnoreCheck then
+      panel.shareIgnoreCheck:SetChecked(Fundraiser.Config.TARGET_IGNORE_SYNC == true)
+    end
+    local list = TP.DisplayList(prefs, Fundraiser.Config, shared)
     for i = 1, MAX_IGNORED_ROWS do
       local row, item = panel.ignoredRows[i], list[i]
       if item then
         row.itemId = item.itemId
-        row.label:SetText(item.name ~= "" and item.name or ("#" .. item.itemId))
+        row.itemName = item.name
+        local text = item.name ~= "" and item.name or ("#" .. item.itemId)
+        if item.shared then
+          text = text .. Fundraiser:T("OPTIONS_IGNORED_SHARED_SUFFIX")
+        end
+        row.label:SetText(text)
         row:Show()
       else
         row:Hide()
@@ -543,6 +552,27 @@ end
 
 local function SaveBackupOnly(checked)
   Fundraiser:SaveBackupOnly(checked == true)
+end
+
+local function SaveShareIgnore(checked)
+  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+  if not Store or not Store.SetSettings then
+    return
+  end
+  local current = Store:GetSettings()
+  Store:SetSettings({
+    defaultReminderInterval = current.defaultReminderInterval,
+    defaultMinAdminRank = current.defaultMinAdminRank,
+    shareIgnore = checked == true,
+  })
+  local Sync = Fundraiser.Adapters and Fundraiser.Adapters.ThinGuildSync
+  if checked and Sync and Sync.BroadcastHello then
+    -- Peers answer a HELLO with their shared list.
+    Sync:BroadcastHello()
+  end
+  if Fundraiser.UI.Target and Fundraiser.UI.Target.Refresh then
+    Fundraiser.UI.Target:Refresh()
+  end
 end
 
 local function NotifyOpenFailed()
@@ -838,6 +868,19 @@ function Options:Initialize()
     y = y - 8
 
     y = AddSectionHeader(content, Fundraiser:T("OPTIONS_SECTION_IGNORED"), y)
+    panel.shareIgnoreCheck, y = AddCheckRow(
+      content,
+      Fundraiser:T("OPTIONS_LABEL_SHARE_IGNORE"),
+      Fundraiser:T("OPTIONS_DESC_SHARE_IGNORE"),
+      "OPTIONS_TIP_SHARE_IGNORE_TITLE",
+      "OPTIONS_TIP_SHARE_IGNORE_BODY",
+      "ShareIgnore",
+      y
+    )
+    panel.shareIgnoreCheck:SetScript("OnClick", function(self)
+      SaveShareIgnore(self:GetChecked())
+      RefreshPanel(panel)
+    end)
     panel.ignoredEmpty = content:CreateFontString(nil, "ARTWORK", "GameFontDisable")
     panel.ignoredEmpty:SetPoint("TOPLEFT", 24, y)
     panel.ignoredEmpty:SetText(Fundraiser:T("OPTIONS_IGNORED_EMPTY"))
@@ -857,12 +900,9 @@ function Options:Initialize()
       remove:SetPoint("LEFT", CONTROL_X - 16, 0)
       remove:SetText(Fundraiser:T("OPTIONS_IGNORED_REMOVE"))
       remove:SetScript("OnClick", function()
-        local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
-        local TP = Fundraiser.Domain.TargetPrefs
-        if Store and row.itemId then
-          local prefs = Store:GetTargetPrefs()
-          TP.Unignore(prefs, row.itemId)
-          Store:SetTargetPrefs(prefs)
+        if row.itemId then
+          -- Also clears a guild-shared entry when sharing is on.
+          Fundraiser.Adapters.ThinGuildSync:SetItemIgnored(row.itemId, row.itemName, false)
         end
         RefreshPanel(panel)
         if Fundraiser.UI.Target and Fundraiser.UI.Target.Refresh then

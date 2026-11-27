@@ -31,6 +31,7 @@ Fundraiser.Config = {
   TARGET_PREFS = true,
   -- Donation target: share the ignore list with guild members running the addon (IGNORE sync
   -- messages, last write wins). Opt-in; needs TARGET_PREFS and COMM. Messages are unauthenticated.
+  -- This is the file default; the Options checkbox saves the player's choice and overlays it here.
   TARGET_IGNORE_SYNC = false,
   -- Donation target: show the Target panel beside the auction house while it is open.
   TARGET_AUTO_DOCK = true,
@@ -93,4 +94,5 @@ Fundraiser.ConfigFileDefaults = {
   DEFAULT_REMINDER_INTERVAL = Fundraiser.Config.DEFAULT_REMINDER_INTERVAL,
   DEFAULT_MIN_ADMIN_RANK = Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK,
   BACKUP_ONLY_DEFAULT = Fundraiser.Config.BACKUP_ONLY_DEFAULT,
+  TARGET_IGNORE_SYNC = Fundraiser.Config.TARGET_IGNORE_SYNC,
 }

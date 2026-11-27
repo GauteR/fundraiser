@@ -106,6 +106,33 @@ function TargetPrefs.IgnoredList(prefs)
   return list
 end
 
+-- Options list: personal entries plus, when config.TARGET_IGNORE_SYNC is on, shared-only entries,
+-- sorted by name. { { itemId, name, shared } }; shared = also (or only) in the guild-shared layer.
+function TargetPrefs.DisplayList(prefs, config, shared)
+  local SharedIgnore = Fundraiser.Domain.SharedIgnore
+  local active = {}
+  if shared and SharedIgnore and config and config.TARGET_IGNORE_SYNC == true then
+    active = SharedIgnore.Active(shared)
+  end
+  local list = {}
+  for id, name in pairs(prefs and prefs.ignored or {}) do
+    list[#list + 1] = { itemId = id, name = name, shared = active[id] == true }
+  end
+  for id in pairs(active) do
+    if not (prefs and prefs.ignored and prefs.ignored[id] ~= nil) then
+      list[#list + 1] = { itemId = id, name = shared[id].name, shared = true }
+    end
+  end
+  table.sort(list, function(a, b)
+    local an, bn = a.name:lower(), b.name:lower()
+    if an ~= bn then
+      return an < bn
+    end
+    return a.itemId < b.itemId
+  end)
+  return list
+end
+
 -- One-line text form of the ignore list for copying between characters: "FR1:<id>=<name>;..."
 -- (names percent-escaped for % ; = and control characters), ordered by item id.
 local EXPORT_PREFIX = "FR1:"

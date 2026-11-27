@@ -37,6 +37,8 @@ local function defaultSettingsFromConfig()
     defaultReminderInterval = tonumber(cfg.DEFAULT_REMINDER_INTERVAL) or 86400,
     defaultMinAdminRank = tonumber(cfg.DEFAULT_MIN_ADMIN_RANK) or 0,
     backupOnly = cfg.BACKUP_ONLY_DEFAULT == true,
+    -- File default, never the runtime overlay on Config.TARGET_IGNORE_SYNC.
+    shareIgnore = (Fundraiser.ConfigFileDefaults or {}).TARGET_IGNORE_SYNC == true,
   }
 end
 
@@ -92,6 +94,7 @@ function Store:GetSettings()
     defaultReminderInterval = tonumber(stored.defaultReminderInterval) or defaults.defaultReminderInterval,
     defaultMinAdminRank = tonumber(stored.defaultMinAdminRank) or defaults.defaultMinAdminRank,
     backupOnly = (type(stored.backupOnly) == "boolean") and stored.backupOnly or defaults.backupOnly,
+    shareIgnore = (type(stored.shareIgnore) == "boolean") and stored.shareIgnore or defaults.shareIgnore,
   }
 end
 
@@ -104,6 +107,9 @@ function Store:SetSettings(raw)
   -- A caller that omits backupOnly keeps the current choice.
   if raw.backupOnly == nil then
     raw.backupOnly = self:GetSettings().backupOnly
+  end
+  if raw.shareIgnore == nil then
+    raw.shareIgnore = self:GetSettings().shareIgnore
   end
   -- Non-admins keep the stored interval/rank (only their personal choices are saved).
   -- Without the Core admin check (bare tests) nothing is restricted.
@@ -276,6 +282,9 @@ function Store:RestoreConfigFileDefaults()
   end
   if file.DEFAULT_MIN_ADMIN_RANK ~= nil then
     cfg.DEFAULT_MIN_ADMIN_RANK = file.DEFAULT_MIN_ADMIN_RANK
+  end
+  if file.TARGET_IGNORE_SYNC ~= nil then
+    cfg.TARGET_IGNORE_SYNC = file.TARGET_IGNORE_SYNC
   end
 end
 

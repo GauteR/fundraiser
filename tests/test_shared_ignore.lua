@@ -257,6 +257,83 @@ do
   assert_eq(#off.sent, 0, "publish off: no broadcast")
 end
 
+-- Scenario: the display list merges personal and shared-only entries, flagging shared ones
+do
+  local prefs = TP.Normalize(nil)
+  TP.Ignore(prefs, 1, "Beta")
+  TP.Ignore(prefs, 2, "Alpha")
+  local shared = SI.Normalize(nil)
+  SI.Apply(shared, "add", 2, "Alpha", 10)
+  SI.Apply(shared, "add", 3, "Gamma", 10)
+  SI.Apply(shared, "add", 4, "Gone", 10)
+  SI.Apply(shared, "remove", 4, "Gone", 20)
+  local list = TP.DisplayList(prefs, { TARGET_IGNORE_SYNC = true }, shared)
+  assert_eq(#list, 3, "display: personal plus shared-only, tombstone skipped")
+  assert_eq(list[1].itemId, 2, "display: sorted by name")
+  assert_eq(list[1].shared, true, "display: personal and shared is flagged shared")
+  assert_eq(list[2].itemId, 1, "display: personal only second")
+  assert_eq(list[2].shared, false, "display: personal only not shared")
+  assert_eq(list[3].itemId, 3, "display: shared-only last")
+  assert_eq(list[3].shared, true, "display: shared-only flagged")
+  local off = TP.DisplayList(prefs, { TARGET_IGNORE_SYNC = false }, shared)
+  assert_eq(#off, 2, "display: sync off lists personal only")
+  assert_eq(off[1].shared, false, "display: sync off not flagged")
+end
+
+local function toggleDeps(syncOn)
+  local st = { prefs = TP.Normalize(nil), shared = SI.Normalize(nil), published = {} }
+  st.deps = {
+    getPrefs = function()
+      return st.prefs
+    end,
+    setPrefs = function(p)
+      st.prefs = p
+    end,
+    syncEnabled = function()
+      return syncOn
+    end,
+    getShared = function()
+      return st.shared
+    end,
+    publish = function(op, id, name)
+      st.published[#st.published + 1] = op .. ":" .. id
+      SI.Apply(st.shared, op, id, name, #st.published)
+    end,
+  }
+  return st
+end
+
+-- Scenario: ignoring stores personally and publishes only when sync is on
+do
+  local on = toggleDeps(true)
+  assert_eq(UC.SetItemIgnored(on.deps, 7, "Rag", true), true, "set ignored: ok")
+  assert_eq(TP.IsIgnored(on.prefs, 7), true, "set ignored: personal")
+  assert_eq(on.published[1], "add:7", "set ignored: published add")
+  local off = toggleDeps(false)
+  UC.SetItemIgnored(off.deps, 7, "Rag", true)
+  assert_eq(TP.IsIgnored(off.prefs, 7), true, "sync off: personal still stored")
+  assert_eq(#off.published, 0, "sync off: nothing published")
+end
+
+-- Scenario: unignoring removes the personal entry and publishes a remove for a shared one
+do
+  local st = toggleDeps(true)
+  UC.SetItemIgnored(st.deps, 7, "Rag", true)
+  UC.SetItemIgnored(st.deps, 7, "Rag", false)
+  assert_eq(TP.IsIgnored(st.prefs, 7), false, "unignore: personal removed")
+  assert_eq(st.published[2], "remove:7", "unignore: published remove")
+  -- And an item that was never shared publishes nothing
+  local plain = toggleDeps(true)
+  TP.Ignore(plain.prefs, 8, "Local")
+  UC.SetItemIgnored(plain.deps, 8, "Local", false)
+  assert_eq(#plain.published, 0, "unignore: unshared item not published")
+  -- And a shared-only item (from a peer) can be unignored here
+  local peer = toggleDeps(true)
+  SI.Apply(peer.shared, "add", 9, "Theirs", 5)
+  UC.SetItemIgnored(peer.deps, 9, "Theirs", false)
+  assert_eq(peer.published[1], "remove:9", "unignore: shared-only item removed for everyone")
+end
+
 if failed > 0 then
   io.stderr:write(string.format("%d test(s) failed\n", failed))
   os.exit(1)

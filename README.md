@@ -13,11 +13,11 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 
 ## Features
 
-- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `BACKUP_ONLY_OPTION`, `ADMIN_UI`, `END_EVENT`, `LEDGER`, `LEDGER_AUTO_REFRESH`, `TARGET_UI`, `TARGET_PREFS`, `TARGET_AUTO_DOCK`, `AH_DEPOSIT_IN_ADVICE`, `AH_ASSIST`, `DEBUG`
+- Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `BACKUP_ONLY_OPTION`, `ADMIN_UI`, `END_EVENT`, `LEDGER`, `LEDGER_AUTO_REFRESH`, `TARGET_UI`, `TARGET_PREFS`, `TARGET_IGNORE_SYNC`, `TARGET_AUTO_DOCK`, `AH_DEPOSIT_IN_ADVICE`, `AH_ASSIST`, `DEBUG`
 - Officer-published event: name, **First Last** mail target, required fundraising goal (gold), optional goal note, per-event reminder interval
 - Mailbox reminder for members (beside the mail window) until mail is sent to the target; members who only want to help with backup can tick **Only backup** in Options (or type `/fundraiser backup`) to stop it (officers see them as **Only backup**)
 - Ledger writes on the **donation-target** only (incoming mail money/items, each item mail as one row that later auction and vendor sales fill with their net proceeds, + **all** AH sales + manual donations from the **Add donation** menu page, which officers can also use); the open ledger page updates as rows arrive; every client stores/relays the mesh; officers + target view in UI
-- Target page (`/fundraiser target`, **Target** in the main window menu, donation-target character only): scans your bags, shows item names in their quality colour, splits stacks into **Auction**, **Vendor** and **Needs price** lists from TSM -> Auctionator -> manual prices, one action per selected stack, or **Post all** / **Sell all** for a whole list (confirmed; stacks below the minimum value, marked **Skip** (this session) or of an **Ignored** item are left out; the ignore list and your own minimum value are saved, see Options, where the ignore list can also be exported and imported as text to copy it to another character)
+- Target page (`/fundraiser target`, **Target** in the main window menu, donation-target character only): scans your bags, shows item names in their quality colour, splits stacks into **Auction**, **Vendor** and **Needs price** lists from TSM -> Auctionator -> manual prices, one action per selected stack, or **Post all** / **Sell all** for a whole list (confirmed; stacks below the minimum value, marked **Skip** (this session) or of an **Ignored** item are left out; the ignore list and your own minimum value are saved, see Options, where the ignore list can also be exported and imported as text to copy it to another character, or shared with the guild)
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST` / `RESET`) — see [`docs/SYNC.md`](docs/SYNC.md)
 - Publishing a new event archives the previous event + ledger locally and clears the active ledger
 - Ending an event (`END_EVENT`): Minus on the event card archives the campaign, clears active event+ledger, and broadcasts `RESET campaign` to the guild (no replacement event)
@@ -85,7 +85,7 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 | Danger zone (admin) | Separated by a rule; local reset/clear actions; **Broadcast reset** sends guild `RESET\|all` (requires `COMM` + `RESET_SYNC`, rank-gated on receive). Hidden without admin access. |
 | Open Fundraiser | Shown only when your rank may manage fundraisers |
 
-Defaults are stored in `FundraiserDB.settings` and overlaid onto `Config` at load. Forever may not restore SavedVariables after a cold start — re-apply in Options if needed. The same goes for the target page preferences (`FundraiserDB.target`: ignored items and minimum stack value, `Config.TARGET_PREFS`); without them the config minimum applies. `DEBUG` stays in `Config.lua` only.
+Defaults are stored in `FundraiserDB.settings` and overlaid onto `Config` at load. Forever may not restore SavedVariables after a cold start — re-apply in Options if needed. The same goes for the target page preferences (`FundraiserDB.target`: ignored items and minimum stack value, `Config.TARGET_PREFS`); without them the config minimum applies. The guild-shared ignore list lives in `FundraiserDB.sharedIgnore` (`Config.TARGET_IGNORE_SYNC`) and is refilled by peers after a cold start. `DEBUG` stays in `Config.lua` only.
 
 ## Configuration
 

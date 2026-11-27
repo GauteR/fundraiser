@@ -22,6 +22,8 @@ function Settings.Normalize(raw)
     defaultReminderInterval = math.floor(interval),
     defaultMinAdminRank = math.floor(rank),
     backupOnly = raw.backupOnly == true,
+    -- Opt in to the guild-shared Target ignore list (overlays Config.TARGET_IGNORE_SYNC).
+    shareIgnore = raw.shareIgnore == true,
   }
 end
 
@@ -73,6 +75,7 @@ function Settings.ApplyToConfig(settings, config)
     config.DEFAULT_MIN_ADMIN_RANK = settings.defaultMinAdminRank
   end
   config.BACKUP_ONLY = settings.backupOnly == true
+  config.TARGET_IGNORE_SYNC = settings.shareIgnore == true
 end
 
 -- Online roster rows with install status + HELLO version (best-effort).
