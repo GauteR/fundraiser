@@ -5,7 +5,8 @@ Fundraiser.Adapters = Fundraiser.Adapters or {}
 local Pricing = {}
 Fundraiser.Adapters.Pricing = Pricing
 
-function Pricing:GetTSMPrice(itemId)
+-- Raw TSM custom price value for an item id, or nil when TSM or the value is missing.
+local function tsmValue(itemId, source)
   if type(itemId) ~= "number" then
     return nil
   end
@@ -20,12 +21,31 @@ function Pricing:GetTSMPrice(itemId)
       itemString = converted
     end
   end
+  local ok, value = pcall(api.GetCustomPriceValue, source, itemString)
+  if not ok or type(value) ~= "number" then
+    return nil
+  end
+  return value
+end
+
+function Pricing:GetTSMPrice(itemId)
   local source = (Fundraiser.Config and Fundraiser.Config.TSM_PRICE_SOURCE) or "DBMinBuyout"
-  local ok, price = pcall(api.GetCustomPriceValue, source, itemString)
-  if not ok or type(price) ~= "number" or price <= 0 then
+  local price = tsmValue(itemId, source)
+  if not price or price <= 0 then
     return nil
   end
   return math.floor(price + 0.5)
+end
+
+-- Fraction (0..1) of listed auctions that sell, from the TSM sale rate source, or nil when TSM
+-- has none. Auctionator has no sale rate, so it is not consulted here.
+function Pricing:GetSaleRate(itemId)
+  local source = (Fundraiser.Config and Fundraiser.Config.TSM_SALE_RATE_SOURCE) or "DBRegionSaleRate"
+  local rate = tsmValue(itemId, source)
+  if not rate then
+    return nil
+  end
+  return math.max(0, math.min(1, rate))
 end
 
 function Pricing:GetAuctionatorPrice(itemId)
