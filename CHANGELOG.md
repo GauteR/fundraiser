@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Pricing: look up an item's sale rate from TSM (`Config.TSM_SALE_RATE_SOURCE`). Nothing uses it yet; it prepares weighting the auction deposit by expiry likelihood (#78).
-- 
+  
 ### Changed
 - Settings -> AddOns -> Fundraiser: the Defaults (reminder interval and minimum admin rank) can only be changed by guild admins. Other members see them read-only with a hint; their own choices (Only backup, target minimum stack value) stay editable. This is a client-side guard against accidental edits, not a security boundary. `Config.DEFAULTS_ADMIN_ONLY` turns it off. ([#85](https://github.com/GauteR/fundraiser/issues/85))
 - Target page: the manual unit AH price is entered as gold / silver / copper (three boxes) instead of a single copper number.
