@@ -25,6 +25,15 @@ function Settings.Normalize(raw)
   }
 end
 
+-- Defaults (interval, min admin rank) are guild-wide knobs: only admins edit them while
+-- Config.DEFAULTS_ADMIN_ONLY is on. Personal choices (backupOnly) are not covered.
+function Settings.CanEditDefaults(config, isAdmin)
+  if type(config) ~= "table" or config.DEFAULTS_ADMIN_ONLY ~= true then
+    return true
+  end
+  return isAdmin == true
+end
+
 -- "Only backup": the feature flag AND the saved choice (Config.BACKUP_ONLY overlay).
 function Settings.IsBackupOnly(config)
   if type(config) ~= "table" then
