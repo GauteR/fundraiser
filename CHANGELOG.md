@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Target page: the manual unit AH price is entered as gold / silver / copper (three boxes) instead of a single copper number.
+
 ### Fixed
 - Ledger: an auction house payout was recorded more than once (extra "Retrieving data" rows). The mail is now recorded only after the client has loaded its real subject. Rows already saved are not removed.
 
