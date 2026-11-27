@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Pricing: look up an item's sale rate from TSM (`Config.TSM_SALE_RATE_SOURCE`). Nothing uses it yet; it prepares weighting the auction deposit by expiry likelihood (#78).
+
 ### Fixed
 - Ledger: an auction house payout was recorded more than once (extra "Retrieving data" rows). The mail is now recorded only after the client has loaded its real subject. Rows already saved are not removed.
 

@@ -50,6 +50,9 @@ Fundraiser.Config = {
 
   -- TSM custom price for "lowest" AH reference (fallback: Auctionator, then manual).
   TSM_PRICE_SOURCE = "DBMinBuyout",
+  -- TSM custom price source for the item's sale rate (0..1). Region-wide, so a coarse proxy for the
+  -- realm. Auctionator has no sale rate.
+  TSM_SALE_RATE_SOURCE = "DBRegionSaleRate",
   AH_CUT_FRACTION = 0.05,
   -- Forever auction duration index: 1 = 2h, 2 = 8h, 3 = 24h.
   AH_DURATION = 3,
