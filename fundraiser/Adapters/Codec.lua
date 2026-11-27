@@ -5,6 +5,7 @@
 --   LEDGER|id|kind|name|detail|eventId|copper|at|resetEpoch
 --   DIGEST|eventRev|ledgerCount|ledgerSum|ledgerMaxAt|resetEpoch
 --   RESET|scope|at|publisher|resetEpoch
+--   IGNORE|op|itemId|name|at   (op = add | remove; shared target-page ignore list, last write wins)
 -- resetEpoch blocks post-wipe mesh refill: receivers drop LEDGER rows with epoch < local.
 Fundraiser = Fundraiser or {}
 Fundraiser.Adapters = Fundraiser.Adapters or {}
@@ -230,6 +231,31 @@ function Codec.DecodeDigest(payload)
   }
 end
 
+function Codec.EncodeIgnore(op, itemId, name, at)
+  return table.concat({
+    "IGNORE",
+    esc(op),
+    tostring(itemId or 0),
+    esc(name),
+    tostring(at or 0),
+  }, SEP)
+end
+
+function Codec.DecodeIgnore(payload)
+  local p = split(payload)
+  if p[1] ~= "IGNORE" then
+    return nil
+  end
+  local itemId, at = tonumber(p[3]), tonumber(p[5])
+  if (p[2] ~= "add" and p[2] ~= "remove")
+    or not itemId or itemId < 1 or itemId ~= math.floor(itemId)
+    or not at or at < 0
+  then
+    return nil, "bad_ignore"
+  end
+  return { kind = "IGNORE", op = p[2], itemId = itemId, name = p[4] or "", at = at }
+end
+
 function Codec.Decode(payload)
   local kind = tostring(payload or ""):match("^([^|]+)")
   if kind == "HELLO" then
@@ -242,6 +268,8 @@ function Codec.Decode(payload)
     return Codec.DecodeDigest(payload)
   elseif kind == "RESET" then
     return Codec.DecodeReset(payload)
+  elseif kind == "IGNORE" then
+    return Codec.DecodeIgnore(payload)
   end
   return nil, "unknown"
 end

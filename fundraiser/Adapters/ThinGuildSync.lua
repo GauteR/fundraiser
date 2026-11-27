@@ -169,6 +169,77 @@ function Sync:BroadcastLedgerSnapshot()
   return true
 end
 
+-- Shared ignore list (Domain/SharedIgnore.lua): opt-in via Config.TARGET_IGNORE_SYNC.
+local IGNORE_BATCH_SIZE = 10
+local IGNORE_BATCH_SECONDS = 1
+local IGNORE_SNAPSHOT_COOLDOWN = 120
+
+function Sync:IgnoreSyncEnabled()
+  local c = cfg()
+  return self:IsEnabled() and c.TARGET_IGNORE_SYNC == true and c.TARGET_PREFS ~= false
+end
+
+local function ignoreDeps()
+  local Store = Fundraiser.Adapters.Store
+  return {
+    enabled = function()
+      return Sync:IgnoreSyncEnabled()
+    end,
+    getShared = function()
+      return Store:GetSharedIgnore()
+    end,
+    setShared = function(shared)
+      Store:SetSharedIgnore(shared)
+    end,
+    now = now,
+    broadcast = function(op, itemId, name, at)
+      Sync:BroadcastIgnore(op, itemId, name, at)
+    end,
+  }
+end
+
+function Sync:BroadcastIgnore(op, itemId, name, at)
+  if not self:IgnoreSyncEnabled() then
+    return false
+  end
+  return self:Send(Fundraiser.Adapters.Codec.EncodeIgnore(op, itemId, name, at))
+end
+
+-- Local ignore/unignore: store in the shared layer and tell the guild.
+function Sync:PublishIgnore(op, itemId, name)
+  return Fundraiser.Application.UseCases.PublishIgnore(ignoreDeps(), op, itemId, name)
+end
+
+-- Reply to a peer's HELLO with the shared list, paced in batches and throttled.
+function Sync:SendIgnoreSnapshot()
+  if not self:IgnoreSyncEnabled() then
+    return false
+  end
+  local SI = Fundraiser.Domain.SharedIgnore
+  local t = now()
+  if not SI.SnapshotDue(self.lastIgnoreSnapshot, t, IGNORE_SNAPSHOT_COOLDOWN) then
+    return false
+  end
+  local batches = SI.Batches(SI.Snapshot(Fundraiser.Adapters.Store:GetSharedIgnore()), IGNORE_BATCH_SIZE)
+  if #batches == 0 then
+    return false
+  end
+  self.lastIgnoreSnapshot = t
+  for i, batch in ipairs(batches) do
+    local function sendBatch()
+      for _, e in ipairs(batch) do
+        self:BroadcastIgnore(e.op, e.itemId, e.name, e.at)
+      end
+    end
+    if i == 1 or not (C_Timer and C_Timer.After) then
+      sendBatch()
+    else
+      C_Timer.After((i - 1) * IGNORE_BATCH_SECONDS, sendBatch)
+    end
+  end
+  return true
+end
+
 function Sync:BroadcastDigest()
   local Codec = Fundraiser.Adapters.Codec
   local Store = Fundraiser.Adapters.Store
@@ -222,6 +293,17 @@ function Sync:OnAddonMessage(prefix, message, channel, sender)
     elseif Store:GetEvent() and self:LocalLedgerCount() > 0 then
       -- Same epoch: any peer holding rows can push so officers need not all be online.
       self:BroadcastLedgerSnapshot()
+    end
+    self:SendIgnoreSnapshot()
+    return
+  end
+
+  if msg.kind == "IGNORE" then
+    if UC.AcceptRemoteIgnore(ignoreDeps(), msg) then
+      local Target = Fundraiser.UI and Fundraiser.UI.Target
+      if Target and Target.Refresh then
+        Target:Refresh()
+      end
     end
     return
   end

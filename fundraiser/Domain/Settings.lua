@@ -25,12 +25,41 @@ function Settings.Normalize(raw)
   }
 end
 
+-- Defaults (interval, min admin rank) are guild-wide knobs: only admins edit them while
+-- Config.DEFAULTS_ADMIN_ONLY is on. Personal choices (backupOnly) are not covered.
+function Settings.CanEditDefaults(config, isAdmin)
+  if type(config) ~= "table" or config.DEFAULTS_ADMIN_ONLY ~= true then
+    return true
+  end
+  return isAdmin == true
+end
+
 -- "Only backup": the feature flag AND the saved choice (Config.BACKUP_ONLY overlay).
 function Settings.IsBackupOnly(config)
   if type(config) ~= "table" then
     return false
   end
   return config.BACKUP_ONLY_OPTION == true and config.BACKUP_ONLY == true
+end
+
+-- Parse the argument of "/fundraiser backup [on|off|status]" against the current value.
+-- Returns "set", newValue | "status", currentValue | "invalid".
+function Settings.ParseBackupCommand(arg, current)
+  local word = tostring(arg or ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
+  current = current == true
+  if word == "" then
+    return "set", not current
+  end
+  if word == "on" then
+    return "set", true
+  end
+  if word == "off" then
+    return "set", false
+  end
+  if word == "status" then
+    return "status", current
+  end
+  return "invalid"
 end
 
 function Settings.ApplyToConfig(settings, config)

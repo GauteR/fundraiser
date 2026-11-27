@@ -162,6 +162,51 @@ function Fundraiser:ToggleLedgerUi()
   self.UI.Window:ToggleLedger()
 end
 
+-- Ports for the "Only backup" use cases (shared by the Options checkbox and /fundraiser backup).
+local function BackupDeps()
+  local Store = Fundraiser.Adapters.Store
+  local Sync = Fundraiser.Adapters.ThinGuildSync
+  return {
+    isOptionEnabled = function()
+      return Fundraiser.Config and Fundraiser.Config.BACKUP_ONLY_OPTION == true
+    end,
+    getSettings = function()
+      return Store:GetSettings()
+    end,
+    setSettings = function(raw)
+      return Store:SetSettings(raw)
+    end,
+    broadcastHello = function()
+      if Sync and Sync.BroadcastHello then
+        Sync:BroadcastHello()
+      end
+    end,
+    refreshOptions = function()
+      if Fundraiser.Options and Fundraiser.Options.RefreshBackupCheck then
+        Fundraiser.Options:RefreshBackupCheck()
+      end
+    end,
+  }
+end
+
+function Fundraiser:SaveBackupOnly(value)
+  return Fundraiser.Application.UseCases.SaveBackupOnly(BackupDeps(), value)
+end
+
+function Fundraiser:HandleBackupCommand(arg)
+  local outcome, value = Fundraiser.Application.UseCases.SetBackupOnlyFromCommand(BackupDeps(), arg)
+  if outcome == "disabled" then
+    Print(self:T("CHAT_BACKUP_DISABLED"))
+  elseif outcome == "invalid" then
+    Print(self:T("CHAT_BACKUP_USAGE"))
+  elseif outcome == "error" then
+    Print(self:T("OPTIONS_SAVE_FAILED", tostring(value)))
+  else
+    -- "status" and "changed" both report the resulting state.
+    Print(self:T(value and "CHAT_BACKUP_ON" or "CHAT_BACKUP_OFF"))
+  end
+end
+
 function Fundraiser:PrintStatus()
   if self:IsEnabled() then
     Print(self:T("CHAT_STATUS_ON"))
@@ -198,6 +243,11 @@ eventFrame:SetScript("OnEvent", function(_, event)
     end
     if lower == "target" then
       Fundraiser:ToggleTargetUi()
+      return
+    end
+    local backupArg = lower:match("^backup%s*(.*)$")
+    if backupArg ~= nil then
+      Fundraiser:HandleBackupCommand(backupArg)
       return
     end
     local debugArg = lower:match("^debug%s*(.*)$")

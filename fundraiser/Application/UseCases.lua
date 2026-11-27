@@ -9,6 +9,44 @@ local Domain = function()
   return Fundraiser.Domain
 end
 
+-- Save the "Only backup" choice and tell guild peers (HELLO). Keeps the other settings.
+-- Shared by the Options checkbox and "/fundraiser backup".
+function UC.SaveBackupOnly(deps, value)
+  local current = deps.getSettings()
+  local saved, err = deps.setSettings({
+    defaultReminderInterval = current.defaultReminderInterval,
+    defaultMinAdminRank = current.defaultMinAdminRank,
+    backupOnly = value == true,
+  })
+  if not saved then
+    return nil, err
+  end
+  if deps.broadcastHello then
+    deps.broadcastHello()
+  end
+  return true
+end
+
+-- "/fundraiser backup [on|off|status]".
+-- Returns "disabled" | "invalid" | "status", value | "changed", value | "error", err.
+function UC.SetBackupOnlyFromCommand(deps, arg)
+  if not deps.isOptionEnabled() then
+    return "disabled"
+  end
+  local action, value = Domain().Settings.ParseBackupCommand(arg, deps.getSettings().backupOnly)
+  if action ~= "set" then
+    return action, value
+  end
+  local ok, err = UC.SaveBackupOnly(deps, value)
+  if not ok then
+    return "error", err
+  end
+  if deps.refreshOptions then
+    deps.refreshOptions()
+  end
+  return "changed", value
+end
+
 function UC.PublishEvent(deps, fields, actor)
   local Event = Domain().Event
   local Rank = Domain().Rank
@@ -184,6 +222,40 @@ function UC.AcceptRemoteReset(deps, scope, senderRankIndex, resetEpoch)
   if ok == nil and err then
     return nil, err
   end
+  return true
+end
+
+-- Merge one remote IGNORE message into the shared layer. Never rebroadcasts (no relay storms).
+-- deps: enabled(), getShared(), setShared(shared). Returns true, or false plus a reason.
+function UC.AcceptRemoteIgnore(deps, msg)
+  if not (deps.enabled and deps.enabled()) then
+    return false, "disabled"
+  end
+  local SharedIgnore = Domain().SharedIgnore
+  local shared = SharedIgnore.Normalize(deps.getShared())
+  local ok, reason = SharedIgnore.Apply(shared, msg.op, msg.itemId, msg.name, msg.at)
+  if not ok then
+    return false, reason
+  end
+  deps.setShared(shared)
+  return true
+end
+
+-- Record a local ignore/unignore in the shared layer and broadcast it.
+-- deps: enabled(), getShared(), setShared(shared), now(), broadcast(op, itemId, name, at).
+function UC.PublishIgnore(deps, op, itemId, name)
+  if not (deps.enabled and deps.enabled()) then
+    return false, "disabled"
+  end
+  local SharedIgnore = Domain().SharedIgnore
+  local shared = SharedIgnore.Normalize(deps.getShared())
+  local at = deps.now()
+  local ok, reason = SharedIgnore.Apply(shared, op, itemId, name, at)
+  if not ok then
+    return false, reason
+  end
+  deps.setShared(shared)
+  deps.broadcast(op, itemId, name, at)
   return true
 end
 
