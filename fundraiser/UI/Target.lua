@@ -66,6 +66,29 @@ local function money(copper)
   return Fundraiser.FormatCopper(copper)
 end
 
+-- Manual unit price boxes (gold / silver / copper) <-> total copper.
+local function setPriceBoxes(f, copper)
+  copper = math.floor(tonumber(copper) or 0)
+  if copper <= 0 then
+    f.priceGold:SetText("")
+    f.priceSilver:SetText("")
+    f.priceCopper:SetText("")
+    return
+  end
+  f.priceGold:SetText(tostring(math.floor(copper / 10000)))
+  f.priceSilver:SetText(tostring(math.floor((copper % 10000) / 100)))
+  f.priceCopper:SetText(tostring(copper % 100))
+end
+
+-- Returns copper, or nil when every box is empty (no manual price).
+local function readPriceBoxes(f)
+  local g, s, c = f.priceGold:GetText(), f.priceSilver:GetText(), f.priceCopper:GetText()
+  if g == "" and s == "" and c == "" then
+    return nil
+  end
+  return (tonumber(g) or 0) * 10000 + (tonumber(s) or 0) * 100 + (tonumber(c) or 0)
+end
+
 local function Prefs()
   local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
   return Store and Store.GetTargetPrefs and Store:GetTargetPrefs() or nil
@@ -340,11 +363,28 @@ function Target:Attach(shell)
   local priceLabel = detail:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
   priceLabel:SetPoint("BOTTOMLEFT", CARD_PAD, 14)
   priceLabel:SetText(Fundraiser:T("TARGET_MANUAL_PRICE"))
-  local price = CreateFrame("EditBox", "FundraiserTargetManualPrice", detail, "InputBoxTemplate")
-  price:SetSize(100, 20)
-  price:SetPoint("LEFT", priceLabel, "RIGHT", 10, 0)
-  price:SetAutoFocus(false)
-  f.manualPrice = price
+  -- Manual unit price: gold / silver / copper boxes (same layout idea as the Add donation page).
+  local prev
+  local function unitBox(name, width, maxLetters, unitKey)
+    local eb = CreateFrame("EditBox", name, detail, "InputBoxTemplate")
+    eb:SetSize(width, 20)
+    if prev then
+      eb:SetPoint("LEFT", prev, "RIGHT", 22, 0)
+    else
+      eb:SetPoint("LEFT", priceLabel, "RIGHT", 10, 0)
+    end
+    eb:SetAutoFocus(false)
+    eb:SetNumeric(true)
+    eb:SetMaxLetters(maxLetters)
+    local unit = detail:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    unit:SetPoint("LEFT", eb, "RIGHT", 6, 0)
+    unit:SetText(Fundraiser:T(unitKey))
+    prev = eb
+    return eb
+  end
+  f.priceGold = unitBox("FundraiserTargetPriceGold", 56, 7, "UNIT_GOLD")
+  f.priceSilver = unitBox("FundraiserTargetPriceSilver", 32, 2, "UNIT_SILVER")
+  f.priceCopper = unitBox("FundraiserTargetPriceCopper", 32, 2, "UNIT_COPPER")
 
   local vendorBtn = CreateFrame("Button", "FundraiserTargetVendor", detail, "UIPanelButtonTemplate")
   vendorBtn:SetSize(100, 24)
@@ -519,7 +559,7 @@ function Target:ShowSelected()
     f.sel:Hide()
     f.detail:Show()
     f.detail:SetText(#self.flat == 0 and Fundraiser:T("TARGET_EMPTY") or Fundraiser:T("TARGET_SELECT_HINT"))
-    f.manualPrice:SetText("")
+    setPriceBoxes(f, nil)
     f.postBtn:Disable()
     f.vendorBtn:Disable()
     f.skipBtn:Disable()
@@ -560,7 +600,7 @@ function Target:ShowSelected()
   elseif row.advice == "ah" then
     sel.netValue:SetTextColor(gc[1], gc[2], gc[3])
   end
-  f.manualPrice:SetText(row.ahUnit and tostring(row.ahUnit) or "")
+  setPriceBoxes(f, row.ahUnit)
   f.skipBtn:SetText(Fundraiser:T(entry.skipped and "BTN_INCLUDE" or "BTN_SKIP"))
   if TV().CanSkip(entry) then
     f.skipBtn:Enable()
@@ -619,7 +659,7 @@ function Target:Act(action)
   if not entry then
     return
   end
-  local manual = tonumber(self.frame.manualPrice:GetText())
+  local manual = readPriceBoxes(self.frame)
   local ok, key, a, b = Fundraiser.Adapters.AuctionPost:HandleRow(entry.row, action, manual)
   if key then
     self:SetStatus(key, statusText(key, a, b))

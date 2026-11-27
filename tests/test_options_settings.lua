@@ -390,6 +390,49 @@ do
   assert_eq(Settings.BuildStatus({ guildName = "G" }).installBackup, 0, "status installBackup defaults to 0")
 end
 
+-- Scenario: only admins edit the defaults (interval, min admin rank); #85
+do
+  -- Given the flag on, only an admin may edit; flag off lets everyone
+  assert_eq(Settings.CanEditDefaults({ DEFAULTS_ADMIN_ONLY = true }, true), true, "admin edits defaults")
+  assert_eq(Settings.CanEditDefaults({ DEFAULTS_ADMIN_ONLY = true }, false), false, "member cannot edit defaults")
+  assert_eq(Settings.CanEditDefaults({ DEFAULTS_ADMIN_ONLY = false }, false), true, "flag off: everyone edits")
+  assert_eq(Fundraiser.Config.DEFAULTS_ADMIN_ONLY, true, "flag defaults to on")
+
+  -- And Store keeps the stored interval/rank when the actor is not an admin,
+  -- but still saves the personal backupOnly choice
+  Store:ResetAll()
+  Store:SetSettings({ defaultReminderInterval = 3600, defaultMinAdminRank = 1 })
+  local savedCanOpen = Fundraiser.CanOpenAdminUi
+  Fundraiser.CanOpenAdminUi = function()
+    return false
+  end
+  local result = Store:SetSettings({ defaultReminderInterval = 60, defaultMinAdminRank = 5, backupOnly = true })
+  assert_true(result, "member save still succeeds")
+  assert_eq(Store:GetSettings().defaultReminderInterval, 3600, "member cannot change interval")
+  assert_eq(Store:GetSettings().defaultMinAdminRank, 1, "member cannot change rank")
+  assert_eq(Fundraiser.Config.DEFAULT_MIN_ADMIN_RANK, 1, "member cannot change config rank")
+  assert_eq(Store:GetSettings().backupOnly, true, "member can still opt into backup only")
+
+  -- And an admin can change them
+  Fundraiser.CanOpenAdminUi = function()
+    return true
+  end
+  Store:SetSettings({ defaultReminderInterval = 60, defaultMinAdminRank = 2 })
+  assert_eq(Store:GetSettings().defaultReminderInterval, 60, "admin changes interval")
+  assert_eq(Store:GetSettings().defaultMinAdminRank, 2, "admin changes rank")
+
+  -- And flag off lets a member edit again
+  Fundraiser.CanOpenAdminUi = function()
+    return false
+  end
+  Fundraiser.Config.DEFAULTS_ADMIN_ONLY = false
+  Store:SetSettings({ defaultReminderInterval = 120, defaultMinAdminRank = 3 })
+  assert_eq(Store:GetSettings().defaultReminderInterval, 120, "flag off: member changes interval")
+  Fundraiser.Config.DEFAULTS_ADMIN_ONLY = true
+  Fundraiser.CanOpenAdminUi = savedCanOpen
+  Store:ResetAll()
+end
+
 if failed > 0 then
   io.stderr:write(failed .. " failure(s)\n")
   os.exit(1)

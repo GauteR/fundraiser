@@ -120,6 +120,7 @@ if (-not $SkipTests) {
   $tests = @(
     "test_domain.lua",
     "test_options_settings.lua",
+    "test_backup_command.lua",
     "test_admin_summary.lua",
     "test_release_meta.lua",
     "test_target_view.lua",
