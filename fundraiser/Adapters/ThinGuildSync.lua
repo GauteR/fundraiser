@@ -210,6 +210,28 @@ function Sync:PublishIgnore(op, itemId, name)
   return Fundraiser.Application.UseCases.PublishIgnore(ignoreDeps(), op, itemId, name)
 end
 
+-- UI entry point: ignore/unignore for this player, shared with the guild when sync is on.
+function Sync:SetItemIgnored(itemId, name, ignored)
+  local Store = Fundraiser.Adapters.Store
+  return Fundraiser.Application.UseCases.SetItemIgnored({
+    getPrefs = function()
+      return Store:GetTargetPrefs()
+    end,
+    setPrefs = function(prefs)
+      Store:SetTargetPrefs(prefs)
+    end,
+    syncEnabled = function()
+      return Sync:IgnoreSyncEnabled()
+    end,
+    getShared = function()
+      return Store:GetSharedIgnore()
+    end,
+    publish = function(op, id, itemName)
+      Sync:PublishIgnore(op, id, itemName)
+    end,
+  }, itemId, name, ignored)
+end
+
 -- Reply to a peer's HELLO with the shared list, paced in batches and throttled.
 function Sync:SendIgnoreSnapshot()
   if not self:IgnoreSyncEnabled() then

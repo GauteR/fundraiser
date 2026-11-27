@@ -674,13 +674,8 @@ function Target:ToggleIgnore()
   if not (entry and entry.row.itemId and TP and Store and PrefsOn()) then
     return
   end
-  local prefs = Store:GetTargetPrefs()
-  if TP.IsIgnored(prefs, entry.row.itemId) then
-    TP.Unignore(prefs, entry.row.itemId)
-  else
-    TP.Ignore(prefs, entry.row.itemId, entry.row.name)
-  end
-  Store:SetTargetPrefs(prefs)
+  -- entry.ignored covers personal and shared entries, so unignore also clears a shared one.
+  Fundraiser.Adapters.ThinGuildSync:SetItemIgnored(entry.row.itemId, entry.row.name, not entry.ignored)
   self:Refresh()
 end
 

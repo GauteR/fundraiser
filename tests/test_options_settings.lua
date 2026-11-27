@@ -328,6 +328,27 @@ do
   assert_eq(Store:GetTargetPrefs().minValue, nil, "target prefs: reset clears min value")
 end
 
+-- Scenario: the share-ignore-list setting is persisted and overlaid on Config.TARGET_IGNORE_SYNC
+do
+  Store:ResetAll()
+  -- Given no saved value, the Config file default (off) applies
+  assert_eq(Store:GetSettings().shareIgnore, false, "shareIgnore defaults to the file default")
+  assert_eq(Fundraiser.Config.TARGET_IGNORE_SYNC, false, "sync flag off by default")
+  -- When saving it on next to valid defaults
+  local saved = Store:SetSettings({ defaultReminderInterval = 3600, defaultMinAdminRank = 1, shareIgnore = true })
+  assert_eq(saved.shareIgnore, true, "normalize keeps shareIgnore")
+  assert_eq(Fundraiser.Config.TARGET_IGNORE_SYNC, true, "config overlay shareIgnore")
+  -- And a save that omits it keeps the choice
+  Store:SetSettings({ defaultReminderInterval = 7200, defaultMinAdminRank = 1 })
+  assert_eq(Store:GetSettings().shareIgnore, true, "omitted shareIgnore keeps stored value")
+  -- And non-boolean input is false
+  assert_eq(Settings.Normalize({ defaultReminderInterval = 60, defaultMinAdminRank = 0, shareIgnore = "yes" }).shareIgnore, false, "non-boolean shareIgnore is false")
+  -- And reset restores the file default
+  Store:ResetAll()
+  assert_eq(Store:GetSettings().shareIgnore, false, "reset clears shareIgnore")
+  assert_eq(Fundraiser.Config.TARGET_IGNORE_SYNC, false, "reset clears sync overlay")
+end
+
 -- Scenario: backupOnly setting is normalized, persisted, and overlaid on Config
 do
   Store:ResetAll()

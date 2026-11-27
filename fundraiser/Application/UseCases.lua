@@ -259,6 +259,30 @@ function UC.PublishIgnore(deps, op, itemId, name)
   return true
 end
 
+-- Ignore/unignore an item for this player and, when guild sharing is on, tell the guild.
+-- Unignoring also removes a shared entry (including one received from a peer).
+-- deps: getPrefs(), setPrefs(prefs), syncEnabled(), getShared(), publish(op, itemId, name).
+function UC.SetItemIgnored(deps, itemId, name, ignored)
+  local TP = Domain().TargetPrefs
+  local prefs = deps.getPrefs()
+  if ignored then
+    if not TP.Ignore(prefs, itemId, name) then
+      return false, "bad_id"
+    end
+  else
+    TP.Unignore(prefs, itemId)
+  end
+  deps.setPrefs(prefs)
+  if deps.syncEnabled() then
+    if ignored then
+      deps.publish("add", itemId, name)
+    elseif Domain().SharedIgnore.Active(deps.getShared())[tonumber(itemId)] then
+      deps.publish("remove", itemId, name)
+    end
+  end
+  return true
+end
+
 -- Store a new ledger row for the active event and replicate it (no permission check here).
 local function appendEntry(deps, event, fields)
   local Ledger = Domain().Ledger
