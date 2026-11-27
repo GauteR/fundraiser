@@ -18,9 +18,9 @@ local function assert_eq(a, b, msg)
 end
 
 -- Stubbed bags: slots[bag][slot] = item info; prices by item id.
-local slots, ahPrices, vendorPrices, classes, durability, invalid
+local slots, ahPrices, vendorPrices, classes, durability, invalid, saleRates
 local function reset()
-  slots, ahPrices, vendorPrices, classes, durability, invalid = {}, {}, {}, {}, {}, {}
+  slots, ahPrices, vendorPrices, classes, durability, invalid, saleRates = {}, {}, {}, {}, {}, {}, {}
   Enum = { ItemClass = { Questitem = 12 } }
   NUM_BAG_SLOTS = 1
   ItemLocation = {
@@ -69,11 +69,17 @@ local function reset()
     GetVendorUnitPrice = function(_, id)
       return vendorPrices[id]
     end,
+    GetSaleRate = function(_, id)
+      return saleRates[id]
+    end,
     PriceSource = function(_, id)
       return ahPrices[id] and "TSM" or "manual"
     end,
   }
   Fundraiser.Config.AH_CUT_FRACTION = 0.05
+  -- The deposit scenarios below assume the full deposit; the weighting has its own scenarios.
+  Fundraiser.Config.AH_DEPOSIT_EXPIRY_WEIGHTING = false
+  Fundraiser.Config.AH_EXPIRY_CHANCE = 0.5
 end
 
 local function put(bag, slot, info)
@@ -142,6 +148,43 @@ do
   put(0, 1, item(100, 5))
   r = BA:Scan()[1]
   assert_eq(r.deposit, 50, "deposit: commodity deposit for the whole stack")
+end
+
+-- Scenario: the deposit is weighted by the expiry chance (1 - sale rate), or the fallback
+do
+  reset()
+  Fundraiser.Config.AH_DEPOSIT_EXPIRY_WEIGHTING = true
+  ahPrices[100] = 1000
+  vendorPrices[100] = 930
+  put(0, 1, item(100, 1))
+  C_AuctionHouse.CalculateItemDeposit = function()
+    return 60
+  end
+  -- sale rate 0.75 -> expiry chance 0.25 -> 15 lost: net 950 - 15
+  saleRates[100] = 0.75
+  local r = BA:Scan()[1]
+  assert_eq(r.deposit, 60, "weighting: the row still carries the full deposit")
+  assert_eq(r.expiryChance, 0.25, "weighting: expiry chance is 1 - sale rate")
+  assert_eq(r.ahNet, 935, "weighting: only the expected loss is deducted")
+  assert_eq(r.advice, "ah", "weighting: AH stays ahead of vendor")
+  -- no sale rate: the configured fallback
+  saleRates[100] = nil
+  r = BA:Scan()[1]
+  assert_eq(r.expiryChance, 0.5, "weighting: fallback chance without a sale rate")
+  assert_eq(r.ahNet, 920, "weighting: fallback chance weights the deposit")
+  Fundraiser.Config.AH_EXPIRY_CHANCE = 0.1
+  assert_eq(BA:Scan()[1].ahNet, 944, "weighting: fallback follows Config")
+  -- flag off: the full deposit as before
+  Fundraiser.Config.AH_DEPOSIT_EXPIRY_WEIGHTING = false
+  saleRates[100] = 0.75
+  r = BA:Scan()[1]
+  assert_eq(r.ahNet, 890, "weighting off: full deposit deducted")
+  assert_eq(r.expiryChance, nil, "weighting off: no expiry chance on the row")
+  -- Pricing without GetSaleRate (no TSM adapter) uses the fallback
+  Fundraiser.Config.AH_DEPOSIT_EXPIRY_WEIGHTING = true
+  Fundraiser.Config.AH_EXPIRY_CHANCE = 0.5
+  Fundraiser.Adapters.Pricing.GetSaleRate = nil
+  assert_eq(BA:Scan()[1].expiryChance, 0.5, "weighting: missing GetSaleRate falls back")
 end
 
 -- Scenario: no deposit when the flag is off, the API is missing, or there is no AH price

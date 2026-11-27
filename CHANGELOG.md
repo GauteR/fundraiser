@@ -8,9 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Pricing: look up an item's sale rate from TSM (`Config.TSM_SALE_RATE_SOURCE`). Nothing uses it yet; it prepares weighting the auction deposit by expiry likelihood (#78).
+- Pricing: look up an item's sale rate from TSM (`Config.TSM_SALE_RATE_SOURCE`). ([#106](https://github.com/GauteR/fundraiser/issues/106))
   
 ### Changed
+- Target page: the auction deposit in the vendor-vs-auction advice is weighted by the chance the auction expires, because the deposit is refunded when the item sells. The chance is 1 minus the TSM sale rate, else `Config.AH_EXPIRY_CHANCE` (0.5). The AH value of a stack is the buyout after the cut minus that expected loss. `Config.AH_DEPOSIT_EXPIRY_WEIGHTING` turns it off (the full deposit counts, as before). Auctionator has no sale rate. ([#78](https://github.com/GauteR/fundraiser/issues/78))
 - Settings -> AddOns -> Fundraiser: the Defaults (reminder interval and minimum admin rank) can only be changed by guild admins. Other members see them read-only with a hint; their own choices (Only backup, target minimum stack value) stay editable. This is a client-side guard against accidental edits, not a security boundary. `Config.DEFAULTS_ADMIN_ONLY` turns it off. ([#85](https://github.com/GauteR/fundraiser/issues/85))
 - Target page: the manual unit AH price is entered as gold / silver / copper (three boxes) instead of a single copper number.
 

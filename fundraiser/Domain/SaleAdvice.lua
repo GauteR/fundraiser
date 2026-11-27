@@ -10,10 +10,13 @@ Fundraiser.Domain.SaleAdvice = SaleAdvice
   ahCutFraction: estimated AH cut (default 0.05). Recommend vendor when
   vendorCopper >= ahNet (buyout after cut), else ah when ah price known,
   else manual when neither usable.
-  deposit (optional, copper for the whole stack): the auction deposit, counted as lost, so it is
-  subtracted from ahNet (never below 0). When it leaves nothing and the vendor pays, vendor wins.
+  deposit (optional, copper for the whole stack): the auction deposit, subtracted from ahNet
+  (never below 0). When it leaves nothing and the vendor pays, vendor wins.
+  expiryChance (optional, 0..1, default 1): the chance the auction expires. The deposit comes back
+  when the item sells, so only deposit * expiryChance is counted as lost. Out-of-range values are
+  clamped, a non-number means 1 (the full deposit).
 ]]
-function SaleAdvice.Recommend(vendorCopper, ahMinBuyout, count, ahCutFraction, deposit)
+function SaleAdvice.Recommend(vendorCopper, ahMinBuyout, count, ahCutFraction, deposit, expiryChance)
   count = tonumber(count) or 1
   if count < 1 then
     count = 1
@@ -29,8 +32,10 @@ function SaleAdvice.Recommend(vendorCopper, ahMinBuyout, count, ahCutFraction, d
   local ahTotal = ahMinBuyout and (ahMinBuyout * count) or nil
   local ahNet = ahTotal and math.floor(ahTotal * (1 - ahCutFraction) + 0.5) or nil
   deposit = tonumber(deposit) or 0
+  expiryChance = tonumber(expiryChance) or 1
+  expiryChance = math.max(0, math.min(1, expiryChance))
   if ahNet and deposit > 0 then
-    ahNet = math.max(0, ahNet - deposit)
+    ahNet = math.max(0, ahNet - math.floor(deposit * expiryChance + 0.5))
     if ahNet == 0 and vendorTotal and vendorTotal > 0 then
       return "vendor", vendorTotal, ahNet
     end
