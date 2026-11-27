@@ -49,4 +49,4 @@ Use a character dedicated only to that role — do not mix personal AH there.
 
 ## Slash
 
-`/fundraiser` — open the admin window · `/fundraiser status` — enabled flag · `/fundraiser target` — donation-target page
+`/fundraiser` — open the admin window · `/fundraiser status` — enabled flag · `/fundraiser target` — donation-target page · `/fundraiser backup [on|off|status]` — toggle **Only backup** (no argument toggles)

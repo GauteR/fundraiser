@@ -15,7 +15,7 @@ Officers publish a shared campaign (name, donation mail target, reminder interva
 
 - Feature flags in [`fundraiser/Config.lua`](fundraiser/Config.lua): `ENABLED`, `COMM`, `RESET_SYNC`, `REMINDER`, `BACKUP_ONLY_OPTION`, `ADMIN_UI`, `END_EVENT`, `LEDGER`, `LEDGER_AUTO_REFRESH`, `TARGET_UI`, `TARGET_PREFS`, `TARGET_AUTO_DOCK`, `AH_DEPOSIT_IN_ADVICE`, `AH_ASSIST`, `DEBUG`
 - Officer-published event: name, **First Last** mail target, required fundraising goal (gold), optional goal note, per-event reminder interval
-- Mailbox reminder for members (beside the mail window) until mail is sent to the target; members who only want to help with backup can tick **Only backup** in Options to stop it (officers see them as **Only backup**)
+- Mailbox reminder for members (beside the mail window) until mail is sent to the target; members who only want to help with backup can tick **Only backup** in Options (or type `/fundraiser backup`) to stop it (officers see them as **Only backup**)
 - Ledger writes on the **donation-target** only (incoming mail money/items, each item mail as one row that later auction and vendor sales fill with their net proceeds, + **all** AH sales + manual donations from the **Add donation** menu page, which officers can also use); the open ledger page updates as rows arrive; every client stores/relays the mesh; officers + target view in UI
 - Target page (`/fundraiser target`, **Target** in the main window menu, donation-target character only): scans your bags, shows item names in their quality colour, splits stacks into **Auction**, **Vendor** and **Needs price** lists from TSM -> Auctionator -> manual prices, one action per selected stack, or **Post all** / **Sell all** for a whole list (confirmed; stacks below the minimum value, marked **Skip** (this session) or of an **Ignored** item are left out; the ignore list and your own minimum value are saved, see Options, where the ignore list can also be exported and imported as text to copy it to another character)
 - Thin guild sync (`HELLO` / `EVENT` / `LEDGER` / `DIGEST` / `RESET`) — see [`docs/SYNC.md`](docs/SYNC.md)
@@ -78,7 +78,7 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 | Control | Meaning |
 | --- | --- |
 | Help | Short pitch: fund guild and group events |
-| Only backup | Checkbox above Status (saved at once): no mailbox reminder; shown as Only backup in Online installs |
+| Only backup | Checkbox above Status (saved at once): no mailbox reminder; shown as Only backup in Online installs. Same switch: `/fundraiser backup [on\|off\|status]` (no argument toggles) |
 | Status | Settings-style rows: addon enabled, guild, active event, admin access, installed count |
 | Online installs | Scrollable table (name / status / version from HELLO) |
 | Defaults | Default reminder interval (hours) and min admin rank; Apply saves to `FundraiserDB.settings` |
