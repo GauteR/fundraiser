@@ -22,6 +22,9 @@ local function emptyDb()
     settings = {},
     -- Target page preferences (Domain/TargetPrefs.lua): ignored item ids + min stack value.
     target = {},
+    -- Guild-shared ignore layer (Domain/SharedIgnore.lua), merged from IGNORE sync messages.
+    -- Top level, not under target: TargetPrefs.Normalize would drop it.
+    sharedIgnore = {},
     archives = {},
     resetEpoch = 0,
   }
@@ -73,6 +76,7 @@ function Store:Load()
   db.reminder = db.reminder or {}
   db.settings = db.settings or {}
   db.target = db.target or {}
+  db.sharedIgnore = db.sharedIgnore or {}
   db.archives = db.archives or {}
   db.resetEpoch = tonumber(db.resetEpoch) or 0
   self.db = db
@@ -138,6 +142,23 @@ function Store:SetTargetPrefs(prefs)
   local TP = Fundraiser.Domain and Fundraiser.Domain.TargetPrefs
   self.db.target = TP and TP.Normalize(prefs) or {}
   return self.db.target
+end
+
+-- Guild-shared ignore layer, always a clean table (see Domain/SharedIgnore.lua).
+function Store:GetSharedIgnore()
+  self.db = self.db or self:Load()
+  local SI = Fundraiser.Domain and Fundraiser.Domain.SharedIgnore
+  if SI then
+    self.db.sharedIgnore = SI.Normalize(self.db.sharedIgnore)
+  end
+  return self.db.sharedIgnore
+end
+
+function Store:SetSharedIgnore(shared)
+  self.db = self.db or self:Load()
+  local SI = Fundraiser.Domain and Fundraiser.Domain.SharedIgnore
+  self.db.sharedIgnore = SI and SI.Normalize(shared) or {}
+  return self.db.sharedIgnore
 end
 
 function Store:GetEvent()

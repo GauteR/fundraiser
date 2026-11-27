@@ -225,6 +225,40 @@ function UC.AcceptRemoteReset(deps, scope, senderRankIndex, resetEpoch)
   return true
 end
 
+-- Merge one remote IGNORE message into the shared layer. Never rebroadcasts (no relay storms).
+-- deps: enabled(), getShared(), setShared(shared). Returns true, or false plus a reason.
+function UC.AcceptRemoteIgnore(deps, msg)
+  if not (deps.enabled and deps.enabled()) then
+    return false, "disabled"
+  end
+  local SharedIgnore = Domain().SharedIgnore
+  local shared = SharedIgnore.Normalize(deps.getShared())
+  local ok, reason = SharedIgnore.Apply(shared, msg.op, msg.itemId, msg.name, msg.at)
+  if not ok then
+    return false, reason
+  end
+  deps.setShared(shared)
+  return true
+end
+
+-- Record a local ignore/unignore in the shared layer and broadcast it.
+-- deps: enabled(), getShared(), setShared(shared), now(), broadcast(op, itemId, name, at).
+function UC.PublishIgnore(deps, op, itemId, name)
+  if not (deps.enabled and deps.enabled()) then
+    return false, "disabled"
+  end
+  local SharedIgnore = Domain().SharedIgnore
+  local shared = SharedIgnore.Normalize(deps.getShared())
+  local at = deps.now()
+  local ok, reason = SharedIgnore.Apply(shared, op, itemId, name, at)
+  if not ok then
+    return false, reason
+  end
+  deps.setShared(shared)
+  deps.broadcast(op, itemId, name, at)
+  return true
+end
+
 -- Store a new ledger row for the active event and replicate it (no permission check here).
 local function appendEntry(deps, event, fields)
   local Ledger = Domain().Ledger
