@@ -212,6 +212,7 @@ L.OPTIONS_HELP =
   "A fundraiser addon to help you fund your in-game guild and group events."
 L.OPTIONS_SECTION_STATUS = "Status"
 L.OPTIONS_SECTION_SETTINGS = "Defaults"
+L.OPTIONS_DEFAULTS_ADMIN_ONLY = "Only guild admins can change these defaults."
 L.OPTIONS_ROW_ENABLED = "Addon"
 L.OPTIONS_ROW_GUILD = "Guild"
 L.OPTIONS_ROW_EVENT = "Active event"

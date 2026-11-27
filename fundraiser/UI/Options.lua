@@ -231,6 +231,24 @@ local function RefreshPanel(panel)
     if panel.backupCheck then
       panel.backupCheck:SetChecked(settings.backupOnly == true)
     end
+    -- Defaults are admin-only (Config.DEFAULTS_ADMIN_ONLY): read-only boxes plus a hint.
+    local canEdit = not SettingsDomain
+      or not SettingsDomain.CanEditDefaults
+      or SettingsDomain.CanEditDefaults(Fundraiser.Config, canOpen)
+    for _, box in ipairs({ panel.intervalBox, panel.rankBox }) do
+      if canEdit then
+        box:Enable()
+      else
+        box:Disable()
+      end
+    end
+    if panel.defaultsLockedHint then
+      if canEdit then
+        panel.defaultsLockedHint:Hide()
+      else
+        panel.defaultsLockedHint:Show()
+      end
+    end
   end
 
   local TP = Fundraiser.Domain and Fundraiser.Domain.TargetPrefs
@@ -805,6 +823,12 @@ function Options:Initialize()
     "MinRank",
     y
   )
+  -- Shown instead of an editable row for non-admins (see RefreshPanel).
+  panel.defaultsLockedHint = content:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  panel.defaultsLockedHint:SetPoint("TOPLEFT", 24, y)
+  panel.defaultsLockedHint:SetText(Fundraiser:T("OPTIONS_DEFAULTS_ADMIN_ONLY"))
+  panel.defaultsLockedHint:Hide()
+  y = y - 18
   panel.ignoredRows = {}
   if Fundraiser.Domain.TargetPrefs and Fundraiser.Domain.TargetPrefs.Enabled(Fundraiser.Config) then
     panel.minValueBox, y = AddEditRow(

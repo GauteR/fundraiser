@@ -16,6 +16,9 @@ Fundraiser.Config = {
   -- File default for "Only backup" (Forever may not restore SavedVariables after a cold start).
   -- BACKUP_ONLY is the runtime overlay of the saved choice (see Domain/Settings.lua).
   BACKUP_ONLY_DEFAULT = false,
+  -- Only admins (CanOpenAdminUi) can change the Defaults in Options (reminder interval,
+  -- minimum admin rank); others see them read-only. Personal choices stay open to everyone.
+  DEFAULTS_ADMIN_ONLY = true,
   ADMIN_UI = true,
   -- Admin window: end active campaign (archive + guild wipe) without publishing a new event.
   END_EVENT = true,

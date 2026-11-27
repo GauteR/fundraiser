@@ -101,6 +101,17 @@ function Store:SetSettings(raw)
   if raw.backupOnly == nil then
     raw.backupOnly = self:GetSettings().backupOnly
   end
+  -- Non-admins keep the stored interval/rank (only their personal choices are saved).
+  -- Without the Core admin check (bare tests) nothing is restricted.
+  local isAdmin = true
+  if Fundraiser.CanOpenAdminUi then
+    isAdmin = Fundraiser:CanOpenAdminUi() == true
+  end
+  if not Settings.CanEditDefaults(Fundraiser.Config, isAdmin) then
+    local current = self:GetSettings()
+    raw.defaultReminderInterval = current.defaultReminderInterval
+    raw.defaultMinAdminRank = current.defaultMinAdminRank
+  end
   local normalized, err = Settings.Normalize(raw)
   if not normalized then
     return nil, err

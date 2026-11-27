@@ -81,7 +81,7 @@ Close windows with the frame X or Escape (`UISpecialFrames`).
 | Only backup | Checkbox above Status (saved at once): no mailbox reminder; shown as Only backup in Online installs |
 | Status | Settings-style rows: addon enabled, guild, active event, admin access, installed count |
 | Online installs | Scrollable table (name / status / version from HELLO) |
-| Defaults | Default reminder interval (hours) and min admin rank; Apply saves to `FundraiserDB.settings` |
+| Defaults | Default reminder interval (hours) and min admin rank; Apply saves to `FundraiserDB.settings`. Admins only (read-only for others; `Config.DEFAULTS_ADMIN_ONLY`) |
 | Danger zone (admin) | Separated by a rule; local reset/clear actions; **Broadcast reset** sends guild `RESET\|all` (requires `COMM` + `RESET_SYNC`, rank-gated on receive). Hidden without admin access. |
 | Open Fundraiser | Shown only when your rank may manage fundraisers |
 
