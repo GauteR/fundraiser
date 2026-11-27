@@ -524,20 +524,7 @@ local function AddCheckRow(parent, labelText, descText, tipTitle, tipBody, nameS
 end
 
 local function SaveBackupOnly(checked)
-  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
-  if not Store or not Store.SetSettings then
-    return
-  end
-  local current = Store:GetSettings()
-  Store:SetSettings({
-    defaultReminderInterval = current.defaultReminderInterval,
-    defaultMinAdminRank = current.defaultMinAdminRank,
-    backupOnly = checked == true,
-  })
-  local Sync = Fundraiser.Adapters and Fundraiser.Adapters.ThinGuildSync
-  if Sync and Sync.BroadcastHello then
-    Sync:BroadcastHello()
-  end
+  Fundraiser:SaveBackupOnly(checked == true)
 end
 
 local function NotifyOpenFailed()
@@ -599,6 +586,15 @@ local function categoryLooksLikeOurs(current, category, categoryID, panelName)
     return true
   end
   return false
+end
+
+-- Re-read the "Only backup" checkbox from the store (after a slash-command change).
+function Options:RefreshBackupCheck()
+  local panel = self.panel
+  local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+  if panel and panel.backupCheck and Store then
+    panel.backupCheck:SetChecked(Store:GetSettings().backupOnly == true)
+  end
 end
 
 -- Open Settings to the Fundraiser AddOns page. Forever's OpenToCategory accept

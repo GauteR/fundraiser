@@ -136,6 +136,7 @@ if [[ $SKIP_TESTS -eq 0 ]]; then
   echo "==> Running tests"
   lua "$REPO_ROOT/tests/test_domain.lua"
   lua "$REPO_ROOT/tests/test_options_settings.lua"
+  lua "$REPO_ROOT/tests/test_backup_command.lua"
   lua "$REPO_ROOT/tests/test_admin_summary.lua"
   lua "$REPO_ROOT/tests/test_release_meta.lua"
   lua "$REPO_ROOT/tests/test_target_view.lua"
