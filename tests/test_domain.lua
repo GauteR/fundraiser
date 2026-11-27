@@ -652,6 +652,27 @@ do
   assert_eq(advice, "ah", "deposit: AH stays when there is no vendor price")
 end
 
+-- Scenario: the deposit is weighted by the chance the auction expires
+do
+  local R = Fundraiser.Domain.SaleAdvice.Recommend
+  -- 1 x 100 AH, 5% cut: net 95; deposit 10
+  assert_eq(select(3, R(90, 100, 1, 0.05, 10, 0.5)), 90, "expiry: half the deposit at 0.5")
+  assert_eq(select(3, R(90, 100, 1, 0.05, 10, 1)), 85, "expiry: 1 is the full deposit")
+  assert_eq(select(3, R(90, 100, 1, 0.05, 10, nil)), 85, "expiry: nil is the full deposit")
+  assert_eq(select(3, R(90, 100, 1, 0.05, 10, 0)), 95, "expiry: 0 deducts nothing")
+  assert_eq(select(3, R(90, 100, 1, 0.05, 10, 2)), 85, "expiry: above 1 is clamped to 1")
+  assert_eq(select(3, R(90, 100, 1, 0.05, 10, -1)), 95, "expiry: below 0 is clamped to 0")
+  assert_eq(select(3, R(90, 100, 1, 0.05, 10, "x")), 85, "expiry: a non-number is the full deposit")
+  -- The weighted deposit can leave the AH ahead where the full deposit made vendor win
+  assert_eq((R(90, 100, 1, 0.05, 10)), "vendor", "expiry: full deposit sends it to vendor")
+  assert_eq((R(90, 100, 1, 0.05, 10, 0.2)), "ah", "expiry: low chance keeps the AH ahead")
+  -- Rounded to whole copper
+  assert_eq(select(3, R(1, 100, 1, 0.05, 5, 0.5)), 92, "expiry: weighted deposit is rounded")
+  -- Clamp and vendor rule still hold
+  assert_eq(select(3, R(5, 100, 1, 0.05, 500, 0.5)), 0, "expiry: net never goes below zero")
+  assert_eq((R(5, 100, 1, 0.05, 500, 0.5)), "vendor", "expiry: vendor when the weighted deposit eats the AH")
+end
+
 -- Scenario: FormatCopper embeds MoneyIcons (fallback when GetCoinTextureString is absent)
 do
   -- Given a stub CreateFrame so Core.lua can load under pure Lua

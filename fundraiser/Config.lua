@@ -66,6 +66,10 @@ Fundraiser.Config = {
   AH_UNDERCUT_COPPER = 0,
   -- Sale advice: subtract the auction deposit (counted as lost) from the AH net value.
   AH_DEPOSIT_IN_ADVICE = true,
+  -- Sale advice: count only deposit x expiry chance as lost (the deposit is refunded when the item
+  -- sells). The chance is 1 - the TSM sale rate, else AH_EXPIRY_CHANCE. Off: the full deposit.
+  AH_DEPOSIT_EXPIRY_WEIGHTING = true,
+  AH_EXPIRY_CHANCE = 0.5,
   -- Target page: stacks worth less than this (copper, value of the recommended action)
   -- stay listed but are left out of Post all / Sell all.
   MIN_STACK_VALUE_COPPER = 100,

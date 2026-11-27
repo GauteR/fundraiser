@@ -68,6 +68,22 @@ function BagAssist.DepositFor(location, itemId, count)
   return nil
 end
 
+-- Chance (0..1) that a posted auction of this item expires, or nil when the weighting is off
+-- (the full deposit then counts). 1 - the sale rate when TSM has one, else Config.AH_EXPIRY_CHANCE.
+function BagAssist.ExpiryChanceFor(itemId)
+  local cfg = Fundraiser.Config
+  if not (cfg and cfg.AH_DEPOSIT_EXPIRY_WEIGHTING) then
+    return nil
+  end
+  local Pricing = Fundraiser.Adapters.Pricing
+  local rate = Pricing and Pricing.GetSaleRate and Pricing:GetSaleRate(itemId)
+  if type(rate) == "number" then
+    return math.max(0, math.min(1, 1 - rate))
+  end
+  local fallback = tonumber(cfg.AH_EXPIRY_CHANCE) or 1
+  return math.max(0, math.min(1, fallback))
+end
+
 -- Returns an array of { bag, slot, itemId, link, name, count, auctionable, vendorUnit, ahUnit,
 -- source, advice, vendorTotal, ahNet, deposit }, ordered by bag then slot.
 function BagAssist:Scan()
@@ -92,7 +108,9 @@ function BagAssist:Scan()
         -- Worth listing when it can be sold somewhere, or posted at a manual price.
         if vendorUnit or ahUnit or auctionable then
           local deposit = ahUnit and BagAssist.DepositFor(location, itemId, count) or nil
-          local advice, vendorTotal, ahNet = SaleAdvice.Recommend(vendorUnit, ahUnit, count, cut, deposit)
+          local expiryChance = deposit and BagAssist.ExpiryChanceFor(itemId) or nil
+          local advice, vendorTotal, ahNet =
+            SaleAdvice.Recommend(vendorUnit, ahUnit, count, cut, deposit, expiryChance)
           rows[#rows + 1] = {
             bag = bag,
             slot = slot,
@@ -108,6 +126,7 @@ function BagAssist:Scan()
             vendorTotal = vendorTotal,
             ahNet = ahNet,
             deposit = deposit,
+            expiryChance = expiryChance,
           }
         end
       end
