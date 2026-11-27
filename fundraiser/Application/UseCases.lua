@@ -9,6 +9,44 @@ local Domain = function()
   return Fundraiser.Domain
 end
 
+-- Save the "Only backup" choice and tell guild peers (HELLO). Keeps the other settings.
+-- Shared by the Options checkbox and "/fundraiser backup".
+function UC.SaveBackupOnly(deps, value)
+  local current = deps.getSettings()
+  local saved, err = deps.setSettings({
+    defaultReminderInterval = current.defaultReminderInterval,
+    defaultMinAdminRank = current.defaultMinAdminRank,
+    backupOnly = value == true,
+  })
+  if not saved then
+    return nil, err
+  end
+  if deps.broadcastHello then
+    deps.broadcastHello()
+  end
+  return true
+end
+
+-- "/fundraiser backup [on|off|status]".
+-- Returns "disabled" | "invalid" | "status", value | "changed", value | "error", err.
+function UC.SetBackupOnlyFromCommand(deps, arg)
+  if not deps.isOptionEnabled() then
+    return "disabled"
+  end
+  local action, value = Domain().Settings.ParseBackupCommand(arg, deps.getSettings().backupOnly)
+  if action ~= "set" then
+    return action, value
+  end
+  local ok, err = UC.SaveBackupOnly(deps, value)
+  if not ok then
+    return "error", err
+  end
+  if deps.refreshOptions then
+    deps.refreshOptions()
+  end
+  return "changed", value
+end
+
 function UC.PublishEvent(deps, fields, actor)
   local Event = Domain().Event
   local Rank = Domain().Rank

@@ -42,6 +42,26 @@ function Settings.IsBackupOnly(config)
   return config.BACKUP_ONLY_OPTION == true and config.BACKUP_ONLY == true
 end
 
+-- Parse the argument of "/fundraiser backup [on|off|status]" against the current value.
+-- Returns "set", newValue | "status", currentValue | "invalid".
+function Settings.ParseBackupCommand(arg, current)
+  local word = tostring(arg or ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
+  current = current == true
+  if word == "" then
+    return "set", not current
+  end
+  if word == "on" then
+    return "set", true
+  end
+  if word == "off" then
+    return "set", false
+  end
+  if word == "status" then
+    return "status", current
+  end
+  return "invalid"
+end
+
 function Settings.ApplyToConfig(settings, config)
   if not settings or not config then
     return
