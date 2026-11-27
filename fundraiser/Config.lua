@@ -26,6 +26,9 @@ Fundraiser.Config = {
   -- Donation target: persistent per-item ignore list and minimum stack value (FundraiserDB.target).
   -- Forever may not restore SavedVariables after a cold start: the config minimum is the fallback.
   TARGET_PREFS = true,
+  -- Donation target: share the ignore list with guild members running the addon (IGNORE sync
+  -- messages, last write wins). Opt-in; needs TARGET_PREFS and COMM. Messages are unauthenticated.
+  TARGET_IGNORE_SYNC = false,
   -- Donation target: show the Target panel beside the auction house while it is open.
   TARGET_AUTO_DOCK = true,
   -- Global frame names the dock may sit beside (the right-most visible one wins). Auctionator's

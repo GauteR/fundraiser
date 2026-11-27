@@ -95,6 +95,23 @@ function SharedIgnore.Active(shared)
   return set
 end
 
+-- Split a snapshot into batches of `size` so the sender can pace addon messages.
+function SharedIgnore.Batches(snapshot, size)
+  size = math.max(1, math.floor(tonumber(size) or 1))
+  local batches = {}
+  for i = 1, #snapshot do
+    local b = math.ceil(i / size)
+    batches[b] = batches[b] or {}
+    batches[b][#batches[b] + 1] = snapshot[i]
+  end
+  return batches
+end
+
+-- True when a snapshot reply may go out (nil lastAt = never sent). Bounds mesh chatter on HELLO.
+function SharedIgnore.SnapshotDue(lastAt, now, cooldown)
+  return lastAt == nil or now - lastAt >= cooldown
+end
+
 -- Every entry, tombstones included, ordered by item id: { { itemId, op, name, at } }.
 function SharedIgnore.Snapshot(shared)
   local list = {}

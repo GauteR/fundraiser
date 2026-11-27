@@ -28,6 +28,7 @@ The ledger page (`UI/Ledger.lua`) only reads the local store and `FundraiserDB.a
 | `EVENT` | Officer event snapshot (revisioned; receive-side rank check). Wire: `EVENT\|id\|name\|target\|goal\|interval\|minAdmin\|rev\|publishedAt\|publisher\|goalCopper` — `goal` is an optional note; `goalCopper` is the numeric fundraising target (copper). Older peers omit field 11 → treat as `0`. |
 | `LEDGER` | Single ledger row (`mail`, `ah` or `manual`); all clients merge into local store |
 | `DIGEST` | Event revision + ledger fingerprint (count/sum/maxAt) |
+| `IGNORE` | Shared Target-page ignore list entry (only when `Config.TARGET_IGNORE_SYNC`). Wire: `IGNORE\|op\|itemId\|name\|at` with `op` = `add` or `remove`; last write wins per item, a tie goes to `remove`. Not relayed. A peer's `HELLO` triggers a throttled, batched snapshot reply. No rank check and no authentication, so any member can publish |
 | `RESET` | Officer wipe (`all` / `event` / `ledger` / `presence` / `campaign`) + `resetEpoch`; sender rank check; all acceptors wipe locally. `campaign` archives the active event+ledger first, then clears both and bumps epoch. Ended campaign ids stay in local archives and are rejected on `EVENT` re-accept (blocks mesh revival after End event) |
 | (epoch) | `HELLO` / `DIGEST` / `LEDGER` include `resetEpoch` (default 0 for older clients) |
 | (backup) | `HELLO` may carry a trailing `1` when the sender chose **Only backup**; absent = not backup-only (older clients) |

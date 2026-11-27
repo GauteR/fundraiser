@@ -85,7 +85,9 @@ function Target:ViewOpts()
   local opts = { skipped = self.skipped }
   local TP, prefs = PrefsDomain(), Prefs()
   if TP and prefs and PrefsOn() then
-    opts.ignored = TP.IgnoredSet(prefs, Fundraiser.Config)
+    local Store = Fundraiser.Adapters and Fundraiser.Adapters.Store
+    local shared = Store and Store.GetSharedIgnore and Store:GetSharedIgnore() or nil
+    opts.ignored = TP.IgnoredSet(prefs, Fundraiser.Config, shared)
     opts.minValue = TP.EffectiveMinValue(prefs, Fundraiser.Config)
   end
   return opts

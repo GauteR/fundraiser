@@ -5,10 +5,14 @@ local repo = root .. "/.."
 
 dofile(repo .. "/fundraiser/Config.lua")
 dofile(repo .. "/fundraiser/Domain/SharedIgnore.lua")
+dofile(repo .. "/fundraiser/Domain/TargetPrefs.lua")
+dofile(repo .. "/fundraiser/Application/UseCases.lua")
 dofile(repo .. "/fundraiser/Adapters/Codec.lua")
 
 local SI = Fundraiser.Domain.SharedIgnore
 local Codec = Fundraiser.Adapters.Codec
+local TP = Fundraiser.Domain.TargetPrefs
+local UC = Fundraiser.Application.UseCases
 local failed = 0
 
 local function assert_eq(a, b, msg)
@@ -151,6 +155,106 @@ do
   assert_eq(Codec.Decode("IGNORE|nuke|5|x|1"), nil, "codec: bad op")
   assert_eq(Codec.Decode("IGNORE|add|zero|x|1"), nil, "codec: bad id")
   assert_eq(Codec.Decode("IGNORE|add|5|x|"), nil, "codec: missing time")
+end
+
+-- Scenario: the ignored set unions personal and shared entries only when the sync flag is on
+do
+  local prefs = TP.Normalize(nil)
+  TP.Ignore(prefs, 1, "Mine")
+  local shared = SI.Normalize(nil)
+  SI.Apply(shared, "add", 2, "Theirs", 10)
+  SI.Apply(shared, "add", 3, "Removed", 10)
+  SI.Apply(shared, "remove", 3, "Removed", 20)
+  local on = TP.IgnoredSet(prefs, { TARGET_PREFS = true, TARGET_IGNORE_SYNC = true }, shared)
+  assert_eq(on[1], true, "union: personal")
+  assert_eq(on[2], true, "union: shared")
+  assert_eq(on[3], nil, "union: tombstone not ignored")
+  local off = TP.IgnoredSet(prefs, { TARGET_PREFS = true, TARGET_IGNORE_SYNC = false }, shared)
+  assert_eq(off[1], true, "sync off: personal kept")
+  assert_eq(off[2], nil, "sync off: shared ignored")
+  local noPrefs = TP.IgnoredSet(prefs, { TARGET_PREFS = false, TARGET_IGNORE_SYNC = true }, shared)
+  assert_eq(next(noPrefs), nil, "prefs off: nothing ignored")
+end
+
+-- Scenario: snapshot is split into batches so it can be paced
+do
+  local snap = {}
+  for i = 1, 25 do
+    snap[i] = { itemId = i }
+  end
+  local batches = SI.Batches(snap, 10)
+  assert_eq(#batches, 3, "batches: count")
+  assert_eq(#batches[3], 5, "batches: remainder")
+  assert_eq(#SI.Batches({}, 10), 0, "batches: empty")
+end
+
+-- Scenario: snapshot replies are throttled
+do
+  assert_eq(SI.SnapshotDue(nil, 1000, 120), true, "throttle: first send")
+  assert_eq(SI.SnapshotDue(950, 1000, 120), false, "throttle: too soon")
+  assert_eq(SI.SnapshotDue(800, 1000, 120), true, "throttle: after cooldown")
+end
+
+local function ignoreDeps(enabled)
+  local state = { shared = SI.Normalize(nil), saved = 0, sent = {} }
+  state.deps = {
+    enabled = function()
+      return enabled
+    end,
+    getShared = function()
+      return state.shared
+    end,
+    setShared = function(s)
+      state.shared = s
+      state.saved = state.saved + 1
+    end,
+    now = function()
+      return 500
+    end,
+    broadcast = function(op, id, name, at)
+      state.sent[#state.sent + 1] = { op = op, id = id, name = name, at = at }
+    end,
+  }
+  return state
+end
+
+-- Scenario: a remote IGNORE is merged and saved when sync is on
+do
+  local st = ignoreDeps(true)
+  local ok = UC.AcceptRemoteIgnore(st.deps, { op = "add", itemId = 9, name = "Junk", at = 100 })
+  assert_eq(ok, true, "remote: applied")
+  assert_eq(SI.Active(st.shared)[9], true, "remote: active")
+  assert_eq(st.saved, 1, "remote: saved")
+  local again, reason = UC.AcceptRemoteIgnore(st.deps, { op = "add", itemId = 9, name = "Junk", at = 100 })
+  assert_eq(again, false, "remote: duplicate not applied")
+  assert_eq(reason, "stale", "remote: duplicate reason")
+  assert_eq(st.saved, 1, "remote: duplicate not saved")
+  assert_eq(#st.sent, 0, "remote: never rebroadcast")
+end
+
+-- Scenario: a remote IGNORE is dropped when sync is off
+do
+  local st = ignoreDeps(false)
+  local ok, reason = UC.AcceptRemoteIgnore(st.deps, { op = "add", itemId = 9, name = "Junk", at = 100 })
+  assert_eq(ok, false, "remote off: not applied")
+  assert_eq(reason, "disabled", "remote off: reason")
+  assert_eq(next(st.shared), nil, "remote off: nothing stored")
+end
+
+-- Scenario: publishing stores locally and broadcasts only when sync is on
+do
+  local st = ignoreDeps(true)
+  assert_eq(UC.PublishIgnore(st.deps, "add", 4, "Rag"), true, "publish: ok")
+  assert_eq(SI.Active(st.shared)[4], true, "publish: stored")
+  assert_eq(#st.sent, 1, "publish: broadcast once")
+  assert_eq(st.sent[1].at, 500, "publish: stamped with now")
+  UC.PublishIgnore(st.deps, "remove", 4, "Rag")
+  assert_eq(SI.Active(st.shared)[4], nil, "publish: remove stored")
+  local off = ignoreDeps(false)
+  local ok, reason = UC.PublishIgnore(off.deps, "add", 4, "Rag")
+  assert_eq(ok, false, "publish off: not ok")
+  assert_eq(reason, "disabled", "publish off: reason")
+  assert_eq(#off.sent, 0, "publish off: no broadcast")
 end
 
 if failed > 0 then

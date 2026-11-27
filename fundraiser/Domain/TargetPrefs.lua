@@ -72,13 +72,20 @@ function TargetPrefs.Unignore(prefs, itemId)
 end
 
 -- Set of ignored item ids for TargetView.Build; empty when the feature flag is off.
-function TargetPrefs.IgnoredSet(prefs, config)
+-- `shared` (optional, Domain/SharedIgnore table) is added only when config.TARGET_IGNORE_SYNC is on.
+function TargetPrefs.IgnoredSet(prefs, config, shared)
   local set = {}
   if not TargetPrefs.Enabled(config) then
     return set
   end
   for id in pairs(prefs and prefs.ignored or {}) do
     set[id] = true
+  end
+  local SharedIgnore = Fundraiser.Domain.SharedIgnore
+  if shared and SharedIgnore and config and config.TARGET_IGNORE_SYNC == true then
+    for id in pairs(SharedIgnore.Active(shared)) do
+      set[id] = true
+    end
   end
   return set
 end
